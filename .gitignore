@@ -40,6 +40,18 @@ outputs/
 *.bat
 migration/
 
+# Working notes for developing the project with Claude: kept on the owner's disk and mirrored to the claude.ai
+# Project, not published. Public docs: README.md, docs/planet-ideal-flow.md, docs/planet-parameter-audit.md,
+# docs/research/planet-scale/README.md.
+docs/next-chat-prompt.md
+docs/project-map.md
+docs/planet-layer/
+docs/planet-layer-plan.md
+docs/tectonic-prototype.md
+docs/research/planet-scale/next-chat-prompt.md
+tools/device_runs/
+tools/device_stubs/
+
 # Editors and local agent state
 .idea/
 .vscode/

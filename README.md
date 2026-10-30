@@ -17,14 +17,13 @@ state before the split is that repository's tag `pre-split-2026-10-29`.
 
 ## Status
 
-Research code, under active development. The layout is still the one inherited from the split
-(`planet_layer/`, `toy_meso/`, part of `planet_training/`, `scripts/`); restructuring into one package per stage
-is planned (`docs/planet-layer/STATE.md`).
+Research code, under active development; this README will become an install-and-use guide once the chain is
+stable. The layout is still the one inherited from the split (`planet_layer/`, `toy_meso/`, part of
+`planet_training/`, `scripts/`); one package per stage is planned.
 
-- Current state, scorecard against Earth and next steps: [`docs/planet-layer/STATE.md`](docs/planet-layer/STATE.md)
-- What was adopted or rejected, and why: [`docs/planet-layer/decisions.md`](docs/planet-layer/decisions.md)
-- Code, scripts, data and commands: [`docs/project-map.md`](docs/project-map.md)
-- Long-term design of all stages: [`docs/planet-ideal-flow.md`](docs/planet-ideal-flow.md)
+- Design of every stage, its outputs and the statistics it is checked against: [`docs/planet-ideal-flow.md`](docs/planet-ideal-flow.md)
+- Where each parameter value comes from (measured, physical, assumed or fitted): [`docs/planet-parameter-audit.md`](docs/planet-parameter-audit.md)
+- Background survey of planet-scale terrain methods: [`docs/research/planet-scale/README.md`](docs/research/planet-scale/README.md)
 
 ## Setup (Windows, Python 3.12)
 
@@ -37,6 +36,6 @@ python -m venv .venv
 .venv\Scripts\python.exe -m pytest -q tests
 ```
 
-The meso stage also needs PyTorch. The Earth datasets are not included: they go in `data/` (see
-`docs/project-map.md` for each dataset and where it comes from). Results go in `outputs/`. Neither folder is
-tracked.
+The meso stage also needs PyTorch. The Earth datasets are not included: they go in `data/` (ETOPO 2022, CRUST1.0,
+Bird 2003 plate boundaries, GlobSed, GSRM v2.1, OCTOPUS, Seton et al. 2020; a download list with checksums is
+planned). Results go in `outputs/`. Neither folder is tracked.
