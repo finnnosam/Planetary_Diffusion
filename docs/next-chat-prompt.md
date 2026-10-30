@@ -1,6 +1,10 @@
 # Next chat: planet layer
 
-Project: E:\projects\Infinite_Diffusion (Windows, PowerShell, `.venv` Python 3.12, numba, RTX 3070 8 GB, 16 threads).
+Project: E:\projects\Planetary_Diffusion (git: github.com/finnnosam/Planetary_Diffusion, **public**; Windows, PowerShell,
+`.venv` Python 3.12, numba, RTX 3070 8 GB, 16 threads). Split from E:\projects\Infinite_Diffusion on 29 Oct
+(journal `60_2026-10-29_repo-split.md`): that repo keeps the original generator, is installed in this `.venv` in
+editable mode (for `planet_diffusion.cube` / `.procedural` until phase B of the migration plan), and gets no planet
+work.
 
 **Read first, in this order:**
 1. `docs/planet-layer/STATE.md`: what is running, the model as it stands (including the PARAMS-vs-.cmd warning),
@@ -13,6 +17,11 @@ Project: E:\projects\Infinite_Diffusion (Windows, PowerShell, `.venv` Python 3.1
 
 ## How to keep the docs (every pass)
 
+- **Git:** commit at the end of every pass, one commit with a real message and the attribution lines. Run
+  `git status` first: only text goes in (the repo is public; `data/` and `outputs/` are never tracked). From the device
+  shell, git needs delete permission for this folder (ask once per session: `device_request_delete_permission` for
+  `E:\projects\Planetary_Diffusion`) and the user's own git name and email per command (`git -c user.name=… -c user.email=… commit …`, read
+  from `git log -1 --format='%an <%ae>'`). Pushing is the user's (say so, or give a one-line `.cmd`).
 - **Journal:** write each pass as a new file `docs/planet-layer/journal/NN_YYYY-MM-DD_pass-KK.md` (next: `59_…_pass-41`;
   non-pass entries get a short slug), with a `### ` heading as before. Add its row to `journal/README.md`. Never edit
   an old entry. Correct it in a later one.
@@ -81,7 +90,7 @@ Project: E:\projects\Infinite_Diffusion (Windows, PowerShell, `.venv` Python 3.1
   tests\test_erosion_law_check.py tests\test_crust_reviews.py`.
 - The user's `.venv` has no scipy or scikit-image, so planet-layer code stays numpy / numba / ducc0 (+ matplotlib).
 
-**The user's machine through the device shell** (device_bash; repo at `$HOME/mnt/Infinite_Diffusion`)
+**The user's machine through the device shell** (device_bash; repo at `$HOME/mnt/Planetary_Diffusion`)
 - Reviews and probes run there with `NUMBA_CACHE_DIR=$HOME/numba-cache PYTHONDONTWRITEBYTECODE=1`, and
   `PYTHONPATH=$PWD` for ad hoc scripts. Each call is ≤ 180 s, and background jobs are stopped. It has 2 cores and
   3.9 GB. Save review printouts beside the sweep (`<sweep>/reviews/*.txt`).

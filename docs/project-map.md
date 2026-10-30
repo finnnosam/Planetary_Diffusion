@@ -1,11 +1,15 @@
-# Project map (planet layer work; structure as of 23 Oct 2026, pointers updated 28 Oct)
+# Project map (planet layer work; structure as of 23 Oct 2026, pointers updated 29 Oct)
+
+This is the `Planetary_Diffusion` repository (split from `Infinite_Diffusion` on 29 Oct 2026; record in
+`docs/planet-layer/journal/60_2026-10-29_repo-split.md`). The original generator (`planet_diffusion`, Terrain
+Diffusion on a sphere) stays in `E:\projects\Infinite_Diffusion` and is installed in this `.venv` in editable mode;
+the planet code imports only its `cube` and `procedural` modules, until phase B of the migration plan copies them in.
 
 A quick orientation for a new chat. Read with `docs/planet-layer/STATE.md` (what is running, the model, the
 scorecard, next steps), `docs/next-chat-prompt.md` (working rules), `docs/planet-parameter-audit.md` (which values
 are measured, assumed or fitted) and `docs/planet-layer/decisions.md` (what was adopted or rejected). The history is
 in `docs/planet-layer/journal/` (one file per pass); `docs/planet-layer-plan.md` is the frozen old single plan doc
-(code comments and `.cmd` headers cite its passes: "Nth pass" = `journal/*_pass-NN.md`). The root `README.md`
-documents the original GeoTIFF generator (`planet_diffusion` CLI), not this work.
+(code comments and `.cmd` headers cite its passes: "Nth pass" = `journal/*_pass-NN.md`). The root `README.md` introduces this repository; the original generator's README is in `..\Infinite_Diffusion`.
 
 ## The chain
 
@@ -38,7 +42,7 @@ output to a band; any system may be changed if it moves toward realism.
 | `planet_training/elevation_shading.py` | colours for every review picture (65,536 levels since 23 Oct; 256 drew false terraces) |
 | `planet_training/arrangement_metrics.py` | high-ground / flanked-lowland / slope metrics (needs torch) |
 | `toy_meso/` | the meso model: `planet_tiled.py` (whole-planet tiles), `detail.py` / `finetune_detail.py` (detail-aware fine-tune) |
-| `planet_diffusion/` | the original generator; `cube.py` (cube geometry) is used by the planet layer |
+| `planet_diffusion` (in `..\Infinite_Diffusion`, installed editable) | the original generator; its `cube.py` (cube geometry) and `procedural.py` (meso conditioning noise) are used here |
 | `tests/` | `test_plates.py`, `test_shelf.py`, `test_sphere_graph.py`, `test_graph_landscape.py`, `test_coupling.py`, `test_boundary_lengths.py`, `test_erosion_law_check.py`, `test_crust_reviews.py` (86 planet-layer tests since 28 Oct; some older test files elsewhere do not import) |
 
 ## Scripts (`python -m scripts.<name>`)
@@ -72,10 +76,9 @@ output to a band; any system may be changed if it moves toward realism.
 | Earth | `earth_reference` | ETOPO averaged onto the cube grids (`outputs/planet-reference/earth-n217.npz`, `-n868.npz`) |
 
 The `.cmd` files in the project root chain these for the user (double-click): tests, the sweep, then the reviews into
-`<sweep>/reviews/`; each one's header states its decision rule and the pass that wrote it. Current: `Trench Flux
-Sweep.cmd` (fortieth pass, 28 Oct). The other sweep `.cmd`s in the root are finished (their sweeps are listed in
-`docs/planet-layer/decisions.md`); they pass the working baseline explicitly, so the newest one is the template for
-the next. Older ones (`Train *`, `Evaluate *`, `Launch *`, `Review Terrain *`) belong to the earlier learned-model work.
+`<sweep>/reviews/`; each one's header states its decision rule and the pass that wrote it. They are the owner's
+working scripts: they live on the user's disk only and are not published (`.gitignore`: `*.cmd`, as is
+`migration/`). The newest one is the template for the next; journal entries name the one that decided each sweep.
 
 ## Data (`data/`)
 

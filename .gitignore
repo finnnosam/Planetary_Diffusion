@@ -35,6 +35,11 @@ outputs/
 *.zip
 *.log
 
+# The owner's own working scripts (sweeps, migration steps): kept on disk, not published
+*.cmd
+*.bat
+migration/
+
 # Editors and local agent state
 .idea/
 .vscode/

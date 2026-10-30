@@ -91,3 +91,4 @@ passes it explicitly while `PARAMS` still holds the old value (see the warning i
 | 27 Oct | Sweeps decide on six seeds (1001–1006) (user) | [57](journal/57_2026-10-27_pass-39.md) |
 | 27 Oct | `elevation_check` offsets pool the window's nodes (area-weighted median) | [57](journal/57_2026-10-27_pass-39.md) |
 | 28 Oct | Docs reorganized: STATE / decisions / journal replace the single plan doc | (this reorganization) |
+| 29 Oct | Repository split: planet work moves to `Planetary_Diffusion` (public), history kept; `Infinite_Diffusion` keeps the generator; the pre-split tag archives the learned-layout era | [60](journal/60_2026-10-29_repo-split.md) |

@@ -1,14 +1,19 @@
 # Planet layer: current state
 
-**As of 29 Oct 2026, after the forty-first pass.** Rewrite this file at the end of every pass; don't append to it.
-History lives in `journal/` (one file per pass) and `decisions.md` (one line per decision).
+**As of 29 Oct 2026, after the forty-first pass and the repository split.** Rewrite this file at the end of every
+pass; don't append to it. History lives in `journal/` (one file per pass) and `decisions.md` (one line per decision).
 
 ## 1. Right now
 
-**The repository migration is under way** (Claude Doc "Planet generator: repository migration plan"). Phase 0
-commits everything and tags `pre-split-2026-10-29` in this repository. Phase A then creates the new repository
-`E:\projects\Planetary_Diffusion`, proven by an identity run. No model change happens during the migration. Model work
-resumes in the new repository afterwards.
+**This repository (`Planetary_Diffusion`) is now where planet work happens** (split 29 Oct;
+[journal entry](journal/60_2026-10-29_repo-split.md)). Phases 0 and A of the migration plan are done: the history
+was imported, 159 tests pass, the seed-1001 identity run equals the Trench Flux control, and the repo is pushed.
+Still to do from the plan (Claude Doc "Planet generator: repository migration plan"):
+- Phase B: one package per stage, each step its own commit with an identity check. It also removes the six
+  learned-era `planet_training` modules copied in for `terrain_structure`, and the editable install of the old repo.
+- Phase C: remove the planet chain from `Infinite_Diffusion`.
+
+Both go at checkpoints between model passes. The next model pass is the rest of B (section 5).
 
 **The Trench Flux sweep has been read** (`sweep-20261028-200644`, [pass 41](journal/59_2026-10-29_pass-41.md)).
 Neither candidate was adopted, so PARAMS are unchanged:
@@ -92,7 +97,7 @@ Last measured elsewhere (older sweeps, same model except as noted):
 
 ## 5. Open problems, in the order they will be worked
 
-1. **Finish the repository migration** (section 1).
+1. **Phases B and C of the migration** (section 1), at checkpoints; nothing in them changes the model.
 2. **The rest of B (continental budget and ocean basin):**
    - The intra-oceanic trench excess. T2 fails in every arm: 36–41k vs 12–25k km. The control's trench grows through
      the run (node-km 104k at −240 to 268k at 0; plates 12 → 28).
@@ -140,6 +145,7 @@ Small items:
 | code, scripts, data, outputs, commands | `docs/project-map.md` |
 | every value: measured / assumed / fitted, replacement order | `docs/planet-parameter-audit.md` |
 | long-term target for all stages | `docs/planet-ideal-flow.md` |
+| the migration plan (phases 0 and A done 29 Oct) | Claude Doc "Planet generator: repository migration plan"; record in `journal/60_2026-10-29_repo-split.md` |
 | the old single plan doc (frozen 28 Oct; code comments and `.cmd` headers cite its passes) | `docs/planet-layer-plan.md` = `design-2026-10-17.md` + `journal/` |
 | old handoff (verbatim) | `docs/planet-layer/archive/next-chat-prompt-2026-10-28.md` |
 
