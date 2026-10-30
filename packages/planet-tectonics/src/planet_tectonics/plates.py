@@ -256,78 +256,6 @@ PARAMS = {
     # flow stopped at the coastline, so collisions only ever removed continental area. Normal-thickness crust does not
     # cross (cold crust is strong). Default False until the 3-seed sweep decides
     'collapse_edge': False,
-    # E, collapse of thick crust as continental extension (twenty-sixth / twenty-seventh passes). Crust thicker than
-    # ext_onset_thick_m that no convergence holds any more (no collision boundary or subduction belt in or next to
-    # the thick piece, which covers at least ext_min_area_mkm2) extends: its plate splits along the piece's long axis,
-    # the halves diverge at ext_strain_rate_per_yr x the zone's full width, the rift gaps between them fill by pure
-    # shear of continental crust within the zone's half-width (the piece's p90 distance from the cut, between
-    # rift_width_km and ext_max_half_width_km; same kernel and breakup rule as rifting; only gaps within that
-    # half-width of the thick piece, which is tracked in both halves' rasters, are the event's: the rest of the cut
-    # rifts as usual), and once the crust E thinned or made (marked by time in 'ext') has a mean thickness at or below
-    # ext_end_thick_m, the halves stop and weld
-    # (ext_max_myr is only a guard). This is the free-boundary mode of collapse (Rey, Vanderhaeghe & Teyssier 2001);
-    # the collapse diffusion above is the fixed-boundary mode and is kept. Earth values, not fitted: onset 45-50 km
-    # (Basin and Range thickened to >= 45-50 km, Colgan et al. 2006; Aegean 40-50 km, Zhu et al. 2006); end ~30 km
-    # (28-31 / 25-28 km); strain rate 1-5e-8 /yr (Basin and Range 1-2e-8, Bennett et al. 2003; Aegean 3-5e-8, Zhu
-    # et al. 2006); zones 500-800 km wide (Basin and Range ~750 km at 40 N); the Aegean and the Basin and Range cover
-    # ~0.5-1 Mkm^2. Default False until the 3-seed sweep decides. This paragraph describes E as built (twenty-seventh
-    # pass) = ext_held_rule 'exempt', ext_hot_myr 0, ext_clock_flow False, ext_cut 'whole', ext_pair_motion 'mean';
-    # the defaults of those switches below are E3 (held pieces cut across, hot crust only, carried clock, band cut,
-    # pair moved as one plate)
-    'extension': False, 'ext_onset_thick_m': 45000., 'ext_end_thick_m': 30000., 'ext_strain_rate_per_yr': 2e-8,
-    'ext_min_area_mkm2': .5, 'ext_max_half_width_km': 400., 'ext_max_myr': 100.,
-    # E2 (twenty-ninth pass), two changes to the trigger and one to the cut (used only with extension True):
-    #  * ext_held_rule 'direction' (E2): convergence sets the direction of extension, not whether it happens. A thick
-    #    piece touching a collision boundary or subduction belt is cut across its long axis (great circle through its
-    #    centroid along its short axis: orogen-parallel stretching, as Tibet's east-west extension with north-south
-    #    grabens while India converges); a free piece is cut along its long axis (Basin and Range, Aegean: stretching
-    #    across the former belt). 'exempt': E as built (twenty-seventh pass), held pieces do not extend.
-    #  * ext_hot_myr: only hot crust extends. A piece starts an event only if more than half of its area (area-weighted)
-    #    was tectonically thickened within ext_hot_myr (the thickening clock 'thk': collision volume, margin shortening,
-    #    arc and subduction thickening, at a rate above orogen_strain_rate; not collapse diffusion, not erosion). Crust
-    #    never thickened in the run (the start's) is cold: Earth's thick Precambrian crust does not extend. 100 Myr:
-    #    lithosphere thickened in the Sevier and Laramide orogenies becomes weak enough to extend (Moho > ~700 C) after
-    #    a delay of 0 (initial Moho > ~700 C) to ~100 Myr (initial Moho < 450 C), and the observed gaps between
-    #    compression and extension are ~0 (Pacific Northwest), 20-40 Myr (northern Great Basin) and ~70 Myr (southern
-    #    Great Basin) (Sonder, England, Wernicke & Christiansen 1987, Geol. Soc. Spec. Publ. 28); crust thickened
-    #    longer ago than that has had time to heat and, if it did not extend, to cool and strengthen (McKenzie 1978's
-    #    lithosphere time constant is ~63 Myr). 0 switches the hot rule off (E as built)
-    'ext_held_rule': 'direction', 'ext_hot_myr': 100.,
-    # E3 (thirtieth pass), two changes to E2 (used only with extension True):
-    #  * ext_clock_flow: the thickening clock is carried by the collapse flow. In each substep of the crust diffusion
-    #    a continental node thickened by the flow faster than orogen_strain_rate (gain / thickness / substep) takes the
-    #    most recent time among its neighbours that were thicker before the substep and carry a time (the volume's
-    #    source), if more recent than its own (carry_clock). The flow never sets the present time, so the start's crust
-    #    spreading into the start's crust stays untimed (cold). Crust flows in the collapse diffusion because it is hot
-    #    and weak (kappa at 50-60 km ~ a 15 km channel at 1e19-1e20 Pa s, twenty-sixth pass), so its thermal age is its
-    #    source's. No new number. False: E2 as built (in E2 64-89% of the > 45 km crust, nearly all of it thickened in
-    #    the run, carried no time, and the trigger reached 1-4% of it).
-    #  * ext_cut 'band': the cut ends at the zone. The relative pole u is the point on the cut's great circle 90
-    #    degrees from the piece's centroid c (rotation about u moves c straight across the cut); the moving part is the
-    #    plate's nodes on one side of the cut inside the band |asin(x.u)| R <= L (L: the piece's p90 distance from c
-    #    along u, at least rift_width_km), from the cut to the plate's edge (the part connected to the piece); the
-    #    smaller side moves. The band's edges are small circles about u, i.e. flow lines of the relative motion:
-    #    transforms. A microplate between two transforms, so the cut opens only inside the band. The pole is carried
-    #    in the parent's frame. 'whole': E2 as built (the cut across the whole plate added rift area elsewhere 2-5x
-    #    E's own extension area, thirtieth pass)
-    'ext_clock_flow': True, 'ext_cut': 'band',
-    #  * ext_pair_motion 'union' (E3): while an event runs, the two halves' mean motion follows the usual forces on the
-    #    pair as one plate (slab pull, ridge push, continental drag and collision resistance of both halves together,
-    #    relaxed from the speed and axis the plate had when it split), so cutting a plate does not by itself change how
-    #    fast it moves. 'mean' (as built): the area-weighted mean of each half's own force result; a band microplate cut
-    #    along a collision belt takes the collision boundary with it, its large parent loses the collision resistance
-    #    and speeds up, and the mean follows the parent (pre-check, thirty-first pass: area-weighted plate speed 7-9
-    #    cm/yr against the control's 3-4, collisions consumed 2x the continent)
-    'ext_pair_motion': 'union',
-    # E4 (thirty-second pass, agreed 25 Oct): which side of a band cut moves.
-    #  * ext_side 'free': the side that faces a free boundary. For each side of the cut, its far edge is its nodes next
-    #    to another plate; the side whose far edge has the smaller share of collision-boundary nodes becomes the
-    #    microplate. Gravitational spreading extends toward a free boundary; the side pushed against a collision cannot
-    #    open (Rey, Vanderhaeghe & Teyssier 2001, Tectonophysics 342: the free-boundary mode needs an unconfined edge).
-    #    Equal shares (two free sides, or both on collisions) and a side with no far edge go to the smaller area. No new
-    #    number. 'smaller' (E3 as built): the smaller side moves; in the E3 sweep 48-62% of its microplates had a far
-    #    edge mostly on a collision and 60-70% of its events ended with a half docked (thirty-second pass)
-    'ext_side': 'free',
     # thickness of the supercontinent's crust at the start (twenty-fourth pass). 'assumed' (until now): 37.5 km + 2 km
     # beyond 300 km from old sutures + 4 km near them + a +-1.5 km field (interior p50 39.2-40.1 km, p10-p90 3-4 km
     # wide); it survives 250 Myr almost untouched (95-99% of the present interior, twenty-third pass). 'earth': the
@@ -539,30 +467,6 @@ def edge_spread(th, cont, kap, excess, owner, ocean_ok, h, nbr, dist, axis, area
             out[j] += f/area[j]
     return out
 
-
-@njit(cache=True)
-def carry_clock(before, after, dom, src_ok, tk, nbr, axis, h_yr, rate):
-    """E3 (thirtieth pass): the thickening clock carried by the collapse flow over one substep of h_yr years. A node of
-    dom whose thickness gain, divided by its thickness and h_yr, exceeds rate takes the most recent time among its axis
-    neighbours in src_ok that were thicker before the substep and carry a time (the volume's source), if that is more
-    recent than its own (an untimed node, NaN, takes it). Only existing times move, at most one node per substep; the
-    present time is never set here. Returns the new clock."""
-    out = tk.copy()
-    for i in range(before.shape[0]):
-        if not dom[i]:
-            continue
-        if (after[i]-before[i])/max(before[i], 1e3)/h_yr <= rate:
-            continue
-        best = -np.inf
-        for k in range(nbr.shape[1]):
-            j = nbr[i, k]
-            if j < 0 or not axis[i, k] or not src_ok[j]:
-                continue
-            if before[j] > before[i] and tk[j] == tk[j] and tk[j] > best:
-                best = tk[j]
-        if best > -np.inf and not (tk[i] >= best):
-            out[i] = best
-    return out
 
 
 @njit(cache=True)
@@ -901,8 +805,6 @@ class Plate:
         self.orog = np.full(size, np.nan, np.float32)  # last orogeny (collision) time, Myr
         self.under = np.zeros(size, np.int16)           # consecutive steps hidden under another plate
         self.sed = np.zeros(size, np.float32)            # sediment, m (on continental crust too with continental_sediment)
-        self.ext = np.full(size, np.nan, np.float32)     # last thinned or made by extension E, Myr
-        self.thk = np.full(size, np.nan, np.float32)     # last tectonic thickening (E2's thickening clock), Myr
 
     def omega(self, radius):
         """Angular velocity vector, rad/yr."""
@@ -940,12 +842,7 @@ class PlateSim:
         self.erosion_totals = {'continental_eroded_m3': 0., 'continental_deposited_m3': 0., 'ocean_sediment_m3': 0.}
         # continental area (flag) gained and lost by mechanism, m^2 (the area ledger; the rest of the net change is
         # nearest-node jitter, holes and merges, read as the residual)
-        self.area_ledger = dict.fromkeys(('collision', 'subduction', 'rift', 'extension', 'arc'), 0.)
-        self.ext_events = []                             # running extension events (E)
-        self.ext_marked = np.zeros(graph.size, bool)
-        # crust thicker than ext_onset_thick_m summed over steps (m^2 x steps): all of it, in pieces eligible to start
-        # an event, in hot pieces, in held pieces, and hot nodes (E2's trigger reach = eligible / all)
-        self.ext_reach = dict.fromkeys(('gt_onset', 'eligible', 'hot_pieces', 'held_pieces', 'hot_nodes'), 0.)
+        self.area_ledger = dict.fromkeys(('collision', 'subduction', 'rift', 'arc'), 0.)
         if start != 'supercontinent':
             raise NotImplementedError('only the supercontinent start exists so far (dispersed start: later)')
         self._init_supercontinent(n_plates, n_cont_plates, cont_fraction)
@@ -1154,10 +1051,8 @@ class PlateSim:
         wborn = np.where(gap, self.t, np.stack([pl.born[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         worog = np.where(gap, np.nan, np.stack([pl.orog[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         wsed = np.where(gap, 0., np.stack([pl.sed[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
-        wext = np.where(gap, np.nan, np.stack([pl.ext[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
-        wthk = np.where(gap, np.nan, np.stack([pl.thk[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         self.new_crust = gap
-        self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed, 'ext': wext, 'thk': wthk}
+        self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed}
 
     # ------------------------------------------------------------------ stepping
     def step(self):
@@ -1177,8 +1072,6 @@ class PlateSim:
         before = w['thick'].copy()
         th = before
         T = dt*1e6
-        carry = bool(p['extension'] and p['ext_clock_flow'])
-        tk = w['thk'].copy() if carry else None          # E3: the clock carried by the flow (carry_clock)
         while T > 0:                                     # nonlinear: substeps follow the current largest diffusivity
             kap = p['crust_kappa_normal_m2_yr']+p['crust_kappa_m2_yr']*np.minimum(
                 np.expm1(np.clip(th-p['collapse_thick_m'], 0, None)/p['collapse_scale_m']), p['collapse_max_factor'])
@@ -1186,10 +1079,7 @@ class PlateSim:
             if kmax <= 0:
                 break
             h = min(T, .9/(kmax*self.bound))
-            th0 = th
             th = gl.diffuse_variable(th, w['cont'], kap, h, g.nbr, g.dist, g.axis, g.area)
-            if carry:
-                tk = carry_clock(th0, th, w['cont'], w['cont'], tk, g.nbr, g.axis, h, p['orogen_strain_rate'])
             if p['collapse_edge'] and hasattr(self, 'btype'):
                 kc = p['crust_kappa_m2_yr']*np.minimum(np.expm1(np.clip(th-p['collapse_thick_m'], 0, None)/p['collapse_scale_m']),
                                                      p['collapse_max_factor'])
@@ -1197,17 +1087,12 @@ class PlateSim:
                                   (~w['cont']) & (self.btype == 0), h, g.nbr, g.dist, g.axis, g.area)
                 self.erosion_totals['edge_collapse_m3'] = self.erosion_totals.get('edge_collapse_m3', 0.)+float(
                     (np.maximum(th1-th, 0)*g.area)[~w['cont']].sum())
-                if carry:
-                    tk = carry_clock(th, th1, w['cont'] | ((~w['cont']) & (self.btype == 0)), w['cont'], tk, g.nbr, g.axis,
-                                     h, p['orogen_strain_rate'])
                 th = th1
             T -= h
-        self.thk_flow = tk
         dthick = th-before+rift_dthick
         th = th+rift_dthick
         dsed = np.zeros(g.size)
         sub = self._subduction_thickening()
-        self.thickening = np.array(sub, np.float64)      # the thickening clock's source; + collision volume below
         if self.mantle is not None:
             vol = self.mantle.volcanic(self.t, dt)
             self.erosion_totals['volcanic_added_m3'] = self.erosion_totals.get('volcanic_added_m3', 0.)+float((vol*g.area).sum())
@@ -1243,11 +1128,7 @@ class PlateSim:
             raise ValueError(f"piece_rule {p['piece_rule']!r}: 'shared' or 'plates'")
         self._classify()
         self._update_motion()
-        if p['extension']:
-            self._extension_motion()
         self._merge_events()
-        if p['extension']:
-            self._extension_events()
         self._split_events()
 
     def _rift(self):
@@ -1255,7 +1136,6 @@ class PlateSim:
         thinning of the continental neighbours that supply the volume (m, <= 0)."""
         g, p, w = self.g, self.p, self.world
         out = np.zeros(g.size)
-        self.ext_marked = np.zeros(g.size, bool)
         gap = self.new_crust
         if not gap.any():
             return out
@@ -1305,44 +1185,14 @@ class PlateSim:
         if p['rift_width_km'] <= 0:
             raise ValueError("rift_rule 'pure_shear' needs rift_width_km > 0 (the stretching zone's half-width)")
         W = p['rift_width_km']*1e3
-        # gaps between the two halves of a running extension event (E) stretch that event's zone (its own half-width,
-        # its two plates' continental crust); the rest as before
-        ev_of = np.full(rc.size, -1)
-        near = {}
-        if p['extension'] and self.ext_events:
-            own_r = self.owner[rc]
-            nb_own = self.owner[nbs[cand]]
-            sol = solid[cand]
-            for e, ev in enumerate(self.ext_events):
-                a_, b_ = ev['parent'], ev['child']
-                near[e] = self._near_piece(ev)
-                other = np.where(own_r == a_, b_, np.where(own_r == b_, a_, -1))
-                sel = (other >= 0) & (sol & (nb_own == other[:, None])).any(1) & (ev_of < 0) & near[e][rc]
-                ev_of[sel] = e
-        Tg = np.zeros(rc.size)
         dT = np.zeros(g.size)
         th = w['thick'].astype(np.float64)
-        groups = [(ev_of < 0, W, zone)]+[(ev_of == e, ev['W'], zone & near[e] & np.isin(self.owner, (ev['parent'], ev['child'])))
-                                          for e, ev in enumerate(self.ext_events) if (ev_of == e).any()]
-        for sel, Wg, zg in groups:
-            if not sel.any():
-                continue
-            _, Tg_s, dT_s = rift_pure_shear(rc[sel].astype(np.int64), g.area, th+dT, zg, g.nbr, g.dist, Wg,
-                                            p['breakup_thick_m'])
-            Tg[sel] = Tg_s
-            if Wg is not W or zg is not zone:            # an extension group: mark the crust it thinned
-                self.ext_marked |= dT_s < 0
-            dT = dT+dT_s
+        _, Tg, dT_s = rift_pure_shear(rc.astype(np.int64), g.area, th+dT, zone, g.nbr, g.dist, W, p['breakup_thick_m'])
+        dT = dT+dT_s
         rift = Tg > 0.
         if not rift.any():
             return dT
-        isE = rift & (ev_of >= 0)
-        if isE.any():
-            self.ext_marked[rc[isE]] = True
-            self.area_ledger['extension'] += float(g.area[rc[isE]].sum())
-            self.erosion_totals['ext_nodes'] = self.erosion_totals.get('ext_nodes', 0)+int(isE.sum())
-        self.area_ledger['rift'] += float(g.area[rc[rift & (ev_of < 0)]].sum())
-        w['ext'] = np.where(self.ext_marked, self.t, w['ext'])
+        self.area_ledger['rift'] += float(g.area[rc[rift]].sum())
         r, cr = rc[rift], cn[cand][rift]
         w['cont'][r] = True
         w['thick'][r] = Tg[rift]
@@ -1672,18 +1522,6 @@ class PlateSim:
         marked = collided | self._orogen_marks()
         self.orogen_marked = marked
         w['orog'] = np.where(marked, self.t, w['orog'])
-        # the thickening clock (E2): nodes thickened tectonically (collision volume, margin shortening, arc and
-        # subduction thickening; net of subduction erosion) faster than orogen_strain_rate this step
-        flow = getattr(self, 'thk_flow', None)           # E3: times the collapse flow carried this step
-        self.thk_flow = None
-        self.thk_carried = None
-        if flow is not None:
-            moved = np.isfinite(flow) & ~(w['thk'] >= flow)
-            w['thk'] = np.where(moved, flow, w['thk'])
-            self.thk_carried = np.where(moved, flow, np.nan)
-        th_src = getattr(self, 'thickening', np.zeros(g.size))+dVc/a
-        self.thk_marked = th_src/np.maximum(w['thick'], 1e3)/(p['dt_myr']*1e6) > p['orogen_strain_rate']
-        w['thk'] = np.where(self.thk_marked, self.t, w['thk'])
         for k, pl in enumerate(self.plates):            # pass 2: ownership, new crust, thickness changes
             wn, own, gone = wns[k], owns[k], consumed[k]
             # a plate node switches on for genuinely new crust (a ridge gap), or for oceanic crust the plate already
@@ -1715,22 +1553,10 @@ class PlateSim:
                 self.sed_ledger['arc_continent'] += self._plate_cont_sed(pl)-vs1
             hit = np.zeros(g.size, bool); hit[js[marked[ws]]] = True
             pl.orog[hit] = self.t
-            hit = np.zeros(g.size, bool); hit[js[self.ext_marked[ws]]] = True
-            pl.ext[hit] = self.t
-            if self.thk_carried is not None:             # E3: carried times first, tectonic marking after
-                cv = self.thk_carried[ws]; f = np.isfinite(cv)
-                if f.any():
-                    best = np.full(g.size, -np.inf); np.maximum.at(best, js[f], cv[f])
-                    up = np.isfinite(best) & ~(pl.thk >= best)
-                    pl.thk[up] = best[up]
-            hit = np.zeros(g.size, bool); hit[js[self.thk_marked[ws]]] = True
-            pl.thk[hit] = self.t
             pl.cont[new] = w['cont'][wn[new]]
             pl.thick[new] = w['thick'][wn[new]]
             pl.born[new] = w['born'][wn[new]]
             pl.orog[new] = w['orog'][wn[new]]
-            pl.ext[new] = w['ext'][wn[new]]
-            pl.thk[new] = w['thk'][wn[new]]
             pl.sed[new] = w['sed'][wn[new]]
             pl.under[new] = 0
             self.ledger['new_nodes'] += float((pl.thick[new]*a[new]*pl.cont[new]).sum())
@@ -1753,7 +1579,7 @@ class PlateSim:
             if hole.any():
                 hs = src[hole]
                 pl.mask[hole] = True
-                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed, pl.ext, pl.thk):
+                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed):
                     arr[hole] = arr[hs]
                 self.ledger['holes'] += float((pl.thick[hole]*a[hole]*pl.cont[hole]).sum())
                 self.area_ledger['holes'] = self.area_ledger.get('holes', 0.)+float(a[hole & pl.cont].sum())
@@ -1862,11 +1688,10 @@ class PlateSim:
         if sp > 1e-9:
             pl.axis = v/sp
 
-    def split(self, pl, part_world, rel_speed_cm_yr, kind, pole=None):
+    def split(self, pl, part_world, rel_speed_cm_yr, kind):
         """Split plate `pl`: the world nodes in part_world (owned by pl) become a new plate in the same frame (no
         resampling). The two parts get Euler vectors differing by rel_speed (positive: diverge, negative: converge),
-        about the pole 90 degrees from both parts' centroids, or about `pole` (E3; signed: the new part moves as a
-        rotation about +pole relative to the rest)."""
+        about the pole 90 degrees from both parts' centroids."""
         g = self.g
         own = self.owner == pl.id
         part = part_world & own
@@ -1877,14 +1702,14 @@ class PlateSim:
         lab = part[wn] & pl.mask
         new = self._new_plate(pl.axis, pl.speed)
         new.Q = pl.Q.copy()
-        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed', 'ext', 'thk'):
+        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed'):
             arr = getattr(pl, name)
             na = getattr(new, name)
             na[lab] = arr[lab]
         pl.mask[lab] = False; pl.cont[lab] = False
         c1 = (g.area[rest, None]*g.xyz[rest]).sum(0); c1 /= np.linalg.norm(c1)
         c2 = (g.area[part, None]*g.xyz[part]).sum(0); c2 /= np.linalg.norm(c2)
-        d = np.cross(c1, c2) if pole is None else np.asarray(pole, np.float64)
+        d = np.cross(c1, c2)
         if np.linalg.norm(d) < 1e-9:
             d = self.rng.normal(size=3)
         d = d/np.linalg.norm(d)*rel_speed_cm_yr
@@ -1939,7 +1764,7 @@ class PlateSim:
         ok = small.mask[j]
         k, j = k[ok], j[ok]
         free = ~big.mask[k]
-        for name in ('cont', 'thick', 'born', 'orog', 'sed', 'ext', 'thk'):
+        for name in ('cont', 'thick', 'born', 'orog', 'sed'):
             getattr(big, name)[k[free]] = getattr(small, name)[j[free]]
         big.under[k[free]] = 0
         big.mask[k[free]] = True
@@ -1951,7 +1776,7 @@ class PlateSim:
             near, _ = nearest_label(src_lab, g.nbr, g.dist)
             src = near[need]
             big.mask[need] = True
-            for name in ('cont', 'thick', 'born', 'orog', 'sed', 'ext', 'thk'):
+            for name in ('cont', 'thick', 'born', 'orog', 'sed'):
                 arr = getattr(big, name); arr[need] = arr[src]
         both = ~free & small.cont[j] & big.cont[k]
         self.area_ledger['merge'] = self.area_ledger.get('merge', 0.)-float(g.area[k[both]].sum())
@@ -1989,18 +1814,15 @@ class PlateSim:
     def _separate_pieces(self):
         """piece_rule 'plates' (B-b): each detached piece with an interior node (all its neighbours on the same
         plate) becomes its own plate if it covers at least piece_min_area_mkm2, else joins the plate around most of
-        its edge (_weld). Pieces of plates in a running extension event are left to E."""
+        its edge (_weld)."""
         g, p = self.g, self.p
         floor = p['piece_min_area_mkm2']*1e12
-        busy = set()
-        for ev in self.ext_events:
-            busy |= {ev['parent'], ev['child']}
         nb = np.where(g.nbr >= 0, g.nbr, np.arange(g.size)[:, None])
         st = self.piece_stats = getattr(self, 'piece_stats', {'plates_made': 0, 'welds': 0, 'welded_m2': 0.,
                                                              'crumbs_m2_steps': 0.})
         small = []
         for pl, lab, sz, main in self.plate_pieces():
-            if sz.size < 2 or pl.id in busy:
+            if sz.size < 2:
                 continue
             ids_all = np.flatnonzero(lab >= 0)
             o = ids_all[np.argsort(lab[ids_all], kind='stable')]
@@ -2051,7 +1873,7 @@ class PlateSim:
 
         def vol(pl, r, f):
             return float((f[r].astype(np.float64)*a[r]*(pl.mask[r] & pl.cont[r])).sum())
-        names = ('cont', 'thick', 'born', 'orog', 'sed', 'ext', 'thk')
+        names = ('cont', 'thick', 'born', 'orog', 'sed')
         v0 = vol(src, ro, src.thick)+vol(dst, k, dst.thick)
         s0 = vol(src, ro, src.sed)+vol(dst, k, dst.sed)
         if k.size:
@@ -2091,201 +1913,6 @@ class PlateSim:
         self.sed_ledger['pieces'] = self.sed_ledger.get('pieces', 0.)+vol(src, ro, src.sed)+vol(dst, k, dst.sed)-s0
         self.owner = np.where(part, dst.id, self.owner)
 
-    # ------------------------------------------------------------------ extension of thick crust (E)
-    def _pair(self, ev):
-        a = [q for q in self.plates if q.id == ev['parent']]; b = [q for q in self.plates if q.id == ev['child']]
-        return (a[0], b[0]) if a and b else (None, None)
-
-    def _near_piece(self, ev):
-        """World nodes within the event's half-width of its thick piece (tracked as raster nodes of both halves)."""
-        g = self.g
-        src = np.zeros(g.size, bool)
-        for q in self.plates:
-            r = ev['piece'].get(q.id)
-            if r is not None and r.size:
-                src[fields.nearest_nodes(g, g.xyz[r]@q.Q.T)] = True
-        if not src.any():
-            return src
-        return gl.distance_to(src, g.nbr, g.dist, ev['W']*1.5) <= ev['W']
-
-    def _extension_motion(self):
-        """Running events: the two halves diverge at the event's rate (cm/yr at 90 degrees from the relative pole). The
-        pole is the event's own (band cut, E3: carried in the parent's frame) or else lies 90 degrees from both halves'
-        centroids, as in split. Their mean motion: with ext_pair_motion 'union' (E3) the usual forces on the pair as one
-        plate (_driving on both halves, from the motion the plate had when it split); with 'mean' (E, E2 as built) the
-        area-weighted mean of each half's own force result."""
-        g = self.g
-        for ev in self.ext_events:
-            pa, pb = self._pair(ev)
-            if pa is None:
-                continue
-            oa, ob = self.owner == pa.id, self.owner == pb.id
-            if not oa.any() or not ob.any():
-                continue
-            if ev.get('pole_body') is not None:          # E3 band cut: the pole carried in the parent's frame
-                d = np.asarray(ev['pole_body'])@pa.Q.T
-            else:
-                c1 = (g.area[oa, None]*g.xyz[oa]).sum(0); c1 /= np.linalg.norm(c1)
-                c2 = (g.area[ob, None]*g.xyz[ob]).sum(0); c2 /= np.linalg.norm(c2)
-                d = np.cross(c1, c2)
-            if np.linalg.norm(d) < 1e-9:
-                continue
-            d = d/np.linalg.norm(d)*ev['v']
-            if 'base_speed' in ev:                       # E3 'union': the forces on the pair as one plate
-                ev['base_speed'], ev['base_axis'] = self._driving(oa | ob, ev['base_speed'], ev['base_axis'])
-                base = ev['base_axis']*ev['base_speed']
-            else:
-                A1, A2 = g.area[oa].sum(), g.area[ob].sum()
-                base = (self._omega_vec(pa)*A1+self._omega_vec(pb)*A2)/(A1+A2)
-            self._set_omega(pa, base-d/2)
-            self._set_omega(pb, base+d/2)
-
-    def _extension_events(self):
-        """End running events whose extended crust has thinned to ext_end_thick_m (weld the halves), then start
-        events on thick pieces (see PARAMS 'extension', 'ext_held_rule', 'ext_hot_myr')."""
-        g, p, w = self.g, self.p, self.world
-        a = g.area
-        for ev in list(self.ext_events):
-            pa, pb = self._pair(ev)
-            if pa is None:                               # a half was consumed or merged away: the event ends unwelded
-                self.ext_events.remove(ev)
-                self.events.append({'t': self.t, 'kind': 'extension lost', 'plate': int(ev['parent']), 'new_plate': int(ev['child'])})
-                continue
-            zone = w['cont'] & (w['ext'] >= ev['t0']) & np.isin(self.owner, (pa.id, pb.id))
-            T = float(np.average(w['thick'][zone], weights=a[zone])) if zone.any() else np.inf
-            ev['T_zone_m'] = T
-            if T <= p['ext_end_thick_m'] or self.t-ev['t0'] >= p['ext_max_myr']:
-                A1, A2 = a[self.owner == pa.id].sum(), a[self.owner == pb.id].sum()
-                big, small = (pa, pb) if A1 >= A2 else (pb, pa)
-                self.merge(big, small)
-                self.ext_events.remove(ev)
-                self.events.append({'t': self.t, 'kind': 'extension end', 'plate': int(big.id), 'merged': int(small.id),
-                                    'myr': float(self.t-ev['t0']), 'zone_thick_km': T/1e3,
-                                    'zone_area_mkm2': float(a[zone].sum()/1e12), 'guard': bool(T > p['ext_end_thick_m'])})
-        busy = {i for ev in self.ext_events for i in (ev['parent'], ev['child'])}
-        thick = w['cont'] & (w['thick'] > p['ext_onset_thick_m'])
-        if not thick.any():
-            return
-        held = (self.btype == COLLISION) | getattr(self, 'belt', np.zeros(g.size, bool))
-        nb = g.nbr; ok = nb >= 0
-        held = held | np.any(np.where(ok, held[np.where(ok, nb, 0)], False), axis=1)
-        lab = components(thick, nb)
-        nlab = lab.max()+1
-        area = np.bincount(lab[thick], weights=a[thick], minlength=nlab)
-        heldp = np.bincount(lab[thick], weights=held[thick].astype(float), minlength=nlab) > 0
-        rule = p['ext_held_rule']
-        if rule not in ('direction', 'exempt'):
-            raise ValueError(f"ext_held_rule {rule!r}: 'direction' or 'exempt'")
-        hot = thick & (self.t-w['thk'] <= p['ext_hot_myr'])          # never thickened (NaN) is cold
-        hotp = np.bincount(lab[thick], weights=(a*hot)[thick], minlength=nlab) > .5*area
-        elig = (area >= p['ext_min_area_mkm2']*1e12) & (hotp if p['ext_hot_myr'] > 0 else True)
-        if rule == 'exempt':
-            elig &= ~heldp
-        R = self.ext_reach
-        R['gt_onset'] += float(area.sum()); R['eligible'] += float(area[elig].sum())
-        R['hot_pieces'] += float(area[hotp].sum()); R['held_pieces'] += float(area[heldp].sum())
-        R['hot_nodes'] += float(a[hot].sum())
-        for c in np.argsort(-area):
-            if area[c] < p['ext_min_area_mkm2']*1e12:
-                break
-            if not elig[c]:
-                continue
-            P_ = lab == c
-            ids, cnt = np.unique(self.owner[P_], return_counts=True)
-            pid = int(ids[np.argmax(cnt)])
-            if pid in busy:
-                continue
-            pl = [q for q in self.plates if q.id == pid][0]
-            ev = self._start_extension(pl, P_, across=bool(heldp[c]) and rule == 'direction')
-            if ev is not None:
-                busy |= {ev['parent'], ev['child']}
-
-    def _start_extension(self, pl, piece, across=False):
-        """Split pl along the thick piece's long axis (great circle through its centroid), or across it (along its
-        short axis) for a piece convergence holds (E2, ext_held_rule 'direction'); the smaller side becomes the new
-        plate, or with the band cut and ext_side 'free' (E4) the side whose far edge faces fewer collision nodes. The
-        zone's half-width is the piece's p90 distance from the cut."""
-        g, p, w = self.g, self.p, self.world
-        a = g.area[piece]; X = g.xyz[piece]
-        c = (a[:, None]*X).sum(0); c /= np.linalg.norm(c)
-        Tn = X-(X@c)[:, None]*c
-        C = (a[:, None, None]*Tn[:, :, None]*Tn[:, None, :]).sum(0)
-        u = np.linalg.eigh(C)[1][:, -2 if across else -1]   # ascending: [-1] long axis, [-2] short (tangent plane)
-        u = u-(u@c)*c
-        if np.linalg.norm(u) < 1e-9:
-            return None
-        u /= np.linalg.norm(u)
-        m = np.cross(c, u); m /= np.linalg.norm(m)
-        s = np.abs(np.arcsin(np.clip(X@m, -1, 1)))*g.radius
-        o = np.argsort(s); cw = np.cumsum(a[o]); cw /= cw[-1]
-        W = float(np.clip(s[o][np.searchsorted(cw, .9)], p['rift_width_km']*1e3, p['ext_max_half_width_km']*1e3))
-        own = self.owner == pl.id
-        pole = None; L = None; side_info = {}
-        if p['ext_cut'] == 'whole':
-            side = own & (g.xyz@m > 0)
-            part = side if g.area[side].sum() <= g.area[own & ~side].sum() else own & ~side
-        elif p['ext_cut'] == 'band':                     # E3: a microplate between two transforms
-            su = np.abs(np.arcsin(np.clip(X@u, -1, 1)))*g.radius
-            o2 = np.argsort(su); cw2 = np.cumsum(a[o2]); cw2 /= cw2[-1]
-            L = max(float(su[o2][np.searchsorted(cw2, .9)]), p['rift_width_km']*1e3)
-            band = own & (np.abs(np.arcsin(np.clip(g.xyz@u, -1, 1)))*g.radius <= L)
-            sides = []
-            for sg in (1., -1.):
-                cand = band & (sg*(g.xyz@m) > 0)
-                lab = components(cand, g.nbr)
-                keep = np.unique(lab[piece & cand]); keep = keep[keep >= 0]
-                sides.append(cand & np.isin(lab, keep))
-            A_ = [g.area[q].sum() if q.sum() >= 4 else np.inf for q in sides]
-            k = int(A_[1] < A_[0])
-            if p['ext_side'] not in ('free', 'smaller'):
-                raise ValueError(f"ext_side {p['ext_side']!r}: 'free' or 'smaller'")
-            nb = g.nbr; okn = nb >= 0
-            on = self.owner[np.where(okn, nb, 0)]
-            fc = []                                      # collision share of each side's far edge (E4)
-            for q in sides:
-                edge = q & np.any(okn & (on != pl.id), axis=1)
-                fc.append(float(np.mean(self.btype[edge] == COLLISION)) if edge.any() and hasattr(self, 'btype') else np.nan)
-            if p['ext_side'] == 'free' and np.isfinite(fc).all() and fc[0] != fc[1] and np.isfinite(A_).all():
-                k = int(fc[1] < fc[0])
-            if not np.isfinite(A_[k]):
-                return None
-            side_info = {'side': p['ext_side'], 'far_collision_sides': fc, 'moved_larger': bool(A_[k] > A_[1-k])}
-            part = sides[k]
-            out = (1., -1.)[k]*m                         # the part's side of the cut
-            pole = u if np.cross(u, c)@out > 0 else -u   # rotation about pole moves c into the part's side
-        else:
-            raise ValueError(f"ext_cut {p['ext_cut']!r}: 'band' or 'whole'")
-        v = p['ext_strain_rate_per_yr']*2*W*100.          # cm/yr
-        if p['ext_pair_motion'] not in ('union', 'mean'):
-            raise ValueError(f"ext_pair_motion {p['ext_pair_motion']!r}: 'union' or 'mean'")
-        base0 = (float(pl.speed), np.array(pl.axis, np.float64))   # the plate's motion before the cut
-        new = self.split(pl, part, v, 'extension', pole=pole)
-        if new is None:
-            return None
-        far = {}
-        if pole is not None and hasattr(self, 'btype'):  # where the microplate meets other plates (far side, edges)
-            nb = g.nbr; okn = nb >= 0
-            on = self.owner[np.where(okn, nb, 0)]
-            edge = part & np.any(okn & (on != pl.id) & (on != new.id), axis=1)
-            far = {'far_nodes': int(edge.sum()),
-                   'far_collision': float(np.mean(self.btype[edge] == COLLISION)) if edge.any() else float('nan')}
-        track = {}
-        for q in (pl, new):                              # the piece as raster nodes of each half (same frame)
-            wn = fields.nearest_nodes(g, g.xyz@q.Q.T)
-            track[q.id] = np.flatnonzero(q.mask & piece[wn] & (self.owner[wn] == q.id))
-        hot = (self.t-w['thk'][piece] <= p['ext_hot_myr']).astype(float)
-        ev = {'parent': int(pl.id), 'child': int(new.id), 't0': float(self.t), 'W': W, 'v': v, 'piece': track,
-              'piece_mkm2': float(a.sum()/1e12), 'piece_thick_km': float(np.average(w['thick'][piece], weights=a)/1e3),
-              'across': bool(across), 'hot_share': float(np.average(hot, weights=a)), 'cut_normal': m.tolist(),
-              'cut': p['ext_cut'], 'L': L, 'pole': None if pole is None else pole.tolist(),
-              'pole_body': None if pole is None else (pole@pl.Q).tolist(), **far, **side_info}
-        if p['ext_pair_motion'] == 'union':
-            ev['base_speed'], ev['base_axis'] = base0
-        self.ext_events.append(ev)
-        self.events[-1].update({k: ev[k] for k in ('W', 'v', 'piece_mkm2', 'piece_thick_km', 'across', 'hot_share', 'cut', 'L')})
-        self.events[-1].update(far)
-        self.events[-1].update(side_info)
-        return ev
 
     def _split_events(self):
         g, p, rng, w = self.g, self.p, self.rng, self.world
@@ -2358,9 +1985,7 @@ class PlateSim:
                 'sediment_bulk_m': sediment_column(w['sed'], w['cont'], self.p)[0].astype(np.float32),
                 'dynamic_topography_m': self.dyn.astype(np.float32), 'new_crust': self.new_crust,
                 'sea_level_m': np.float32(getattr(self, 'sea_level', 0.)),
-                'tectonic_thickening_m': getattr(self, 'tectonic', np.zeros(self.g.size)).astype(np.float32),
-                'extension_age_myr': (self.t-w['ext']).astype(np.float32),
-                'thickening_age_myr': (self.t-w['thk']).astype(np.float32)}
+                'tectonic_thickening_m': getattr(self, 'tectonic', np.zeros(self.g.size)).astype(np.float32)}
 
     def plate_table(self):
         g = self.g

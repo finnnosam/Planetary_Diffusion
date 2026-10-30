@@ -128,6 +128,9 @@ the next ones:
    (below, `boundary_normal`). Sweep with both: `Typing E4 Sweep.cmd`.
    Thirty-fourth pass: E4 not adopted (0–1 of 4 E tests; ledger guard fails; on ring typing at 45 km its design checks
    pass: lost 0.33, far side 0.07). Next: item C (thickness–elevation from the lithosphere's thermal state).
+   **29 Oct: the E–E4 code was removed** (all four were rejected; `extension`, `ext_*`, the thickening clock and the
+   snapshot fields `extension_age_myr` / `thickening_age_myr`). It is in the repository history before commit
+   "Remove the rejected extension code", if a later design wants it back.
 4c. **Boundary typing** (thirty-third pass): `classify_boundaries` typed a node by one grid neighbour's direction, so
    transforms that do not follow the grid were typed ridge / collision / subduction (pure transforms on random great
    circles: median 30% typed transform). `boundary_normal` 'ring' takes the normal from the node's two-ring

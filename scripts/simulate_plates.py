@@ -61,18 +61,7 @@ def summary(sim, st):
             # continental area (flag) change over the run and by mechanism, as fractions of the surface; the
             # residual is nearest-node bookkeeping (twenty-seventh pass)
             'continental_area_change_frac': float((g.area[st['continental']].sum()-getattr(sim, 'area0', np.nan))/A),
-            'area_ledger_frac': {k: v/A for k, v in getattr(sim, 'area_ledger', {}).items()},
-            'extension_lost': sum(e['kind'] == 'extension lost' for e in sim.events),   # a half merged away or consumed
-            'extension_ends': [{k: e[k] for k in ('t', 'myr', 'zone_thick_km', 'zone_area_mkm2', 'guard')}
-                               for e in sim.events if e['kind'] == 'extension end'],
-            'extension_starts': [{k: e.get(k) for k in ('t', 'W', 'v', 'piece_mkm2', 'piece_thick_km', 'across', 'hot_share',
-                                                        'cut', 'L', 'far_nodes', 'far_collision', 'side',
-                                                        'far_collision_sides', 'moved_larger')}
-                                 for e in sim.events if e['kind'] == 'extension'],
-            # crust thicker than the onset, summed over the steps so far, as fractions of that sum: in pieces eligible
-            # to start an event (E2's trigger reach), hot pieces, held pieces, hot nodes (twenty-ninth pass)
-            'extension_trigger': {**{k: v/max(sim.ext_reach['gt_onset'], 1e-9) for k, v in getattr(sim, 'ext_reach', {}).items()
-                                     if k != 'gt_onset'}, 'gt_onset_steps_mkm2': getattr(sim, 'ext_reach', {}).get('gt_onset', 0.)/1e12}}
+            'area_ledger_frac': {k: v/A for k, v in getattr(sim, 'area_ledger', {}).items()}}
 
 
 def save_snapshot(folder, sim, st):
