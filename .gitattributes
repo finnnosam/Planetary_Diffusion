@@ -1,0 +1,5 @@
+# Line endings: keep the bytes the files had before the split (LF), so source hashes stay stable;
+# Windows batch files need CRLF.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf

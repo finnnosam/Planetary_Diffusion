@@ -20,3 +20,5 @@ include = ["planet_layer*", "toy_meso*", "planet_training*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A temp folder inside the repo: the user's system pytest temp folder is not readable (29 Oct).
+addopts = "--basetemp=outputs/pytest-tmp"

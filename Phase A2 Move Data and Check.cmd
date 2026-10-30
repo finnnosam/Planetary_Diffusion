@@ -12,6 +12,11 @@ if not exist %PY% (
   goto fail
 )
 
+echo === 0/4 Commit the import fixes: LF line endings, six missed planet_training modules, pytest temp folder ===
+git add .gitattributes pyproject.toml planet_training "Phase A2 Move Data and Check.cmd" || goto fail
+git add --renormalize . || goto fail
+git diff --cached --quiet || git commit -F migration\phase-a-fix-commit-msg.txt || goto fail
+
 echo === 1/4 Move data and the planet chain's outputs ===
 if not exist data (
   move "%OLD%\data" data >nul || goto fail
