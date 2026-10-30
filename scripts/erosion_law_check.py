@@ -29,8 +29,8 @@ from pathlib import Path
 
 import numpy as np
 from planet_earth.bird import orogen_mask
+from planet_grid.paths import DATA, OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 CLASSES = ((0., 20.), (20., 100.), (100., 500.), (500., 1e9))
 BIAS_BAND = .2          # |median log10(law / measured)| per class
 MIN_BASINS = 20
@@ -136,13 +136,13 @@ def score(rows):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--grid', type=int, choices=(217, 868), default=217)
-    p.add_argument('--basins', default=str(ROOT/'data'/'octopus'/'crn_int_basins.json'))
-    p.add_argument('--orogens', default=str(ROOT/'data'/'tectonicplates-master'/'GeoJSON'/'PB2002_orogens.json'))
+    p.add_argument('--basins', default=str(DATA/'octopus'/'crn_int_basins.json'))
+    p.add_argument('--orogens', default=str(DATA/'tectonicplates-master'/'GeoJSON'/'PB2002_orogens.json'))
     p.add_argument('--min-cells', type=float, default=MIN_CELLS)
     p.add_argument('--out', default=None)
     a = p.parse_args(argv)
     from planet_grid.sphere_graph import CubeSphere
-    z = np.load(ROOT/'outputs'/'planet-reference'/f'earth-n{a.grid}.npz')['elevation_m'].astype(np.float64)
+    z = np.load(OUTPUTS/'planet-reference'/f'earth-n{a.grid}.npz')['elevation_m'].astype(np.float64)
     g0 = CubeSphere(a.grid)
     oro = orogen_mask(g0, a.orogens)
     g, rate, lp, dt = law_rate(a.grid, z, oro)
@@ -154,7 +154,7 @@ def main(argv=None):
     res = score(rows)
     res.update({'grid': a.grid, 'law': {k: (float(v) if isinstance(v, (int, float, np.floating)) else v) for k, v in lp.items()},
                 'dt_yr': dt, 'min_cells': a.min_cells, 'rule': {'bias_band_log10': BIAS_BAND, 'min_basins': MIN_BASINS}})
-    out = Path(a.out) if a.out else ROOT/'outputs'/'erosion-law-check'/f"{a.grid}-{time.strftime('%Y%m%d-%H%M%S')}"
+    out = Path(a.out) if a.out else OUTPUTS/'erosion-law-check'/f"{a.grid}-{time.strftime('%Y%m%d-%H%M%S')}"
     out.mkdir(parents=True, exist_ok=True)
     (out/'results.json').write_text(json.dumps({**res, 'rows': rows}, indent=1))
     import matplotlib

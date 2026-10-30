@@ -32,12 +32,7 @@ from planet_landscape import graph_landscape as gl
 from planet_tectonics.plates import SUBDUCTION
 from planet_grid.sphere_graph import CubeSphere
 from planet_grid.paths import OUTPUTS
-
-try:
-    from numba import njit
-except ImportError:                                   # pure Python fallback (slow)
-    def njit(*a, **k):
-        return (lambda f: f) if not (a and callable(a[0])) else a[0]
+from planet_grid.jit import njit                      # numba, or a pure-Python fallback (slow)
 
 WINDOWS = [(-250, -200), (-200, -150), (-150, -100), (-100, -50), (-50, 0.1)]
 SMALL_MKM2 = 2.

@@ -64,7 +64,7 @@ def texture(z, g, mask=None):
 
 
 def arrangement(z, g, mask=None):
-    """planet_training.arrangement_metrics on 64 x 64-node windows of the face charts (3 x 3 per face, ~2,950 km),
+    """planet_reviews.arrangement_metrics on 64 x 64-node windows of the face charts (3 x 3 per face, ~2,950 km),
     windows with >= 50% land in the central 48 x 48 crop and (Earth) <= 5% ice. Means weighted by each metric's own
     cell count. Same code on Earth and planet, so the 46 vs 40 km spacing difference cancels."""
     from planet_reviews import arrangement_metrics as am

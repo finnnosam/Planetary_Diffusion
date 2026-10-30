@@ -5,5 +5,6 @@
 -e packages/planet-tectonics
 -e packages/planet-meso
 -e packages/planet-earth
+-e packages/planet-climate
 -e packages/planet-reviews
 pytest>=8

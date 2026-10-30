@@ -14,11 +14,10 @@ import json
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path
 
 import numpy as np
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 QS = ('10', '25', '50', '75', '90')
 
 
@@ -78,7 +77,7 @@ def main(argv=None):
     print('Earth (no ice sheets, n=%d): land %.1f%%, land p10/25/50/75/90 = %s m' % (
         a.n, 100*earth['land_fraction'], '/'.join(f"{earth['land_percentiles_m'][q]:.0f}" for q in QS)), flush=True)
     jobs = [(float(t), int(s), a.n, a.years) for t in a.thetas.split(',') for s in a.seeds.split(',')]
-    out = ROOT/'outputs'/'planet-calibration'/time.strftime('%Y%m%d-%H%M%S')
+    out = OUTPUTS/'planet-calibration'/time.strftime('%Y%m%d-%H%M%S')
     out.mkdir(parents=True, exist_ok=True)
     print(f'{len(jobs)} runs on {a.workers} workers -> {out}', flush=True)
     results = []

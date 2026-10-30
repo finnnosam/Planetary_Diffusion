@@ -17,8 +17,8 @@ from planet_landscape import graph_landscape as gl
 from planet_grid.sphere_graph import CubeSphere
 from planet_reviews.crust_review import run_params, total_thickness_m
 from planet_reviews.margin_width import BOUNDARY_KM
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def load(sdir, t):
@@ -78,7 +78,7 @@ def main(argv=None):
     ap.add_argument('--latest', action='store_true', help='the newest outputs/planet-calibration/sweep-* folder')
     a = ap.parse_args(argv)
     if a.latest:
-        a.dirs = [str(sorted((ROOT/'outputs'/'planet-calibration').glob('sweep-*'))[-1])]
+        a.dirs = [str(sorted((OUTPUTS/'planet-calibration').glob('sweep-*'))[-1])]
     g = CubeSphere(217)
     for d in map(Path, a.dirs):
         seeds = [d] if (d/'snapshots').is_dir() else sorted(x for x in d.rglob('seed*') if (x/'snapshots').is_dir())

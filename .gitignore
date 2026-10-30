@@ -16,7 +16,7 @@ __pycache__/
 numba-cache/
 
 # Data and results never go into git (this repository is public).
-# data/ holds the Earth datasets (download links in docs/project-map.md);
+# data/ holds the Earth datasets (list, sources and checksums: python -m planet_earth.manifest);
 # outputs/ holds runs, sweeps, reviews and model checkpoints.
 /data/
 /outputs/

@@ -12,7 +12,7 @@ Kinds:
   To be replaced.
 - **N**: numerical (resolution, stability, step size).
 
-Files: `packages/planet-tectonics/src/planet_tectonics/plates.py` (PARAMS), `.../planet_tectonics/mantle.py` (PARAMS),
+Files: `packages/planet-tectonics/src/planet_tectonics/params.py` (PARAMS), `.../planet_tectonics/mantle.py` (PARAMS),
 `packages/planet-landscape/src/planet_landscape/landscape_evolution.py` (DEFAULTS, used by the graph kernels at both
 grids), `.../planet_landscape/coupling.py`, `scripts/run_planet_landscape.py`.
 

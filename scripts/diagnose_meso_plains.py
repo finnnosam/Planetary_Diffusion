@@ -44,13 +44,13 @@ import matplotlib.pyplot as plt
 from planet_landscape import landscape_evolution as le
 from planet_reviews.elevation_shading import image, legend
 from planet_meso.structure import blur, decode, encode
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT/'outputs/meso/dataset.npz'
-MESO = ROOT/'outputs/meso/detail-ft/step10000-passed.pt'   # the meso the simulation uses (detail-aware fine-tune)
-ADAPTED = ROOT/'outputs/structure/joint-structure-v1/review-20261014-143545-003794/meso-checkpoint.pt'
-SIM_ROOT = ROOT/'outputs/tectonic-prototype'
-OUT_ROOT = ROOT/'outputs/meso-plains-diagnosis'
+DATA = OUTPUTS/'meso/dataset.npz'
+MESO = OUTPUTS/'meso/detail-ft/step10000-passed.pt'   # the meso the simulation uses (detail-aware fine-tune)
+ADAPTED = OUTPUTS/'structure/joint-structure-v1/review-20261014-143545-003794/meso-checkpoint.pt'
+SIM_ROOT = OUTPUTS/'tectonic-prototype'
+OUT_ROOT = OUTPUTS/'meso-plains-diagnosis'
 CLASSES = [('flat', 0, 300), ('plain-upland', 300, 800), ('hills', 800, 2000)]
 BANDS_KM = [(5.76, 11.52), (11.52, 23.04), (23.04, 46.08)]
 SPACING = 2880.

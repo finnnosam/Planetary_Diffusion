@@ -4,7 +4,7 @@ The input (a 2:1 PNG sketch or elevation GeoTIFF) is area-averaged onto a coarse
 cube grid at the model's condition spacing (~160 km). The model then generates
 the ~20 km field on a cube grid 8x finer. Overlapping 64x64 windows read across
 face edges and are blended into one shared surface before every sampler step
-(planet_diffusion.cube.consensus), so there are no face seams or pole seams.
+(planet_grid.cube.consensus), so there are no face seams or pole seams.
 
   python -m planet_meso.planet --run outputs\\toy_meso\\run1 --dem sketch.png ^
       --black-metres -6000 --white-metres 6000 --out outputs\\toy_meso\\planet1

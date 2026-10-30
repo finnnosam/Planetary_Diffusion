@@ -8,7 +8,7 @@ Both expose the same arrays, so every kernel in planet_landscape.graph_landscape
   area  (N,)   float64 node cell area, m^2 (cells tile the domain exactly)
   edge  (N,)   bool    domain boundary (flat window only; all False on the sphere)
 
-The sphere graph follows planet_diffusion.cube: shared-node equi-angular charts with n intervals per face,
+The sphere graph follows planet_grid.cube: shared-node equi-angular charts with n intervals per face,
 6 n^2 + 2 unique nodes. A node's cell is a quarter of each chart quad touching it, so cells tile the sphere.
 Interior nodes have 8 neighbours, edge nodes 8 (from two faces), the 8 cube corners 6 (3 axis, 3 diagonal).
 The flat graph lists neighbours in landscape_evolution._OFF order, so results can be compared cell for cell.

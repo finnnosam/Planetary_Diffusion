@@ -6,7 +6,7 @@ centre point. Tiles are denoised together and their predictions blended before
 each Heun step, the same consensus idea as the cube sampler, so there are no seams.
 
   python -m planet_meso.demo_region --run outputs/toy_meso/run1 \
-      --dem upstream/data/global/etopo_10m.tif --lat 64 --lon 14 --cells 34
+      --dem data/etopo_10m.tif --lat 64 --lon 14 --cells 34
 """
 import argparse
 import json

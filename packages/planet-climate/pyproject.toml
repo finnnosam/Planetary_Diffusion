@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "planet-climate"
+version = "0.0.1"
+description = "Planetary Diffusion: paleoclimate, sea level and present climate (not built yet; see docs/contracts/climate.md)"
+requires-python = ">=3.12"
+dependencies = ["planet-grid", "numpy>=2.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

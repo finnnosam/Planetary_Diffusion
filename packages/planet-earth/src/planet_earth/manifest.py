@@ -18,6 +18,12 @@ DATASETS = [
      'files': ['etopo_2022_30s_surface.tif'],
      'source': 'https://www.ncei.noaa.gov/products/etopo-global-relief-model', 'doi': '10.25921/fd45-gt74',
      'used_by': 'Earth on the cube grids (planet_earth.reference): hypsometry, texture, elevation tests'},
+    {'key': 'etopo_10m', 'name': 'ETOPO 2022 at 10 arc-minutes (2160 x 1080, WGS 84 + EGM2008 heights)',
+     'files': ['etopo_10m.tif'],
+     'source': 'a 10 arc-minute version of the ETOPO 2022 surface grid above, as used by Terrain Diffusion '
+               '(https://github.com/xandergos/terrain-diffusion); the checksum pins the copy in use',
+     'doi': '10.25921/fd45-gt74',
+     'used_by': 'the meso training set (planet_meso.build_dataset --dem data/etopo_10m.tif)'},
     {'key': 'crust1', 'name': 'CRUST1.0 global crustal model, 1 degree (Laske et al. 2013)',
      'files': ['crust1/crsthk.xyz', 'crust1/sedthk.xyz', 'crust1/CNtype1-1.txt', 'crust1/CNtype1_key.txt'],
      'source': 'https://igppweb.ucsd.edu/~gabi/crust1.html',

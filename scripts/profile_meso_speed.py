@@ -10,9 +10,10 @@ import torch
 
 from planet_meso import common, model as model_module, planet_tiled as tiled
 from planet_meso.sphere import encode, decode
+from planet_grid.paths import OUTPUTS
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'outputs/meso/speed-verification'
+OUT = OUTPUTS/'meso/speed-verification'
 
 
 def module(name, path):
@@ -53,7 +54,7 @@ def main():
     torch.backends.cudnn.deterministic = True
     torch.cuda.reset_peak_memory_stats()
     started = time.perf_counter()
-    network, norm, checkpoint = helper.load_checkpoint(ROOT / 'outputs/meso/run2-lowlr/latest.pt', 'cuda')
+    network, norm, checkpoint = helper.load_checkpoint(OUTPUTS/'meso/run2-lowlr/latest.pt', 'cuda')
     if args.variant == 'channels-last':
         network.to(memory_format=torch.channels_last)
         original = network
@@ -70,10 +71,10 @@ def main():
     torch.cuda.synchronize()
     load_seconds = time.perf_counter() - started
     load_allocated = torch.cuda.memory_allocated()
-    settings = json.loads((ROOT / 'outputs/meso/planet-fixed/settings.json').read_text())
+    settings = json.loads((OUTPUTS/'meso/planet-fixed/settings.json').read_text())
     grid = sampler.Grid(settings['fine_intervals'], settings['tile'], settings['stride'], settings['factor'])
-    condition = encode(np.load(ROOT / 'outputs/meso/planet-fixed/coarse.npy'))
-    paths = sorted((ROOT / 'outputs/meso/planet-fixed/tiles').glob('f*/*.npy'))
+    condition = encode(np.load(OUTPUTS/'meso/planet-fixed/coarse.npy'))
+    paths = sorted((OUTPUTS/'meso/planet-fixed/tiles').glob('f*/*.npy'))
     keys = [(int(p.parent.name[1:]), *map(int, p.stem.split('_'))) for p in paths[:args.batch]]
     if len(keys) < args.batch:
         keys = grid.all_tiles()[:args.batch]

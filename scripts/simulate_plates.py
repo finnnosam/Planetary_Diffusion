@@ -17,8 +17,8 @@ import numpy as np
 from planet_grid import fields
 from planet_grid.sphere_graph import CubeSphere
 from planet_tectonics.plates import PlateSim, RIDGE, SUBDUCTION, COLLISION, TRANSFORM
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 EARTH = {'land_fraction': .29, 'land_mean_elevation_m': 840., 'ocean_age_mean_myr': 64., 'ocean_age_max_myr': 180., 'ridge_km': 65000.,
          'subduction_km': 55000., 'plates_bird2003': 52, 'largest_plate_mkm2': 104.}
 
@@ -73,7 +73,7 @@ def save_snapshot(folder, sim, st):
 # Elevation colours for the maps every 25 Myr (relative to sea level, m): blues below 0 m, a hypsometric tint above
 # (green lowland, olive and sand uplands, browns, grey-brown, snow). matplotlib's 'terrain' put 0 m in the middle of
 # its ramp, so shallow sea (-1500..0 m) came out green like lowland (changed 25 Oct 2026). N = 65,536 levels, as in
-# planet_training/elevation_shading.py, so gentle plains draw no false contour bands.
+# planet_reviews/elevation_shading.py, so gentle plains draw no false contour bands.
 MAP_STOPS_M = [(-6000, '#0b2447'), (-4500, '#13386b'), (-3000, '#1f5791'), (-1500, '#3478b3'), (-500, '#5c9fd0'),
                (-150, '#8cc3e3'), (-1, '#b8ddef'),
                (0, '#5f9654'), (150, '#7fac63'), (400, '#a9bf78'), (800, '#cfcd92'), (1300, '#dcc394'),
@@ -189,7 +189,7 @@ def main(argv=None):
         if k not in PARAMS:
             raise SystemExit(f'unknown parameter {k!r}')
         a.params[k] = type(PARAMS[k])(v) if PARAMS[k] is not None and not isinstance(PARAMS[k], bool) else (v.lower() in ('1', 'true', 'yes') if isinstance(PARAMS[k], bool) else float(v))
-    out = Path(a.out) if a.out else ROOT/'outputs'/'planet-plates'/time.strftime('%Y%m%d-%H%M%S')
+    out = Path(a.out) if a.out else OUTPUTS/'planet-plates'/time.strftime('%Y%m%d-%H%M%S')
     out.mkdir(parents=True, exist_ok=True)
     results = [run_seed(int(s), a, out) for s in a.seeds.split(',')]
     rows = ''.join(f"<tr><td>{r['seed']}</td><td>{r['present']['plates']} ({r['present']['plates_over_1mkm2']}), largest {r['present']['plate_areas_mkm2'][0]:.0f}</td>"

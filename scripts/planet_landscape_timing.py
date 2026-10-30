@@ -20,8 +20,8 @@ from planet_grid import cube
 from planet_grid import sphere_graph as sg
 from planet_landscape import graph_landscape as gl
 from planet_grid.sphere_flexure import SphereFlexure
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def random_field(loc, lmax, slope, rng):
@@ -68,7 +68,7 @@ def main(argv=None):
     p.add_argument('--seed', type=int, default=1)
     p.add_argument('--out', default=None)
     a = p.parse_args(argv)
-    out = Path(a.out) if a.out else ROOT/'outputs'/'planet-landscape-timing'/time.strftime('%Y%m%d-%H%M%S')
+    out = Path(a.out) if a.out else OUTPUTS/'planet-landscape-timing'/time.strftime('%Y%m%d-%H%M%S')
     out.mkdir(parents=True, exist_ok=True)
 
     t = time.perf_counter()

@@ -4,7 +4,7 @@ Each example is a SIZE x SIZE target at SPACING metres (encoded elevation) and
 its condition: the same terrain area-averaged FACTOR x FACTOR, with one
 condition cell of margin on every side so upsampling has real neighbours.
 
-  python -m planet_meso.build_dataset --dem upstream/data/global/etopo_10m.tif \
+  python -m planet_meso.build_dataset --dem data/etopo_10m.tif \
       --out outputs/toy_meso/dataset.npz
 """
 import argparse

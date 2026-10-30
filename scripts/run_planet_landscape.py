@@ -22,8 +22,8 @@ from planet_landscape import coupling, graph_landscape as gl
 from planet_grid import fields
 from planet_grid.sphere_flexure import SphereFlexure
 from planet_grid.sphere_graph import CubeSphere
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 QS = (10, 25, 50, 75, 90, 99)
 # incision threshold (A^m S) at 11.53 km (scripts.calibrate_landscape_theta). Step 7 picked 20 on denudation alone;
 # with the step 8 rule (denudation and 23 km texture) theta-20261017-230010 picked 10 (scores 1.01 / 0.84 / 0.67 / 0.87
@@ -36,7 +36,7 @@ EARTH_DENUDATION = {'200-500': (1., 10.), '500-1000': (50., 100.), '1000-2000': 
 
 
 def latest_plate_run(seed=None):
-    runs = sorted(d for d in (ROOT/'outputs'/'planet-plates').glob('2*') if d.is_dir())
+    runs = sorted(d for d in (OUTPUTS/'planet-plates').glob('2*') if d.is_dir())
     for run in reversed(runs):
         seeds = sorted(s for s in run.glob('seed*') if (s/'stats.json').exists() and (s/'snapshots').is_dir())
         if seed is not None:
@@ -48,7 +48,7 @@ def latest_plate_run(seed=None):
 
 def chosen_sweep_run(seed=None):
     """The winning combination of the newest finished scripts.sweep_plates run."""
-    for d in sorted((ROOT/'outputs'/'planet-calibration').glob('sweep-*'), reverse=True):
+    for d in sorted((OUTPUTS/'planet-calibration').glob('sweep-*'), reverse=True):
         r = d/'results.json'
         if r.exists() and 'chosen' in (res := json.loads(r.read_text())):
             if res['chosen'] is None:                   # the newest finished sweep's rule chose nothing: stop here
@@ -106,7 +106,7 @@ def denudation_score(table):
 
 def earth_texture23():
     """Earth's 23 km input texture from the meso's held-out split (outputs/meso/dataset.npz, val), cached."""
-    cache = ROOT/'outputs'/'planet-reference'/'earth-meso-val-texture.json'
+    cache = OUTPUTS/'planet-reference'/'earth-meso-val-texture.json'
     if cache.exists():
         t = json.loads(cache.read_text())
         if all(k in t.get('curvature_m', {}) for k in TEXTURE_CLASSES):   # a cache from fewer classes is rebuilt
@@ -263,7 +263,7 @@ def main(argv=None):
     p.add_argument('--out', default=None)
     a = p.parse_args(argv)
     seed_dir = resolve_plates(a.plates, a.seed)
-    out = Path(a.out) if a.out else ROOT/'outputs'/'planet-landscape'/f"{time.strftime('%Y%m%d-%H%M%S')}-{seed_dir.name}"
+    out = Path(a.out) if a.out else OUTPUTS/'planet-landscape'/f"{time.strftime('%Y%m%d-%H%M%S')}-{seed_dir.name}"
     run(seed_dir, out, a.n, a.window, a.dt, a.theta)
 
 

@@ -31,14 +31,14 @@ from planet_landscape import landscape_evolution as le
 from planet_landscape import tectonic_templates as tt
 from planet_reviews.elevation_shading import image, legend
 from planet_meso.structure import conservative_resample, decode, encode
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
-OUT_ROOT = ROOT/'outputs/tectonic-prototype'
+OUT_ROOT = OUTPUTS/'tectonic-prototype'
 # The original Earth-trained meso (true area-averaged 23 km input, as the simulation produces). The later
 # 'adapted' meso was fine-tuned for smoothed learned guides and loses plain texture: on held-out Earth plains it
 # keeps 34-57% of real channel incision vs 100-105% for this one (outputs/meso-plains-diagnosis/20261015-193134).
-MESO = ROOT/'outputs/meso/detail-ft/step10000-passed.pt'   # detail-aware, softening-robust fine-tune (docs/tectonic-prototype.md)
-ROUND_TRIPS = ROOT/'outputs/terrain-round-trips'
+MESO = OUTPUTS/'meso/detail-ft/step10000-passed.pt'   # detail-aware, softening-robust fine-tune (docs/tectonic-prototype.md)
+ROUND_TRIPS = OUTPUTS/'terrain-round-trips'
 N, DX = 256, 11520.            # 2,949 km window; 2x2 cells = the meso's 23.04 km condition grid
 MESO_SEEDS = [113, 997]
 

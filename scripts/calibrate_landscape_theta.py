@@ -22,13 +22,12 @@ layer's errors.
 import argparse
 import json
 import time
-from pathlib import Path
 
 from planet_landscape import coupling
 from planet_grid.sphere_graph import CubeSphere
 from scripts import run_planet_landscape as rpl
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def main(argv=None):
@@ -41,7 +40,7 @@ def main(argv=None):
     a = p.parse_args(argv)
     seed_dir = rpl.resolve_plates(a.plates, a.seed)
     thetas = [float(v) for v in a.thetas.split(',')]
-    out = ROOT/'outputs'/'planet-landscape'/f"theta-{time.strftime('%Y%m%d-%H%M%S')}-{seed_dir.name}"
+    out = OUTPUTS/'planet-landscape'/f"theta-{time.strftime('%Y%m%d-%H%M%S')}-{seed_dir.name}"
     out.mkdir(parents=True, exist_ok=True)
     hist = coupling.PlateHistory(seed_dir/'snapshots')
     g = CubeSphere(a.n)

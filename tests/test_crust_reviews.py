@@ -1,14 +1,13 @@
 """The reviews' label-free continent (twenty-second pass, agreed 25 Oct): total thickness >= 20 km."""
 import json
-from pathlib import Path
 
 import numpy as np
 import pytest
 
 from planet_reviews import crust_review as cr
+from planet_grid.paths import DATA
 
-ROOT = Path(__file__).resolve().parents[1]
-C1 = ROOT/'data'/'crust1'
+C1 = DATA/'crust1'
 
 
 @pytest.mark.skipif(not (C1/'crsthk.xyz').exists(), reason='CRUST1.0 not present')

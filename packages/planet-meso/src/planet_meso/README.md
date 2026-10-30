@@ -1,8 +1,11 @@
-# Toy fixed-scale refinement model
+# planet_meso: fixed-scale refinement model
+
+(Formerly `toy_meso`; renamed when the planet chain moved to Planetary_Diffusion on 29 Oct 2026. The notes below are
+the stage's working record; output folders keep their old names.)
 
 A small, self-contained miniature of the planned 23 km → 2.9 km model, scaled up 6–7×. It learns Earth at one spacing (20 km), conditioned on the same terrain area-averaged 8× (160 km). It has only ever seen Earth at 20 km, so whatever it draws is sized correctly for 20 km. That is the property the pooled and overview runs lack.
 
-It uses `upstream/data/global/etopo_10m.tif`, which is already on disk, and the project `.venv`. It is independent of `planet_diffusion`.
+It is built from `data/etopo_10m.tif` (ETOPO 2022 at 10 arc-minutes; `python -m planet_earth.manifest` lists it) and needs PyTorch.
 
 ## Commands
 
@@ -10,29 +13,29 @@ Run from the project folder:
 
 ```powershell
 # 1. Dataset: ~10 min on CPU, ~200 MB
-.venv\Scripts\python.exe -m toy_meso.build_dataset --dem upstream\data\global\etopo_10m.tif --out outputs\toy_meso\dataset.npz
+.venv\Scripts\python.exe -m planet_meso.build_dataset --dem data\etopo_10m.tif --out outputs\toy_meso\dataset.npz
 
 # 2. Train (resumable: rerun the same command)
-.venv\Scripts\python.exe -m toy_meso.train --data outputs\toy_meso\dataset.npz --run outputs\toy_meso\run1
+.venv\Scripts\python.exe -m planet_meso.train --data outputs\toy_meso\dataset.npz --run outputs\toy_meso\run1
 
 # 3. Evaluate on held-out regions
-.venv\Scripts\python.exe -m toy_meso.evaluate --data outputs\toy_meso\dataset.npz --run outputs\toy_meso\run1
+.venv\Scripts\python.exe -m planet_meso.evaluate --data outputs\toy_meso\dataset.npz --run outputs\toy_meso\run1
 
 # 4. Large seamless region (5,120 km here), e.g. Scandinavia, which was held out of training
-.venv\Scripts\python.exe -m toy_meso.demo_region --run outputs\toy_meso\run1 --dem upstream\data\global\etopo_10m.tif --lat 64 --lon 14 --cells 34
+.venv\Scripts\python.exe -m planet_meso.demo_region --run outputs\toy_meso\run1 --dem data\etopo_10m.tif --lat 64 --lon 14 --cells 34
 
 # 5. The same model on one of your planets: it refines the planet's 160 km layout
-.venv\Scripts\python.exe -m toy_meso.demo_region --run outputs\toy_meso\run1 --dem human_input\CoarsePooling3\planet-native.tif --lat 20 --lon -40 --cells 34
+.venv\Scripts\python.exe -m planet_meso.demo_region --run outputs\toy_meso\run1 --dem human_input\CoarsePooling3\planet-native.tif --lat 20 --lon -40 --cells 34
 ```
 
 Training defaults: 14.4M-parameter EDM U-Net (64 channels, multipliers 1,2,4, attention at 16×16), batch 32, 30,000 updates, bf16 on CUDA. Based on the earlier 3070 benchmark (112 patches/s at this size), expect roughly **2–3 hours**. `--steps 10000` gives a usable first look in under an hour. Every `--eval-every` updates, a preview PNG is written to the run folder.
 
 ### PNG sketches
 
-`--dem` also accepts a 2:1 north-up grayscale PNG. Brightness maps linearly from `--black-metres` (default -2000) to `--white-metres` (default 4000), as with `planet_diffusion --draft`:
+`--dem` also accepts a 2:1 north-up grayscale PNG. Brightness maps linearly from `--black-metres` (default -2000) to `--white-metres` (default 4000), as with the original generator's `--draft` mode:
 
 ```powershell
-.venv\Scripts\python.exe -m toy_meso.demo_region --run outputs\toy_meso\cpu-smoke --checkpoint smoke-ema.pt --dem human_input\Blobby_2.png --black-metres -6000 --white-metres 6000 --lat 0 --lon 0 --cells 34
+.venv\Scripts\python.exe -m planet_meso.demo_region --run outputs\toy_meso\cpu-smoke --checkpoint smoke-ema.pt --dem human_input\Blobby_2.png --black-metres -6000 --white-metres 6000 --lat 0 --lon 0 --cells 34
 ```
 
 For sketches where pure black means ocean and land starts just above black (like `Blobby_2.png`), add `--ocean-metres -4000 --black-metres 0 --white-metres 6250`.
@@ -42,10 +45,10 @@ The sketch is averaged to 160 km cells, so the model adds everything finer than 
 ## Whole planet (cubed sphere)
 
 ```powershell
-.venv\Scripts\python.exe -m toy_meso.planet --run outputs\toy_meso\run1 --dem path\to\sketch.png --black-metres -6000 --white-metres 6000 --out outputs\toy_meso\planet1
+.venv\Scripts\python.exe -m planet_meso.planet --run outputs\toy_meso\run1 --dem path\to\sketch.png --black-metres -6000 --white-metres 6000 --out outputs\toy_meso\planet1
 ```
 
-Same input options as `demo_region` (`--black-metres`, `--white-metres`, `--ocean-metres`, or a GeoTIFF). It uses `planet_diffusion.cube`: the input is averaged onto 63 coarse intervals per cube face (~159 km), and the model generates 504 per face (~19.9 km), blending 864 overlapping windows across face edges at every step. Outputs in `--out`:
+Same input options as `demo_region` (`--black-metres`, `--white-metres`, `--ocean-metres`, or a GeoTIFF). It uses `planet_grid.cube`: the input is averaged onto 63 coarse intervals per cube face (~159 km), and the model generates 504 per face (~19.9 km), blending 864 overlapping windows across face edges at every step. Outputs in `--out`:
 
 - `planet.tif`: 2016 x 1008 global GeoTIFF in metres (spherical CRS, open in QGIS); change with `--height`
 - `condition.tif`: the averaged input on the same grid, for comparison
@@ -55,11 +58,11 @@ Same input options as `demo_region` (`--black-metres`, `--white-metres`, `--ocea
 
 ## Whole planet at the model's own spacing (tiled, region-consistent)
 
-Use this generator for `outputs\meso\run2-lowlr\latest.pt`. The current `meso-tiled-v2-cell-centres` sampler matches the training cell-centre alignment without moving the fine output coordinates or adding a resampling shift. The checkpoint itself does not need retraining. The older `toy_meso.planet` consensus generator above does not include this correction.
+Use this generator for `outputs\meso\run2-lowlr\latest.pt`. The current `meso-tiled-v2-cell-centres` sampler matches the training cell-centre alignment without moving the fine output coordinates or adding a resampling shift. The checkpoint itself does not need retraining. The older `planet_meso.planet` consensus generator above does not include this correction.
 
 ### Desktop UI for the fixed model
 
-Double-click `Launch Meso.cmd`, or run `.venv\Scripts\python.exe -m toy_meso.gui`. It starts with your `run2-lowlr\latest.pt` checkpoint, `human_input\B2W.png`, black/white elevations of -6000/+6000 m, 32 sampling steps, and 16 tiles per batch. The default output folder is `outputs\meso\planet-ui`.
+Run `.venv\Scripts\python.exe -m planet_meso.gui` from the project folder. It starts with your `run2-lowlr\latest.pt` checkpoint, `human_input\B2W.png`, black/white elevations of -6000/+6000 m, 32 sampling steps, and 16 tiles per batch. The default output folder is `outputs\meso\planet-ui`.
 
 - Choose **Input map**, **Random terrain**, or **Map + random**. Random terrain needs no map; its layout and finer model detail follow the seed. Mixed mode has a **Map contribution** slider: 0% uses random elevations, 100% uses the map, and intermediate values blend the elevation inputs in metres before the model runs. Transparent PNG areas use random terrain in mixed mode, even at 100% map contribution.
 - Optional **Pause to approve the random layout before generating terrain** saves `random.preview.png` (the random globe) and `input.preview.png` (the averaged input for the selected globe/region, including the map blend). The run then stops before GPU inference. **Open input preview**, then **Approve & Generate** to continue with the same cached input. Leave the checkbox off for continuous generation. Approval is saved in `input-review.json`; changed input settings, area/pixel sampling, or preview images require a fresh review. To reject the layout, use **New run** and another seed.
@@ -67,7 +70,7 @@ Double-click `Launch Meso.cmd`, or run `.venv\Scripts\python.exe -m toy_meso.gui
 - **Advanced settings** contains sampling steps, tile batch size, planet radius, optional tile stride, output height/region width, filename, and device. Blank dimensions use the model's native spacing; whole-globe width is always twice its height. There are no climate, refinement, guide-height, or 30 m / 90 m controls.
 - **Generate / Resume** saves `meso-launch.json` and appends to `generation.log`. **Stop** keeps completed tiles. Intermediate arrays and exports are written to temporary files, so a stopped export can resume with the same settings and filename.
 - **Load settings** accepts `meso-launch.json` or the fixed sampler's `settings.json`, including source and mix settings. The latter restores cache settings; choose the desired region/dimensions afterwards. New regions can reuse the same folder and tiles with an unused output filename. **New run** chooses a fresh folder while retaining model and input settings. Existing map-only v2 runs remain compatible; changing source or mix percentage needs a new run folder.
-- On completion, **Open preview** shows the shaded PNG and **Open folder** opens the results. The main project's `Launch Planet.cmd` continues to launch its original UI.
+- On completion, **Open preview** shows the shaded PNG and **Open folder** opens the results.
 
 `planet` above blends all windows at every step, which is fine at 20 km but too heavy at 2.88 km. `planet_tiled` uses a fixed grid of overlapping tiles on the cube instead. Each tile is denoised to completion on its own, from noise keyed to its absolute position on the sphere, and finished tiles are blended (as the upstream coarse stage does). A point depends only on the few tiles covering it, so:
 
@@ -76,16 +79,16 @@ Double-click `Launch Meso.cmd`, or run `.venv\Scripts\python.exe -m toy_meso.gui
 
 ```powershell
 # whole planet (2.88 km model: 8,664 tiles; writes planet.tif ~13,900 x 6,950)
-.venv\Scripts\python.exe -m toy_meso.planet_tiled --run outputs\meso\run2-lowlr --dem human_input\B2W.png --black-metres -6000 --white-metres 6000 --out outputs\meso\planet-fixed --steps 32 --batch 16
+.venv\Scripts\python.exe -m planet_meso.planet_tiled --run outputs\meso\run2-lowlr --dem human_input\B2W.png --black-metres -6000 --white-metres 6000 --out outputs\meso\planet-fixed --steps 32 --batch 16
 
 # just a region (lon/lat box W S E N); same --out folder reuses / adds to the cache
-.venv\Scripts\python.exe -m toy_meso.planet_tiled --run outputs\meso\run2-lowlr --dem human_input\B2W.png --black-metres -6000 --white-metres 6000 --out outputs\meso\planet-fixed --steps 32 --batch 16 --bounds 5 44 15 49 --name Alps.tif
+.venv\Scripts\python.exe -m planet_meso.planet_tiled --run outputs\meso\run2-lowlr --dem human_input\B2W.png --black-metres -6000 --white-metres 6000 --out outputs\meso\planet-fixed --steps 32 --batch 16 --bounds 5 44 15 49 --name Alps.tif
 
 # random planet; no input map needed
-.venv\Scripts\python.exe -m toy_meso.planet_tiled --run outputs\meso\run2-lowlr --source random --seed 42 --out outputs\meso\planet-random
+.venv\Scripts\python.exe -m planet_meso.planet_tiled --run outputs\meso\run2-lowlr --source random --seed 42 --out outputs\meso\planet-random
 
 # mix 75% map elevations with 25% random elevations
-.venv\Scripts\python.exe -m toy_meso.planet_tiled --run outputs\meso\run2-lowlr --source mixed --map-weight .75 --dem human_input\B2W.png --black-metres -6000 --white-metres 6000 --seed 42 --out outputs\meso\planet-mixed
+.venv\Scripts\python.exe -m planet_meso.planet_tiled --run outputs\meso\run2-lowlr --source mixed --map-weight .75 --dem human_input\B2W.png --black-metres -6000 --white-metres 6000 --seed 42 --out outputs\meso\planet-mixed
 ```
 
 - `--dem` can also be one of your `planet-coarse.tif` files (already at 23 km).

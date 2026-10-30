@@ -10,7 +10,7 @@ Every combination x seed runs 250 Myr at n = 217 (parallel workers, 2 threads ea
 day against Earth on the same grid (ETOPO, no ice sheets):
   texture score    planet_reviews.plate_texture: worst |log10| of band-power ratios (92-736 km) and 368 km relief p25/50/75;
   hypsometry score worst |log10| of land fraction and land p25 / p50 / p75 / p90 ratios;
-  arrangement      worst |log10| of high-ground share, flanked-lowland share and slope p90 (planet_training.
+  arrangement      worst |log10| of high-ground share, flanked-lowland share and slope p90 (planet_reviews.
                    arrangement_metrics on ~2,950 km windows, planet_reviews.plate_texture.arrangement; added in step 8 after
                    round mantle swells passed the texture score without making ranges);
   budget score     |continental volume change over the run| (a fraction: -33% scores 0.33, as a factor-2 error does);
@@ -37,8 +37,8 @@ from pathlib import Path
 
 import numpy as np
 from planet_reviews.hypsometry import EARTH_EXPORT_KM3_YR, QS, shelf_metrics
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 MAX_NAME = 80
 
 
@@ -136,7 +136,7 @@ def main(argv=None):
         keys.append(ks); values.append(tuples)
     combos = [{kk: vv for ks, t in zip(keys, c) for kk, vv in zip(ks, t)} for c in itertools.product(*values)] or [{}]
     seeds = [int(s) for s in a.seeds.split(',')]
-    out = ROOT/'outputs'/'planet-calibration'/f"sweep-{time.strftime('%Y%m%d-%H%M%S')}"
+    out = OUTPUTS/'planet-calibration'/f"sweep-{time.strftime('%Y%m%d-%H%M%S')}"
     out.mkdir(parents=True, exist_ok=True)
     dirnames = combo_names(combos)
     name = lambda c: dirnames[combos.index(c)]

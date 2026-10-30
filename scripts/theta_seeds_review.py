@@ -15,8 +15,8 @@ import json
 from pathlib import Path
 
 import numpy as np
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def newest_calibrations(seeds):
@@ -25,7 +25,7 @@ def newest_calibrations(seeds):
     for s in seeds:
         plates = str(chosen_sweep_run(s))
         found = []
-        for f in (ROOT/'outputs'/'planet-landscape').glob(f'theta-*-seed{s}/summary.json'):
+        for f in (OUTPUTS/'planet-landscape').glob(f'theta-*-seed{s}/summary.json'):
             sm = json.loads(f.read_text())
             if 'chosen_theta' in sm and Path(sm['plates']) == Path(plates):
                 found.append((f.stat().st_mtime, f.parent))

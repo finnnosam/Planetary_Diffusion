@@ -33,11 +33,11 @@ from pathlib import Path
 import time
 
 import numpy as np
+from planet_grid.paths import OUTPUTS
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT/'outputs/meso/dataset.npz'
-MESO = ROOT/'outputs/meso/detail-ft/step10000-passed.pt'
-OUT_ROOT = ROOT/'outputs/planet-meso-check'
+DATA = OUTPUTS/'meso/dataset.npz'
+MESO = OUTPUTS/'meso/detail-ft/step10000-passed.pt'
+OUT_ROOT = OUTPUTS/'planet-meso-check'
 CLASSES = [('flat', 0, 300), ('plain-upland', 300, 800), ('hills', 800, 2000), ('mountains', 2000, 1e9)]
 COAST = ('coast', .3, .7)
 # lowland plains (suggested by the user, 18 Oct): flat windows whose core median elevation is below 200 m (the
@@ -49,7 +49,7 @@ RULE = {'incision_ratio_min': .7, 'band_5_11_ratio_min': .7, 'over_textured_abov
 
 def latest_landscape(theta=None):
     """The newest theta calibration's chosen run if there is one, else the newest run made with `theta`."""
-    cal = sorted((ROOT/'outputs'/'planet-landscape').glob('theta-*/summary.json'), key=lambda f: f.stat().st_mtime)
+    cal = sorted((OUTPUTS/'planet-landscape').glob('theta-*/summary.json'), key=lambda f: f.stat().st_mtime)
     for f in reversed(cal):
         ch = json.loads(f.read_text()).get('chosen_theta')
         if ch is not None and (f.parent/f'theta{ch:g}'/'present.npz').exists():
@@ -59,7 +59,7 @@ def latest_landscape(theta=None):
 
 def latest_run_with_theta(theta=None):
     runs = []
-    for f in (ROOT/'outputs'/'planet-landscape').rglob('present.npz'):
+    for f in (OUTPUTS/'planet-landscape').rglob('present.npz'):
         st = f.parent/'stats.json'
         if not st.exists():
             continue
