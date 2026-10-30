@@ -9,7 +9,7 @@ import numpy as np
 from PIL import ImageGrab
 import rasterio
 
-from toy_meso import gui
+from planet_meso import gui
 
 
 def wait_until(root, predicate, label, timeout=180):

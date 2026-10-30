@@ -32,9 +32,9 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import plates as P
-from planet_layer.plates import components
-from planet_layer.sphere_graph import CubeSphere
+from planet_tectonics import plates as P
+from planet_tectonics.plates import components
+from planet_grid.sphere_graph import CubeSphere
 from scripts import boundary_lengths as bl
 from scripts import plate_speeds as ps
 

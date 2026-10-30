@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid.sphere_graph import CubeSphere
 
 ROOT = Path(__file__).resolve().parents[1]
 EARTH = ROOT/'outputs'/'planet-reference'/'earth-plate-speeds-nnr.json'

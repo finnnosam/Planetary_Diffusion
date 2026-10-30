@@ -1,5 +1,5 @@
 """GlobSed (Straume et al. 2019, G3 20, 1756-1772; NOAA NCEI) on the planet layer's grid: total sediment thickness of
-the oceans and marginal seas, area-averaged onto planet_layer.sphere_graph.CubeSphere(n) nodes.
+the oceans and marginal seas, area-averaged onto planet_grid.sphere_graph.CubeSphere(n) nodes.
 
   python -m scripts.earth_sediment              # n = 217, writes outputs/planet-reference/globsed-n217.npz
 
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import fields
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import fields
+from planet_grid.sphere_graph import CubeSphere
 
 ROOT = Path(__file__).resolve().parents[1]
 GLOBSED = ROOT/'data'/'GlobSed'/'V3'/'GlobSed_package3'/'ArcGIS_ascii'/'globsed-v3.asc'

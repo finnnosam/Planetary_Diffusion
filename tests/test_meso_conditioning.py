@@ -2,8 +2,8 @@
 import numpy as np
 from PIL import Image
 
-from toy_meso import conditioning
-from toy_meso.planet_tiled import Grid, coarse_condition_cells
+from planet_meso import conditioning
+from planet_meso.planet_tiled import Grid, coarse_condition_cells
 
 
 def coordinates():
@@ -94,7 +94,7 @@ def test_cache_identity_pins_source_and_mix_but_accepts_legacy_map_runs(tmp_path
 
 
 def test_revised_random_guide_has_structure_near_training_input_spacing():
-    from toy_meso.conditioning_v1 import RandomElevation as SmoothElevation
+    from planet_meso.conditioning_v1 import RandomElevation as SmoothElevation
     # Compare adjacent ~23 km samples across a fixed global spatial population.
     lat = np.linspace(-70, 70, 50)[:, None]
     lon = np.linspace(-179, 179, 100)[None, :]

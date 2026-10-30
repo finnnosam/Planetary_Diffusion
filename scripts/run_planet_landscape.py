@@ -5,7 +5,7 @@
 
 --plates latest picks the newest complete plate run (outputs/planet-plates/<timestamp>/seed*/stats.json).
 The plate run must have snapshots every 1 Myr over at least the window (simulate_plates saves the last 40 Myr).
-Builds the parcel forcing (planet_layer.coupling), runs the landscape model at n = 868 (11.53 km, the spacing it was
+Builds the parcel forcing (planet_landscape.coupling), runs the landscape model at n = 868 (11.53 km, the spacing it was
 tuned at) for the window with sphere flexure, and writes outputs/planet-landscape/<timestamp>-seed<s>/:
 present.npz (cube node fields), preview.png, stats.json (hypsometry against Earth on the same grids, and denudation
 rates by elevation over the last 10 Myr against Earth's).
@@ -17,9 +17,11 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import coupling, fields, graph_landscape as gl
-from planet_layer.sphere_flexure import SphereFlexure
-from planet_layer.sphere_graph import CubeSphere
+from planet_landscape import coupling, graph_landscape as gl
+
+from planet_grid import fields
+from planet_grid.sphere_flexure import SphereFlexure
+from planet_grid.sphere_graph import CubeSphere
 
 ROOT = Path(__file__).resolve().parents[1]
 QS = (10, 25, 50, 75, 90, 99)

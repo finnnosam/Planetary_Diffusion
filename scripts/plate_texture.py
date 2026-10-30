@@ -67,7 +67,7 @@ def arrangement(z, g, mask=None):
     """planet_training.arrangement_metrics on 64 x 64-node windows of the face charts (3 x 3 per face, ~2,950 km),
     windows with >= 50% land in the central 48 x 48 crop and (Earth) <= 5% ice. Means weighted by each metric's own
     cell count. Same code on Earth and planet, so the 46 vs 40 km spacing difference cancels."""
-    from planet_training import arrangement_metrics as am
+    from planet_reviews import arrangement_metrics as am
     face = g.to_cube(np.asarray(z, np.float32))
     valid = g.to_cube(np.ones(g.size, np.float32) if mask is None else mask.astype(np.float32))
     rows = []
@@ -114,7 +114,7 @@ def earth_texture(g):
 
 
 def main(argv=None):
-    from planet_layer.sphere_graph import CubeSphere
+    from planet_grid.sphere_graph import CubeSphere
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('seed_dirs', nargs='+')
     p.add_argument('--time', type=float, default=0.)

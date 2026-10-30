@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "planet-meso"
+version = "0.1.0"
+description = "Planetary Diffusion: the meso refinement model (23 km to 2.88 km)"
+requires-python = ">=3.12"
+dependencies = ["planet-grid", "numpy>=2.0", "torch>=2.4", "pyfastnoiselite==0.0.7", "Pillow>=10", "rasterio>=1.4"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+planet_meso = ["data/*.json", "data/*.txt", "README.md"]

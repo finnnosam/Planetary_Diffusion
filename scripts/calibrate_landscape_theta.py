@@ -24,8 +24,8 @@ import json
 import time
 from pathlib import Path
 
-from planet_layer import coupling
-from planet_layer.sphere_graph import CubeSphere
+from planet_landscape import coupling
+from planet_grid.sphere_graph import CubeSphere
 from scripts import run_planet_landscape as rpl
 
 ROOT = Path(__file__).resolve().parents[1]

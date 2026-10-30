@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from toy_meso import gui
+from planet_meso import gui
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def test_region_command_uses_only_fixed_model_options(values):
                   width="320", height="160", name="Dateline.tif", ocean="-4000", stride="64",
                   steps="24", batch="4", device="cuda")
     command, saved, target = gui.prepare_command(values)
-    assert command[1:4] == ["-u", "-m", "toy_meso.planet_tiled"]
+    assert command[1:4] == ["-u", "-m", "planet_meso.planet_tiled"]
     assert command[command.index("--run") + 1] == str(Path(values["checkpoint"]).parent)
     assert command[command.index("--checkpoint") + 1] == "latest.pt"
     start = command.index("--bounds") + 1
@@ -131,7 +131,7 @@ def test_saved_ui_settings_round_trip_without_executing_command(values, tmp_path
     gui.save_launch(path, saved, ["this is data, never execute it"])
     assert gui.load_settings(path) == saved
     assert not path.with_suffix(".tmp.json").exists()
-    assert command[3] == "toy_meso.planet_tiled"
+    assert command[3] == "planet_meso.planet_tiled"
 
 
 def test_existing_sampler_settings_restore_cache_contract(values):
@@ -150,7 +150,7 @@ def test_existing_sampler_settings_restore_cache_contract(values):
 
 @pytest.mark.parametrize('source, label', [('random', 'Random terrain'), ('mixed', 'Map + random')])
 def test_random_and_mixed_cache_settings_restore_and_reject_different_mix(values, source, label):
-    from toy_meso.conditioning import source_settings
+    from planet_meso.conditioning import source_settings
     folder = Path(values['folder'])
     folder.mkdir()
     saved = cache_settings(values)

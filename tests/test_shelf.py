@@ -1,8 +1,8 @@
-"""planet_layer.shelf: wave planation, shelf-edge progradation and damped coastal retreat on a flat strip."""
+"""planet_tectonics.shelf: wave planation, shelf-edge progradation and damped coastal retreat on a flat strip."""
 import numpy as np
 
-from planet_layer import sphere_graph as sg
-from planet_layer.shelf import shelf_step
+from planet_grid import sphere_graph as sg
+from planet_tectonics.shelf import shelf_step
 
 DX = 46e3
 BIG = 1e9

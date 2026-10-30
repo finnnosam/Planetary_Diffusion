@@ -2,8 +2,9 @@
 import numpy as np
 import pytest
 
-from planet_training import landscape_evolution as le, tectonic_templates as tt
-from planet_layer import sphere_graph as sg, graph_landscape as gl
+from planet_landscape import landscape_evolution as le, tectonic_templates as tt
+from planet_grid import sphere_graph as sg
+from planet_landscape import graph_landscape as gl
 
 
 class NoFlexure:
@@ -73,7 +74,7 @@ def test_surface_rate_moves_surface_without_load():
 
 def test_sphere_flexure_matches_flat_fft():
     pytest.importorskip('ducc0')
-    from planet_layer.sphere_flexure import SphereFlexure
+    from planet_grid.sphere_flexure import SphereFlexure
     n = 217
     g = sg.CubeSphere(n)
     fx = SphereFlexure.for_graph(g, 30e3)
@@ -95,8 +96,8 @@ def test_surface_step_keeps_the_deep_sea_sediment_on_request():
     """On a closed sphere every eroded volume either stays on the surface or is returned as 'deep_m3' (the regional
     model drops what finds no room on the shelves; the plate layer keeps it)."""
     import numpy as np
-    from planet_layer.sphere_graph import CubeSphere
-    from planet_layer import graph_landscape as gl
+    from planet_grid.sphere_graph import CubeSphere
+    from planet_landscape import graph_landscape as gl
     g = CubeSphere(24)
     x, y, zc = g.xyz.T
     z = np.where(x > .3, 3000.*(x-.3)+50., -4000.+2000.*np.cos(6*y)*np.cos(5*zc))   # a continent and a bumpy deep floor
@@ -115,8 +116,8 @@ def test_surface_step_keeps_the_deep_sea_sediment_on_request():
 
 def test_fill_and_spill_ponds_from_the_bottom_and_spills_over():
     import numpy as np
-    from planet_layer import sphere_graph as sg
-    from planet_layer.graph_landscape import fill_and_spill
+    from planet_grid import sphere_graph as sg
+    from planet_landscape.graph_landscape import fill_and_spill
     g = sg.flat(1, 9, 1e3)
     # two depressions: a deep one fed at node 1, a shallower one beyond a sill at node 4
     z = np.array([0., -100., -90., 0., -50., -60., -50., -40., 0.])

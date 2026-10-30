@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 import torch
 
-from planet_diffusion import cube
-from toy_meso import planet_tiled as tiled
-from toy_meso.common import Normalizer
-from toy_meso.model import upsample_condition
-from toy_meso.sphere import encode
+from planet_grid import cube
+from planet_meso import planet_tiled as tiled
+from planet_meso.common import Normalizer
+from planet_meso.model import upsample_condition
+from planet_meso.sphere import encode
 
 
 def test_tile_condition_matches_training_interpolation_including_halos():

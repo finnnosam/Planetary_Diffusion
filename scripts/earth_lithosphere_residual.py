@@ -19,8 +19,8 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer.plates import PARAMS
-from planet_layer.sphere_graph import CubeSphere
+from planet_tectonics.plates import PARAMS
+from planet_grid.sphere_graph import CubeSphere
 from scripts.earth_reference import ice_mask
 from scripts.erosion_law_check import orogen_mask
 

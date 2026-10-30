@@ -28,9 +28,9 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import graph_landscape as gl
-from planet_layer.plates import SUBDUCTION
-from planet_layer.sphere_graph import CubeSphere
+from planet_landscape import graph_landscape as gl
+from planet_tectonics.plates import SUBDUCTION
+from planet_grid.sphere_graph import CubeSphere
 
 try:
     from numba import njit

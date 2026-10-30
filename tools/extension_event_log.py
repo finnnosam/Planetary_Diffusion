@@ -9,8 +9,8 @@ boundary types with third plates while the event runs. The sweep baseline of the
 import sys, json, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
-from planet_layer import plates as P
-from planet_layer.sphere_graph import CubeSphere
+from planet_tectonics import plates as P
+from planet_grid.sphere_graph import CubeSphere
 side, years, out = sys.argv[1], float(sys.argv[2]), sys.argv[3]
 bn = sys.argv[4] if len(sys.argv) > 4 else 'node'
 seed = int(sys.argv[5]) if len(sys.argv) > 5 else 1001

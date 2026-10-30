@@ -9,7 +9,7 @@ import rasterio
 import torch
 
 from scripts.profile_meso_speed import ROOT, OUT, baseline
-from toy_meso import planet_tiled
+from planet_meso import planet_tiled
 
 
 def main():

@@ -26,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid.sphere_graph import CubeSphere
 
 ROOT = Path(__file__).resolve().parents[1]
 EARTH = ROOT/'data'/'crust1'/'crust1-continental-summary.json'
@@ -47,7 +47,7 @@ LEGACY_DEFAULTS = {'sediment_compaction': False, 'piece_rule': 'shared'}
 def run_params(seed_dir):
     """The run's parameters: its stats.json's params_effective (every parameter, saved since the thirty-seventh
     pass), else plates.PARAMS with LEGACY_DEFAULTS, updated by the overrides in its stats.json."""
-    from planet_layer.plates import PARAMS
+    from planet_tectonics.plates import PARAMS
     f = Path(seed_dir)/'stats.json'
     st = json.loads(f.read_text()) if f.exists() else {}
     if 'params_effective' in st:

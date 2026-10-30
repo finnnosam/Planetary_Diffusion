@@ -17,8 +17,8 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import fields
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import fields
+from planet_grid.sphere_graph import CubeSphere
 from scripts.earth_reference import ice_mask
 from scripts.erosion_law_check import orogen_mask
 from scripts.margin_width import C1, crust1_cell

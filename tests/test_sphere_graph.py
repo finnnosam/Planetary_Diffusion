@@ -1,7 +1,7 @@
 import numpy as np
 
-from planet_diffusion import cube
-from planet_layer import sphere_graph as sg
+from planet_grid import cube
+from planet_grid import sphere_graph as sg
 
 
 def test_cube_sphere_geometry():

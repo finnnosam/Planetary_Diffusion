@@ -24,7 +24,7 @@ cell-to-cell curvature at the same relief, about what a 0.7-cell Gaussian blur d
 meso on blurred Earth input shows how much of its texture depends on that fine cue. Rule for a meso that is robust
 to softer input, fixed before testing one: on blurred (0.7) Earth flat and plain/upland input, incision and
 5.8-11.5 km power >= 0.7 of real, while the plain test above still passes. For a detail-aware meso
-(toy_meso.finetune_detail) the softened test also runs with the true sub-cell detail supplied ('-detail' rows).
+(planet_meso.finetune_detail) the softened test also runs with the true sub-cell detail supplied ('-detail' rows).
 
 First result (20261015-193134): the adapted meso fails (flat / plain incision 0.34 / 0.57 of real), the
 original Earth-trained run2-lowlr passes (1.00 / 1.05; 5.8-11.5 km power 1.06 / 1.73).
@@ -41,9 +41,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from planet_training import landscape_evolution as le
-from planet_training.elevation_shading import image, legend
-from planet_training.terrain_structure import blur, decode, encode
+from planet_landscape import landscape_evolution as le
+from planet_reviews.elevation_shading import image, legend
+from planet_meso.structure import blur, decode, encode
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT/'outputs/meso/dataset.npz'
@@ -114,7 +114,7 @@ def summarize(rows):
 
 @torch.no_grad()
 def main(argv=None):
-    from toy_meso.common import load_checkpoint, sample_patches
+    from planet_meso.common import load_checkpoint, sample_patches
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--meso', default=str(MESO)); p.add_argument('--compare', help='second meso checkpoint to test the same way')
     p.add_argument('--sim', help='tectonic-prototype run folder (default: newest)')
@@ -174,7 +174,7 @@ def main(argv=None):
                     cb = encode(blur(decode(c.double()), sig)).float()
                     variants = [('', None)]
                     if getattr(model, 'cond_channels', 1) > 1:   # detail-aware meso: also give it the true detail
-                        from toy_meso.detail import cell_detail
+                        from planet_meso.detail import cell_detail
                         tgt = torch.from_numpy(np.asarray(d['val_target'][i:i+1], np.float32))[:, None]
                         variants.append(('-detail', cell_detail(tgt, c)))
                     for suffix, det in variants:

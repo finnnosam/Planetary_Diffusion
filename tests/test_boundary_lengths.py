@@ -1,6 +1,6 @@
 import numpy as np
 
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid.sphere_graph import CubeSphere
 from scripts.boundary_lengths import lengths
 
 

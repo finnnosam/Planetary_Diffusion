@@ -2,8 +2,8 @@
 import numpy as np
 import pytest
 
-from planet_training import landscape_evolution as le
-from planet_training import tectonic_templates as tt
+from planet_landscape import landscape_evolution as le
+from planet_landscape import tectonic_templates as tt
 
 
 def test_landlocked_below_sea_level_is_not_ocean():
@@ -111,7 +111,7 @@ def test_belts_are_segmented():
 
 
 def test_marine_fill_builds_graded_shelf():
-    from planet_training.landscape_evolution import coast_distance, marine_sediment
+    from planet_landscape.landscape_evolution import coast_distance, marine_sediment
     n = 40; z = np.full(n*n, -500.); ocean = np.ones(n*n, bool)
     z[:n*5] = 100.; ocean[:n*5] = False                     # land strip along one edge
     d = coast_distance(ocean, n, n, 10e3)

@@ -15,8 +15,8 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import plates as P
-from planet_layer.sphere_graph import CubeSphere
+from planet_tectonics import plates as P
+from planet_grid.sphere_graph import CubeSphere
 from scripts.crust_review import label_free_continent, run_params
 
 FLOOR_BELOW_M = 1500.

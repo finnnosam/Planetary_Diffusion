@@ -8,8 +8,8 @@ import numpy as np
 import rasterio
 
 from scripts.verify_meso_ui import wait_until, screenshot
-from toy_meso import gui
-from toy_meso.conditioning import make_source
+from planet_meso import gui
+from planet_meso.conditioning import make_source
 
 
 def main():

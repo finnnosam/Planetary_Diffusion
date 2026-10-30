@@ -5,8 +5,8 @@ import time
 import numpy as np
 
 from scripts.profile_meso_speed import OUT, ROOT
-from toy_meso.planet_tiled import Grid, ensure_coarse_condition
-from toy_meso.conditioning import make_source
+from planet_meso.planet_tiled import Grid, ensure_coarse_condition
+from planet_meso.conditioning import make_source
 
 reference = OUT / 'region-baseline-mixed'
 settings = json.loads((reference / 'settings.json').read_text())

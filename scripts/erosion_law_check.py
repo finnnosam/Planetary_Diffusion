@@ -5,8 +5,8 @@
 
 Each law is applied once, at its own grid and time step, to Earth's present surface on that grid (ETOPO,
 outputs/planet-reference/earth-n<n>.npz):
-  217: the plate layer's coarse erosion (planet_layer.plates.PARAMS: K factor, Sc, Kd factor, theta; 250 kyr);
-  868: the landscape stage (planet_training.landscape_evolution.DEFAULTS, theta = run_planet_landscape.THETA; 50 kyr).
+  217: the plate layer's coarse erosion (planet_tectonics.plates.PARAMS: K factor, Sc, Kd factor, theta; 250 kyr);
+  868: the landscape stage (planet_landscape.landscape_evolution.DEFAULTS, theta = run_planet_landscape.THETA; 50 kyr).
 Erodibility as in the planet: 1 in young orogens, `stable` elsewhere; Earth's young orogens are Bird 2003's orogen
 zones (data/tectonicplates-master/GeoJSON/PB2002_orogens.json).
 
@@ -66,11 +66,11 @@ def orogen_mask(g, path):
 
 def law_rate(n, z, orogen):
     """Gross erosion (m/Myr) of the chain's law at grid n on surface z, one model step."""
-    from planet_layer import graph_landscape as gl
-    from planet_layer.sphere_graph import CubeSphere
+    from planet_landscape import graph_landscape as gl
+    from planet_grid.sphere_graph import CubeSphere
     g = CubeSphere(n)
     if n == 217:
-        from planet_layer.plates import PARAMS as p
+        from planet_tectonics.plates import PARAMS as p
         lp = {**gl.DEFAULTS, 'K': gl.DEFAULTS['K']*p['erosion_K_factor'], 'Sc': p['erosion_Sc'],
               'Kd': gl.DEFAULTS['Kd']*p['erosion_Kd_factor'], 'open_edges': False, 'theta': p['erosion_theta']}
         stable = p['stable_erodibility']
@@ -78,7 +78,7 @@ def law_rate(n, z, orogen):
     else:
         from scripts.run_planet_landscape import THETA
         lp = {**gl.DEFAULTS, 'open_edges': False, 'theta': THETA}
-        stable = .15                                  # planet_layer.coupling.erodibility
+        stable = .15                                  # planet_landscape.coupling.erodibility
         dt = gl.DEFAULTS['dt']
     K = lp['K']*np.where(orogen, 1., stable)
     r = gl.surface_step(g, np.asarray(z, np.float64), z < -1500., None, np.ones(g.size, bool), K, lp, dt,
@@ -110,7 +110,7 @@ def field(props, names):
 
 def compare(g, rate, basins_json, min_cells=MIN_CELLS):
     """basins_json: a GeoJSON path or the parsed FeatureCollection."""
-    from planet_layer import fields
+    from planet_grid import fields
     cell_km2 = g.area.mean()/1e6
     rows = []
     data = basins_json if isinstance(basins_json, dict) else json.loads(Path(basins_json).read_text(encoding='utf-8'))
@@ -159,7 +159,7 @@ def main(argv=None):
     p.add_argument('--min-cells', type=float, default=MIN_CELLS)
     p.add_argument('--out', default=None)
     a = p.parse_args(argv)
-    from planet_layer.sphere_graph import CubeSphere
+    from planet_grid.sphere_graph import CubeSphere
     z = np.load(ROOT/'outputs'/'planet-reference'/f'earth-n{a.grid}.npz')['elevation_m'].astype(np.float64)
     g0 = CubeSphere(a.grid)
     oro = orogen_mask(g0, a.orogens)

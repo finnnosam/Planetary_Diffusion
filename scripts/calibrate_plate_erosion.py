@@ -24,8 +24,8 @@ QS = ('10', '25', '50', '75', '90')
 
 def one(args):
     theta, seed, n, years = args
-    from planet_layer.sphere_graph import CubeSphere
-    from planet_layer.plates import PlateSim
+    from planet_grid.sphere_graph import CubeSphere
+    from planet_tectonics.plates import PlateSim
     g = CubeSphere(n)
     sim = PlateSim(g, seed=seed, t0=-years, params={'erosion_theta': theta, 'threads': 2})
     rates = []

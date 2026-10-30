@@ -130,8 +130,8 @@ def main(argv=None):
                    help="shelf: only combinations whose seed means pass SHELF_BANDS compete (step 8 shelf sweep)")
     p.add_argument('--workers', type=int, default=max(1, min(8, (os.cpu_count() or 2)//2)))
     a = p.parse_args(argv)
-    from planet_layer.plates import PARAMS
-    from planet_layer.sphere_graph import CubeSphere
+    from planet_tectonics.plates import PARAMS
+    from planet_grid.sphere_graph import CubeSphere
     from scripts import plate_texture as pt
     from scripts.earth_reference import load
     keys, values = [], []

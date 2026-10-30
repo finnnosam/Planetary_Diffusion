@@ -26,8 +26,8 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import graph_landscape as gl
-from planet_layer.sphere_graph import CubeSphere
+from planet_landscape import graph_landscape as gl
+from planet_grid.sphere_graph import CubeSphere
 from scripts.crust_review import column_thickness_m, label_free_continent, run_params, wpct
 from scripts.margin_width import BOUNDARY_KM, C1, ROOT, crust1_cell, earth_boundaries
 

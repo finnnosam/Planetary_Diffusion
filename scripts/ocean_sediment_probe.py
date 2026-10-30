@@ -28,9 +28,9 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import fields
-from planet_layer import graph_landscape as gl
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import fields
+from planet_landscape import graph_landscape as gl
+from planet_grid.sphere_graph import CubeSphere
 from scripts import earth_sediment
 from scripts.crust_review import column_thickness_m, label_free_continent, run_params, sediment_bulk_m
 from scripts.margin_width import crust1_cell

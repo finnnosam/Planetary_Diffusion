@@ -1,9 +1,10 @@
 """Plate layer, part 1: lookup, isostasy, and invariants of a short simulation on a coarse cube."""
 import numpy as np
 
-from planet_diffusion import cube
-from planet_layer import fields, plates as P
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import cube
+from planet_grid import fields
+from planet_tectonics import plates as P
+from planet_grid.sphere_graph import CubeSphere
 
 
 def test_nearest_nodes_match_cube_coordinates():
@@ -81,7 +82,7 @@ def test_rifting_stretches_continental_crust_before_breakup():
 
 
 def test_mantle_fields():
-    from planet_layer.mantle import Mantle
+    from planet_tectonics.mantle import Mantle
     g = CubeSphere(32)
     m = Mantle(g, np.random.default_rng(0), -100., params={'hotspots_initial': 3})
     d = m.topography(-50.)
@@ -203,7 +204,7 @@ def test_margin_shortening_run_keeps_the_ledger():
 
 
 def test_edge_spread_moves_only_collapse_excess_across_the_coast():
-    from planet_layer.sphere_graph import flat
+    from planet_grid.sphere_graph import flat
     g = flat(1, 8, 46e3)
     th = np.array([60e3, 60e3, 60e3, 40e3, 7e3, 7e3, 7e3, 7e3])
     cont = np.array([1, 1, 1, 1, 0, 0, 0, 0], bool)
@@ -235,7 +236,7 @@ def test_ocean_floor_eroded_below_its_sediment_loses_crust(monkeypatch):
     # eighteenth pass: the clamp dsed >= -sed dropped erosion below the sediment from the ledger while the material
     # was deposited elsewhere. With ocean_crust_erosion the crust pays for it: crust + sediment change sums to the
     # kernels' own total (erode_and_deposit's small residual, twentieth pass)
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
     kernel = []
     ead = gl.erode_and_deposit
@@ -268,7 +269,7 @@ def test_ocean_floor_eroded_below_its_sediment_loses_crust(monkeypatch):
 def _strip_setup(flag):
     """n = 217 (the flexural parameter, ~68 km at Te 30 km, needs ~46 km cells): a 100 km strip of continental crust
     thinned to 12 km along the whole coast, young ocean floor in front of it."""
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     g = CubeSphere(217)
     sim = P.PlateSim(g, seed=1, params={'water_volume_km3': None, 'mantle': False, 'thinning_local_isostasy': flag})
     w, p = sim.world, sim.p
@@ -301,7 +302,7 @@ def test_continental_sediment_layer_keeps_both_ledgers(monkeypatch):
     # twentieth pass (tests fixed in the plan doc, nineteenth pass): deposits on continental crust go to the sediment
     # layer, erosion takes sediment first; in every erosion call crust + sediment change equals the surface change
     # the landscape kernels made, and the run's crust and continental-sediment volumes change only by their causes
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True})
     a = g.area
@@ -339,7 +340,7 @@ def test_continental_sediment_is_a_sediment_load():
     # a wide sediment cover of thickness s raises dry continental crust by s (rm - rs) / rm and submerged crust by
     # s (rm - rs) / (rm - rw): filling 1 m of water takes ~2.5 m of sediment (4.8 m when it was booked as crust).
     # The uncompacted layer (sediment_compaction False); the compacting column: test_compacted_sediment_is_a_porous_load
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     g = CubeSphere(217)          # n = 217: SphereFlexure gives Airy for wide loads (n = 48 does not)
     for T, wet in ((38000., False), (25000., True)):
         out = {}
@@ -430,7 +431,7 @@ def test_earth_stable_crust_quantiles_match_crust1():
     root = Path(__file__).resolve().parents[1]
     if not (root/'data'/'crust1'/'crsthk.xyz').exists():
         pytest.skip('CRUST1.0 not present')
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     from scripts.crust_review import wpct
     from scripts.interior_probe import GROUPS
     from scripts.margin_width import C1, crust1_cell, earth_boundaries
@@ -454,7 +455,7 @@ def test_quantile_map_keeps_order_and_takes_the_target_distribution():
 
 
 def test_earth_start_keeps_the_field_and_takes_earths_thickness():
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     assert P.PARAMS['start_crust'] == 'earth'
     g = CubeSphere(96)
     a = P.PlateSim(g, seed=3, params={'erosion': False, 'start_crust': 'assumed'})
@@ -1029,7 +1030,7 @@ def test_compacted_sediment_is_a_porous_load():
     # a wide cover of solid thickness S raises the deep ocean floor by h - (rho_grain - rho_w) S / (rho_m - rho_w)
     # (bulk height, buoyant solid mass; Airy at long wavelength) and dry continental crust by h - (rho_grain S +
     # rho_w (h - S)) / rho_m
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     g = CubeSphere(217)          # n = 217: SphereFlexure gives Airy for wide loads (n = 48 does not)
     S = 500.
     for on_cont in (False, True):
@@ -1056,7 +1057,7 @@ def test_compacted_sediment_is_a_porous_load():
 def test_compaction_run_keeps_both_ledgers(monkeypatch):
     # with compaction the sediment field is solid volume: the kernels' closure, the crust and continental-sediment
     # ledgers hold as without it, and the snapshot's bulk thickness is the column's
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True,
                                         'sediment_compaction': True})
@@ -1094,7 +1095,7 @@ def test_compaction_run_keeps_both_ledgers(monkeypatch):
 def _plant_piece(sim, radius_km, cont=False):
     """At the start every plate frame is the world's (Q = I): give plate A a disc of B's territory (B the largest
     plate, the disc around its node farthest from its edge), i.e. a detached piece of A inside B. Returns A, B, disc."""
-    from planet_layer import graph_landscape as gl
+    from planet_landscape import graph_landscape as gl
     g = sim.g
     areas = {q.id: g.area[sim.owner == q.id].sum() for q in sim.plates}
     B = max(sim.plates, key=lambda q: areas[q.id])
@@ -1235,7 +1236,7 @@ def test_start_plates_voronoi_is_the_default():
 
 def test_coast_start_plates_end_at_the_coast():
     # every start plate is either continental or oceanic, connected, and the supercontinent's rim is a plate boundary
-    from planet_layer.plates import components
+    from planet_tectonics.plates import components
     g = CubeSphere(48)
     for seed in (3, 4):
         sim = P.PlateSim(g, seed=seed, params={'water_volume_km3': None, 'mantle': False, 'start_plates': 'coast'})

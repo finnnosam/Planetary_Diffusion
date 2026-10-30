@@ -21,8 +21,10 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import graph_landscape as gl, plates as P
-from planet_layer.sphere_graph import CubeSphere
+from planet_landscape import graph_landscape as gl
+
+from planet_tectonics import plates as P
+from planet_grid.sphere_graph import CubeSphere
 from scripts import crust_review as cr
 from scripts.sweep_plates import EARTH_EXPORT_KM3_YR, QS, shelf_metrics
 

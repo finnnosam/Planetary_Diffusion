@@ -26,11 +26,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
-from planet_training import arrangement_metrics as am
-from planet_training import landscape_evolution as le
-from planet_training import tectonic_templates as tt
-from planet_training.elevation_shading import image, legend
-from planet_training.terrain_structure import conservative_resample, decode, encode
+from planet_reviews import arrangement_metrics as am
+from planet_landscape import landscape_evolution as le
+from planet_landscape import tectonic_templates as tt
+from planet_reviews.elevation_shading import image, legend
+from planet_meso.structure import conservative_resample, decode, encode
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_ROOT = ROOT/'outputs/tectonic-prototype'
@@ -169,7 +169,7 @@ def run_one(scenario, seed, years, out, params, inherited=True):
 
 @torch.no_grad()
 def run_meso(out, stem, z23, land, device, steps, checkpoint=MESO):
-    from toy_meso.common import load_checkpoint, sample_patches
+    from planet_meso.common import load_checkpoint, sample_patches
     meso, mnorm, _ = load_checkpoint(checkpoint, device)
     wins = meso_windows(z23, to23(land.astype(np.float32)) > .5)
     rows = []

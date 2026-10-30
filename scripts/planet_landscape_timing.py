@@ -16,9 +16,10 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_diffusion import cube
-from planet_layer import sphere_graph as sg, graph_landscape as gl
-from planet_layer.sphere_flexure import SphereFlexure
+from planet_grid import cube
+from planet_grid import sphere_graph as sg
+from planet_landscape import graph_landscape as gl
+from planet_grid.sphere_flexure import SphereFlexure
 
 ROOT = Path(__file__).resolve().parents[1]
 

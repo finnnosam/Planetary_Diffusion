@@ -5,10 +5,10 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from toy_meso.conditioning import RandomElevation
-from toy_meso.common import load_checkpoint
-from toy_meso.planet_tiled import Grid, TileCache, compute_tiles, tile_condition, ensure_coarse_condition
-from toy_meso.sphere import encode, decode
+from planet_meso.conditioning import RandomElevation
+from planet_meso.common import load_checkpoint
+from planet_meso.planet_tiled import Grid, TileCache, compute_tiles, tile_condition, ensure_coarse_condition
+from planet_meso.sphere import encode, decode
 
 OUT = Path('outputs/meso/random-diagnosis')
 settings = json.loads(Path('human_input/MESO1/settings.json').read_text())
@@ -32,7 +32,7 @@ np.savez(folder / 'values.npz', generated=generated, baseline=baseline)
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from toy_meso.evaluate import shaded
+from planet_meso.evaluate import shaded
 old = np.load(OUT / 'old.npz')
 # Representative interior land tile; same grid location/seed across both guides.
 i = 5

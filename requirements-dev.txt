@@ -1,0 +1,8 @@
+# Every stage package in editable mode, for working on the repository:
+#   python -m pip install -r requirements-dev.txt
+-e packages/planet-grid
+-e packages/planet-landscape
+-e packages/planet-tectonics
+-e packages/planet-meso
+-e packages/planet-reviews
+pytest>=8

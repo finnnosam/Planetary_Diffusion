@@ -17,8 +17,9 @@ import time
 
 import numpy as np
 
-from planet_training import tectonic_templates as tt
-from planet_layer import graph_landscape as gl, sphere_graph as sg
+from planet_landscape import tectonic_templates as tt
+from planet_landscape import graph_landscape as gl
+from planet_grid import sphere_graph as sg
 
 FINE = (256, 11520., 5e4)
 COARSE = (64, 46080., 2.5e5)

@@ -4,7 +4,7 @@ compare everything with Earth (docs/planet-layer-plan.md, step 8).
   python -m scripts.planet_meso_check                         # newest landscape run made with the default theta
   python -m scripts.planet_meso_check --landscape outputs\\planet-landscape\\theta-...\\theta20 --per-class 16
 
-Hand-off. The 23.04 km input is built exactly as toy_meso.planet_tiled builds it for the model: per face of the
+Hand-off. The 23.04 km input is built exactly as planet_meso.planet_tiled builds it for the model: per face of the
 n = 434 cube, each cell is the mean of 8 x 8 sample points of the landscape surface over the fine nodes 8c..8c+7
 (cell centres at c + 7/16). The landscape grid (n = 868) is exactly twice as fine, so no resampling to another grid
 is involved; the surface is read bilinearly from its own cube nodes. Windows are 18 x 18 cells (16 x 16 core =
@@ -72,8 +72,8 @@ def latest_run_with_theta(theta=None):
 
 
 def cells23(face_field, n=N_COARSE, factor=FACTOR, sub=8):
-    """(6, N+1, N+1) node field of the fine cube -> (6, n, n) cell means, exactly as toy_meso.planet_tiled."""
-    from planet_diffusion import cube
+    """(6, N+1, N+1) node field of the fine cube -> (6, n, n) cell means, exactly as planet_meso.planet_tiled."""
+    from planet_grid import cube
     centre = (factor-1)/(2*factor)
     offsets = (np.arange(sub)+.5)/sub-.5
     out = np.empty((6, n, n), np.float32)
@@ -140,12 +140,12 @@ def main(argv=None):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    from planet_layer.sphere_graph import CubeSphere
-    from planet_training.elevation_shading import image, legend
-    from planet_training.terrain_structure import decode, encode
+    from planet_grid.sphere_graph import CubeSphere
+    from planet_reviews.elevation_shading import image, legend
+    from planet_meso.structure import decode, encode
     from scripts.diagnose_meso_plains import metrics, pick
     from scripts.run_planet_landscape import THETA
-    from toy_meso.common import load_checkpoint, sample_patches
+    from planet_meso.common import load_checkpoint, sample_patches
 
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--landscape', default='latest', help="landscape run folder with present.npz, or 'latest' (the newest "
@@ -281,7 +281,7 @@ def main(argv=None):
         legend(fig, axs); fig.savefig(out/f'{name}.png', dpi=75); plt.close(fig)
 
     # overview map of the windows used
-    from planet_diffusion import cube
+    from planet_grid import cube
     fig, ax = plt.subplots(figsize=(14, 7), constrained_layout=True)
     H = 540
     lat = np.radians(90-(np.arange(H)+.5)*180/H); lon = np.radians(-180+(np.arange(2*H)+.5)*180/H)

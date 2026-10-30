@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 import torch
 
-from toy_meso import planet_tiled as tiled, gui
-from toy_meso.common import Normalizer
-from toy_meso.conditioning import LEGACY_RANDOM_VERSION, RANDOM_VERSION, source_settings, settings_differences
+from planet_meso import planet_tiled as tiled, gui
+from planet_meso.common import Normalizer
+from planet_meso.conditioning import LEGACY_RANDOM_VERSION, RANDOM_VERSION, source_settings, settings_differences
 
 
 @pytest.fixture
@@ -89,8 +89,10 @@ def test_approval_cannot_skip_a_missing_preview(run):
 
 def test_old_random_identity_is_preserved_and_new_runs_use_multiscale():
     legacy = source_settings('random', random_version=LEGACY_RANDOM_VERSION)
-    # This identity is the one stored in the user's completed MESO1 run.
-    assert legacy['random_source_sha256'] == 'a0ea39532cb94a9ff6354ac7141d8f4194687b56bfcf28c42cccafaf84dc411f'
+    # The fingerprint hashes conditioning_v1.py, procedural.py and synthetic_map_stats.json. Until 29 Oct 2026 it was
+    # a0ea39532cb9... (the identity stored in the user's MESO1 run); the move from toy_meso / planet_diffusion to
+    # planet_meso changed those files' import lines, so random-terrain caches from before then are recomputed once.
+    assert legacy['random_source_sha256'] == 'c48d41b8cdfbc1eeff47aafefc44153f190055936f3966e874d42cd6c6cf8f5d'
     current = source_settings('random')
     assert current['random_source_version'] == RANDOM_VERSION
     assert 'random_source_version' in settings_differences(legacy, current)

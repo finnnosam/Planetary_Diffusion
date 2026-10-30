@@ -19,9 +19,9 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_diffusion import cube
-from planet_layer import fields
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import cube
+from planet_grid import fields
+from planet_grid.sphere_graph import CubeSphere
 
 SMOOTH_CELLS = 1.   # great circles at n = 217: within 0.0-0.8% of 2 pi R (0.7 cells: +1-2%, none: +5-9%)
 TYPES = {1: 'ridge', 2: 'subduction', 3: 'collision', 4: 'transform'}
@@ -124,7 +124,7 @@ def typed_segments(g, plate_id, plates, continental=None, vmin_mm_yr=5., seg=Non
 def lengths(g, plate_id, boundary_type=None, convergence=None, plates=None, continental=None, vmin_mm_yr=5.):
     """Boundary length (km) in total and by type. With `plates` (the snapshot's plate table: id, axis, speed_cm_yr)
     each segment is typed from the two plates' relative motion across it, by the plate layer's own rule
-    (planet_layer.plates.classify_boundaries): transform if the closing or opening rate is under max(vmin, half the
+    (planet_tectonics.plates.classify_boundaries): transform if the closing or opening rate is under max(vmin, half the
     shear rate), else ridge (opening) or convergent: collision if both sides are continental, subduction otherwise.
     Without it, a segment takes the node type nearest to its midpoint (biased: a node takes the type of its
     fastest-closing neighbour, diagonals included, so transforms are undercounted)."""

@@ -6,12 +6,12 @@ import time
 import numpy as np
 import torch
 
-from planet_diffusion import procedural
-from toy_meso.conditioning import RandomElevation
-from toy_meso.common import load_checkpoint, load_dataset
-from toy_meso.planet_tiled import Grid, TileCache, compute_tiles, tile_condition, ensure_coarse_condition
-from toy_meso.sphere import encode, decode
-from toy_meso.evaluate import radial_psd
+from planet_meso import procedural
+from planet_meso.conditioning import RandomElevation
+from planet_meso.common import load_checkpoint, load_dataset
+from planet_meso.planet_tiled import Grid, TileCache, compute_tiles, tile_condition, ensure_coarse_condition
+from planet_meso.sphere import encode, decode
+from planet_meso.evaluate import radial_psd
 
 OUT = Path('outputs/meso/random-diagnosis')
 OUT.mkdir(exist_ok=True)

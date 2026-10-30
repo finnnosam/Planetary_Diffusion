@@ -1,12 +1,14 @@
-"""Parcel back-tracing through saved plate rotations (planet_layer.coupling)."""
+"""Parcel back-tracing through saved plate rotations (planet_landscape.coupling)."""
 import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 
-from planet_layer import coupling, plates as P
-from planet_layer.sphere_graph import CubeSphere
+from planet_landscape import coupling
+
+from planet_tectonics import plates as P
+from planet_grid.sphere_graph import CubeSphere
 
 
 @pytest.fixture(scope='module')

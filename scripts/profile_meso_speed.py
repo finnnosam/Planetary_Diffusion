@@ -8,8 +8,8 @@ import time
 import numpy as np
 import torch
 
-from toy_meso import common, model as model_module, planet_tiled as tiled
-from toy_meso.sphere import encode, decode
+from planet_meso import common, model as model_module, planet_tiled as tiled
+from planet_meso.sphere import encode, decode
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'outputs/meso/speed-verification'
@@ -27,13 +27,13 @@ def baseline():
     for name in ('model', 'common', 'planet_tiled'):
         path = OUT / f'baseline_{name}.py'
         if not path.exists():
-            path.write_bytes((ROOT / 'toy_meso' / f'{name}.py').read_bytes())
-    old_model = module('toy_meso._speed_model', OUT / 'baseline_model.py')
-    old_common = module('toy_meso._speed_common', OUT / 'baseline_common.py')
+            path.write_bytes((ROOT / 'packages/planet-meso/src/planet_meso' / f'{name}.py').read_bytes())
+    old_model = module('planet_meso._speed_model', OUT / 'baseline_model.py')
+    old_common = module('planet_meso._speed_common', OUT / 'baseline_common.py')
     old_common.build_model = lambda cfg: old_model.EDMDenoiser(
         sigma_data=.5, ch=cfg['ch'], mults=tuple(cfg['mults']), blocks=cfg['blocks'], dropout=cfg.get('dropout', 0))
     old_common.heun_sample = old_model.heun_sample
-    old_tiled = module('toy_meso._speed_tiled', OUT / 'baseline_planet_tiled.py')
+    old_tiled = module('planet_meso._speed_tiled', OUT / 'baseline_planet_tiled.py')
     old_tiled.heun_sample = old_model.heun_sample
     old_tiled.autocast = old_common.autocast
     return old_common, old_tiled

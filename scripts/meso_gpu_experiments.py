@@ -1,7 +1,7 @@
 """Reusable GPU forward execution for a fixed-size inference batch."""
 import torch
 
-from toy_meso.common import autocast
+from planet_meso.common import autocast
 
 
 class CUDAForward:

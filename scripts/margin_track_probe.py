@@ -12,8 +12,9 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import fields, graph_landscape as gl
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import fields
+from planet_landscape import graph_landscape as gl
+from planet_grid.sphere_graph import CubeSphere
 from scripts.crust_review import run_params, total_thickness_m
 from scripts.margin_width import BOUNDARY_KM
 

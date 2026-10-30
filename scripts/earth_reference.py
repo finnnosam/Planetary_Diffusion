@@ -1,5 +1,5 @@
 """Earth's elevation statistics on the planet layer's own grid: ETOPO 2022 (30", surface) area-averaged onto the nodes
-of planet_layer.sphere_graph.CubeSphere(n), so planet and Earth are compared at the same spacing.
+of planet_grid.sphere_graph.CubeSphere(n), so planet and Earth are compared at the same spacing.
 
   python -m scripts.earth_reference                 # n = 217 (46 km), writes outputs/planet-reference/earth-n217.{npz,json}
 
@@ -12,8 +12,8 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import fields
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import fields
+from planet_grid.sphere_graph import CubeSphere
 
 ROOT = Path(__file__).resolve().parents[1]
 ETOPO = ROOT/'data'/'etopo_2022_30s_surface.tif'

@@ -12,8 +12,10 @@ import sys
 
 import numpy as np
 
-from planet_layer import fields, plates as P
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid import fields
+
+from planet_tectonics import plates as P
+from planet_grid.sphere_graph import CubeSphere
 
 
 def main():

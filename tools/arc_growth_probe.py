@@ -10,8 +10,8 @@ The trench flag is rebuilt from the node rule (score: continental first, younger
 import json, sys
 from pathlib import Path
 import numpy as np
-from planet_layer import plates as P
-from planet_layer.sphere_graph import CubeSphere
+from planet_tectonics import plates as P
+from planet_grid.sphere_graph import CubeSphere
 
 g = CubeSphere(217)
 nbr, dist, area = g.nbr, g.dist, g.area
@@ -84,7 +84,7 @@ def probe(sd, t):
     code = np.where(s2 & oo, 0, np.where(s2, 1, np.where(typ == 4, 2, np.where(typ == 1, 3, np.where(typ == 3, 4, 5)))))
     pri = np.array([0, 1, 4, 2, 3, 5])   # priority when a node has several: io > cont > collision > transform > ridge > untyped
     best = np.full(g.size, 99)
-    from planet_layer import fields
+    from planet_grid import fields
     mn = fields.nearest_nodes(g, ts['mid'])
     np.minimum.at(best, mn, pri[code])
     inv = np.argsort(pri)

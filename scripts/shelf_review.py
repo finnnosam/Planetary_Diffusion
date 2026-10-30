@@ -48,7 +48,7 @@ def review(run, g):
 
 
 def main(argv=None):
-    from planet_layer.sphere_graph import CubeSphere
+    from planet_grid.sphere_graph import CubeSphere
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('runs', nargs='+')
     a = ap.parse_args(argv)

@@ -15,8 +15,10 @@ import time
 
 import numpy as np
 
-from planet_layer import graph_landscape as gl, plates as P, shelf as shelf_mod
-from planet_layer.sphere_graph import CubeSphere
+from planet_landscape import graph_landscape as gl
+
+from planet_tectonics import plates as P, shelf as shelf_mod
+from planet_grid.sphere_graph import CubeSphere
 
 BINS = (('subaerial', lambda z: z > 0), ('shallow_sea', lambda z: (z <= 0) & (z > -1000)), ('deep', lambda z: z <= -1000))
 

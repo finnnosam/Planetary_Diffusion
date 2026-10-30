@@ -30,7 +30,7 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer.sphere_graph import CubeSphere
+from planet_grid.sphere_graph import CubeSphere
 from scripts.crust_review import column_thickness_m, label_free_continent, run_params
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -120,7 +120,7 @@ def arc_stock(z, g, p, near_d=None):
 
 
 def subduction_distance(z, g):
-    from planet_layer.plates import SUBDUCTION, nearest_label
+    from planet_tectonics.plates import SUBDUCTION, nearest_label
     lab = np.where(z['boundary_type'] == SUBDUCTION, np.arange(g.size), -1).astype(np.int64)
     if (lab < 0).all():
         return np.full(g.size, np.inf)
@@ -135,7 +135,7 @@ def trench_arrivals(z, g, p):
     per plate pair from the mean contact age, so this is a node-wise approximation). Node lengths: each downgoing
     boundary node stands for one cell width; the node count overstates line length (scripts.boundary_lengths: 1.2-
     1.4x), so run_one scales the result by contour / node length of the subduction boundary."""
-    from planet_layer.plates import SUBDUCTION
+    from planet_tectonics.plates import SUBDUCTION
     pid = z['plate_id']; cont = z['continental'].astype(bool)
     age = z['crust_age_myr'].astype(np.float64)
     bt = z['boundary_type']

@@ -14,9 +14,9 @@ from pathlib import Path
 
 import numpy as np
 
-from planet_layer import fields
-from planet_layer.sphere_graph import CubeSphere
-from planet_layer.plates import PlateSim, RIDGE, SUBDUCTION, COLLISION, TRANSFORM
+from planet_grid import fields
+from planet_grid.sphere_graph import CubeSphere
+from planet_tectonics.plates import PlateSim, RIDGE, SUBDUCTION, COLLISION, TRANSFORM
 
 ROOT = Path(__file__).resolve().parents[1]
 EARTH = {'land_fraction': .29, 'land_mean_elevation_m': 840., 'ocean_age_mean_myr': 64., 'ocean_age_max_myr': 180., 'ridge_km': 65000.,
@@ -188,12 +188,12 @@ def main(argv=None):
     p.add_argument('--out', default=None)
     p.add_argument('--allow-coarse', action='store_true', help='allow n < 96 (plumbing tests only)')
     p.add_argument('--param', action='append', default=[], metavar='KEY=VALUE',
-                   help='override a planet_layer.plates.PARAMS entry, e.g. --param erosion_theta=16')
+                   help='override a planet_tectonics.plates.PARAMS entry, e.g. --param erosion_theta=16')
     a = p.parse_args(argv)
     if a.n < 96 and not a.allow_coarse:
         raise SystemExit('n < 96: the erosion parameters are for ~46 km cells (n = 217) and lose meaning on much coarser '
                          'grids; use --allow-coarse for plumbing tests only')
-    from planet_layer.plates import PARAMS
+    from planet_tectonics.plates import PARAMS
     a.params = {}
     for kv in a.param:
         k, v = kv.split('=', 1)
