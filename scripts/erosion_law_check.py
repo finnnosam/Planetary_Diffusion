@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 
 import numpy as np
-from planet_earth.bird import orogen_mask
+from planet_earth.bird import lonlat, orogen_mask  # noqa: F401 (lonlat: used by tests through this module)
 from planet_grid.paths import DATA, OUTPUTS
 
 CLASSES = ((0., 20.), (20., 100.), (100., 500.), (500., 1e9))
