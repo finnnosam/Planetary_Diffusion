@@ -41,7 +41,11 @@ def wpct(v, w, q):
 
 # defaults that changed after runs that saved only their overrides: such a run ran with these (a review reading it
 # with today's defaults would read the wrong law). sediment_compaction: default True since the thirty-seventh pass
-LEGACY_DEFAULTS = {'sediment_compaction': False, 'piece_rule': 'shared'}
+# Defaults that changed after runs started saving params_effective (thirty-seventh pass) or that older runs, which
+# saved only their overrides, ran with: compaction and the piece rule (26 Oct), the erosion law and the margin budget
+# (PARAMS since 29 Oct; sweeps passed the new values explicitly from 23 Oct, so their overrides win)
+LEGACY_DEFAULTS = {'sediment_compaction': False, 'piece_rule': 'shared', 'erosion_K_factor': .75, 'erosion_theta': 6.,
+                   'erosion_Sc': .05, 'margin_shortening': False, 'sediment_accretion': .75}
 
 
 def run_params(seed_dir):

@@ -83,10 +83,12 @@ PARAMS = {
     'threads': None,              # threads for the spherical-harmonic flexure (None: all cores)
     # coarse erosion: the landscape model's surface processes at the plate grid (calibrated: scripts/calibrate_coarse_erosion)
     'erosion': True, 'erosion_substeps': 4,
-    'erosion_K_factor': .75, 'erosion_Sc': .05, 'erosion_Kd_factor': 4.,   # K 0.75: sweep-20261018-164500
-    # incision threshold (A^m S at 46 km). 8 from step 6 (calibrated with the deep-sea sediment sink and one-cell rifted
-    # margins); 6 since 22 Oct (sweep-20261022-194148, with breakup 17.5 km and shelves)
-    'erosion_theta': 6.,
+    # K factor, incision threshold theta (A^m S at 46 km) and slope cap Sc from Earth: the law fitted to OCTOPUS 10Be
+    # basin-averaged erosion rates on ETOPO at this grid (fifteenth pass, scripts/erosion_law_check.py). Every sweep
+    # passed these explicitly from 23 Oct; defaults since 29 Oct. Before: K 0.75 (sweep-20261018-164500), theta 8
+    # (step 6) then 6 (sweep-20261022-194148), Sc 0.05; reviews read old runs with crust_review.LEGACY_DEFAULTS
+    'erosion_K_factor': 1.0, 'erosion_Sc': .036, 'erosion_Kd_factor': 4.,
+    'erosion_theta': 200.,
     'stable_erodibility': .15,     # old crust relative to fresh orogens (as the test bed)
     'orogen_erodibility_tau_myr': 50.,
     # which crust resets the orogeny clock (erodibility 1, decaying with orogen_erodibility_tau_myr) (twenty-fourth
@@ -120,9 +122,9 @@ PARAMS = {
     #    belt at d0 +- sigma. New volume is only arc magmatism, arc_H_cont_m x convergence (750 m: ~40 km^3 per km of
     #    trench per Myr at 54 mm/yr, Earth's ~1.0 km^3/yr over ~25,000 km of continental-margin trench)
     'subduction_H_cont_m': 2500., 'subduction_d0_cont_km': 150., 'subduction_sigma_cont_km': 60.,
-    # (default False until the 3-seed sweep decides: one seed in the cloud workspace scored 0.64 vs 0.37, see the plan
-    # doc's eleventh pass)
-    'margin_shortening': False, 'rollback_mm_yr': 17., 'arc_H_cont_m': 750.,
+    # Every sweep passed True from 23 Oct (Earth's margin budget, thirteenth and sixteenth passes); default since 29 Oct
+    # (before: False, with subduction_H_cont_m as new crust)
+    'margin_shortening': True, 'rollback_mm_yr': 17., 'arc_H_cont_m': 750.,
     'foreland_d0_km': 350., 'foreland_sigma_km': 100.,
     'arc_H_ocean_m': 300., 'arc_d0_km': 150., 'arc_sigma_km': 50.,
     'arc_to_continent_thick_m': 20000.,
@@ -157,9 +159,9 @@ PARAMS = {
     # medium prisms (16,300 km of trench), ~30% at large prisms (8,200 km), none at nonaccretionary margins
     # (19,000 km): 0.13 length-weighted. 0.75 (18 Oct) matched Earth's *absolute* sediment subduction (~1.65
     # km^3/yr) while the deep-sea sink deleted half the export; with the sink closed it returned three quarters of
-    # all exported sediment to the continents (a loop of gain up to 4; tenth pass). Default kept at 0.75 until the
-    # 3-seed sweep decides (Margin Shortening Sweep.cmd)
-    'sediment_accretion': .75,
+    # all exported sediment to the continents (a loop of gain up to 4; tenth pass). Every sweep passed 0.13 from 23 Oct;
+    # default since 29 Oct (before: 0.75)
+    'sediment_accretion': .13,
     # continental rifting: a gap opening between continental crust is stretched continental crust (rift_thinning x its
     # neighbours' thickness, volume taken from them) until it would be thinner than breakup_thick_m; then ocean floor
     # breakup 17.5 km since 22 Oct (sweep-20261022-194148; 20 km left rifted margins one cell wide and only ~15% of the

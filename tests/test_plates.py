@@ -412,6 +412,21 @@ def test_pure_shear_rift_run_conserves_volume_and_breaks_up_at_breakup_thickness
     assert abs((sim.continental_volume()-v0)-sum(sim.ledger.values())) < 2e-3*v0
 
 
+def test_earth_erosion_law_and_margin_budget_are_the_defaults(tmp_path):
+    # the working baseline every sweep passed explicitly from 23 Oct (defaults since 29 Oct)
+    p = P.PARAMS
+    assert (p['erosion_K_factor'], p['erosion_theta'], p['erosion_Sc'], p['erosion_Kd_factor']) == (1.0, 200., .036, 4.)
+    assert p['margin_shortening'] is True and p['sediment_accretion'] == .13
+    # runs that saved only their overrides are read with the defaults they ran with
+    import json
+    from scripts.crust_review import run_params
+    (tmp_path/'stats.json').write_text(json.dumps({'params': {'erosion_theta': 200.}}))
+    old = run_params(tmp_path)
+    assert old['erosion_theta'] == 200. and old['erosion_K_factor'] == .75 and old['margin_shortening'] is False
+    (tmp_path/'stats.json').write_text(json.dumps({'params_effective': {**p, 'sediment_accretion': .5}}))
+    assert run_params(tmp_path)['sediment_accretion'] == .5
+
+
 def test_pure_shear_is_the_default_with_earth_rifting():
     assert P.PARAMS['rift_rule'] == 'pure_shear'
     assert P.PARAMS['rift_width_km'] == 100. and P.PARAMS['breakup_thick_m'] == 10000.

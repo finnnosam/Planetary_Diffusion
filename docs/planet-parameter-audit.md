@@ -12,8 +12,14 @@ Kinds:
   To be replaced.
 - **N**: numerical (resolution, stability, step size).
 
-Files: `planet_layer/plates.py` (PARAMS), `planet_layer/mantle.py` (PARAMS), `planet_training/landscape_evolution.py`
-(DEFAULTS, used by the graph kernels at both grids), `planet_layer/coupling.py`, `scripts/run_planet_landscape.py`.
+Files: `packages/planet-tectonics/src/planet_tectonics/plates.py` (PARAMS), `.../planet_tectonics/mantle.py` (PARAMS),
+`packages/planet-landscape/src/planet_landscape/landscape_evolution.py` (DEFAULTS, used by the graph kernels at both
+grids), `.../planet_landscape/coupling.py`, `scripts/run_planet_landscape.py`.
+
+**29 Oct 2026: the working baseline is now PARAMS.** The Earth-calibrated 46 km erosion law (`erosion_K_factor` 1.0,
+`erosion_theta` 200, `erosion_Sc` 0.036) and Earth's margin budget (`margin_shortening` True, `sediment_accretion`
+0.13), which every sweep passed explicitly from 23 Oct, are the defaults. Rows below that call 0.75 / 6 / 0.05 /
+False / 0.75 the default describe the state before that.
 
 ## 1. Fitted values (F): the replacement list
 
