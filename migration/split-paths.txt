@@ -1,0 +1,103 @@
+planet_layer/
+toy_meso/
+planet_training/__init__.py
+planet_training/arrangement_metrics.py
+planet_training/elevation_shading.py
+planet_training/landscape_evolution.py
+planet_training/tectonic_templates.py
+planet_training/terrain_structure.py
+scripts/arc_dock_probe.py
+scripts/area_ledger_probe.py
+scripts/boundary_lengths.py
+scripts/calibrate_coarse_erosion.py
+scripts/calibrate_landscape_theta.py
+scripts/calibrate_plate_erosion.py
+scripts/compaction_effect.py
+scripts/crust_budget.py
+scripts/crust_review.py
+scripts/diagnose_meso_plains.py
+scripts/diagnose_meso_random.py
+scripts/earth_crust_elevation.py
+scripts/earth_deformation.py
+scripts/earth_lithosphere_residual.py
+scripts/earth_reference.py
+scripts/earth_seafloor_age.py
+scripts/earth_sediment.py
+scripts/elevation_check.py
+scripts/erosion_law_check.py
+scripts/interior_probe.py
+scripts/ledger_probe.py
+scripts/margin_age_probe.py
+scripts/margin_cross_section.py
+scripts/margin_track_probe.py
+scripts/margin_width.py
+scripts/meso_gpu_experiments.py
+scripts/ocean_sediment_probe.py
+scripts/planet_landscape_timing.py
+scripts/planet_meso_check.py
+scripts/plate_pieces_review.py
+scripts/plate_speeds.py
+scripts/plate_texture.py
+scripts/profile_meso_full_condition.py
+scripts/profile_meso_region_speed.py
+scripts/profile_meso_speed.py
+scripts/run_planet_landscape.py
+scripts/shelf_review.py
+scripts/simulate_plates.py
+scripts/simulate_tectonic_region.py
+scripts/subaerial_ocean_probe.py
+scripts/sweep_plates.py
+scripts/theta_seeds_review.py
+scripts/thinned_strip_probe.py
+scripts/trench_origin.py
+scripts/verify_meso_random.py
+scripts/verify_meso_random_fix.py
+scripts/verify_meso_ui.py
+tests/test_boundary_lengths.py
+tests/test_coupling.py
+tests/test_crust_reviews.py
+tests/test_erosion_law_check.py
+tests/test_graph_landscape.py
+tests/test_landscape_evolution.py
+tests/test_meso_conditioning.py
+tests/test_meso_gui.py
+tests/test_meso_input_review.py
+tests/test_meso_tiled.py
+tests/test_plates.py
+tests/test_shelf.py
+tests/test_sphere_graph.py
+tools/arc_growth_probe.py
+tools/compare_runs.py
+tools/device_runs/
+tools/device_stubs/
+tools/extension_event_log.py
+docs/planet-layer/
+docs/research/
+docs/planet-layer-plan.md
+docs/next-chat-prompt.md
+docs/project-map.md
+docs/planet-parameter-audit.md
+docs/planet-ideal-flow.md
+docs/tectonic-prototype.md
+Arc Dock Probe.cmd
+B-b Six Seeds Check.cmd
+Coast Start Sweep.cmd
+Compaction Sweep.cmd
+Earth Erosion Law Sweep.cmd
+Edge Collapse Sweep.cmd
+Erosion Law Check.cmd
+Extension Sweep.cmd
+Extension2 Sweep.cmd
+Extension3 Sweep.cmd
+Held Out Seeds Check.cmd
+Interior Defaults Tests.cmd
+Interior Sweep.cmd
+Margin Shortening Sweep.cmd
+Plate Pieces Sweep.cmd
+Rift Rule Sweep.cmd
+Rifted Margins Sweep.cmd
+Ring Defaults Tests.cmd
+Sediment Layer Sweep.cmd
+Thinning Isostasy Sweep.cmd
+Trench Flux Sweep.cmd
+Typing E4 Sweep.cmd

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "planetary-diffusion"
+version = "0.1.0"
+description = "A simulated planet: plate tectonics, crust history and landscape evolution on the cube sphere, refined by a learned meso model"
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.0", "numba>=0.60", "ducc0>=0.34", "matplotlib>=3.8"]
+
+[project.optional-dependencies]
+# Phase A of the split: cube geometry and procedural noise still come from the original generator.
+generator = ["spherical-terrain-diffusion"]
+meso = ["torch>=2.4"]
+test = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["planet_layer*", "toy_meso*", "planet_training*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

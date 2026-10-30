@@ -1,0 +1,44 @@
+# Environments and builds
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.env
+.env.*
+
+# Caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+numba-cache/
+
+# Data and results never go into git (this repository is public).
+# data/ holds the Earth datasets (download links in docs/project-map.md);
+# outputs/ holds runs, sweeps, reviews and model checkpoints.
+data/
+outputs/
+*.tif
+*.tiff
+*.nc
+*.grd
+*.npz
+*.npy
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.zip
+*.log
+
+# Editors and local agent state
+.idea/
+.vscode/
+.agents/
+.codex/
+*.swp
+*~
