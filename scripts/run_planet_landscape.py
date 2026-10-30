@@ -218,7 +218,7 @@ def run(seed_dir, out, n=868, window=30., dt=5e4, theta=THETA, forcing_dir=None,
     np.savez_compressed(out/'present.npz', n=n, **{k: v for k, v in o.items() if k in ('elevation_m', 'drainage_area_m2', 'outlet', 'lake_depth_m', 'river', 'ocean', 'drains_to_sea', 'rock_load_m')},
                         erodibility=erod.astype(np.float32), initial_m=F['z0_m'], denudation_late_m_myr=rate.astype(np.float32))
     z = o['elevation_m'].astype(np.float64)
-    from scripts.earth_reference import load as earth_load
+    from planet_earth.reference import load as earth_load
     gc = CubeSphere(217)
     cont = np.asarray(F['continental_now']) > .5
     den = denudation_table(z, rate, g.area)

@@ -7,7 +7,7 @@ name = "planet-reviews"
 version = "0.1.0"
 description = "Planetary Diffusion: reviews of the planet against Earth"
 requires-python = ">=3.12"
-dependencies = ["planet-grid", "numpy>=2.0", "matplotlib>=3.8"]
+dependencies = ["planet-grid", "planet-earth", "planet-landscape", "planet-tectonics", "numpy>=2.0", "matplotlib>=3.8"]
 
 [project.optional-dependencies]
 arrangement = ["torch>=2.4"]

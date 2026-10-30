@@ -8,10 +8,10 @@ colon-joined tuple). Separate --grid options are crossed.
 
 Every combination x seed runs 250 Myr at n = 217 (parallel workers, 2 threads each) and is scored on its present
 day against Earth on the same grid (ETOPO, no ice sheets):
-  texture score    scripts.plate_texture: worst |log10| of band-power ratios (92-736 km) and 368 km relief p25/50/75;
+  texture score    planet_reviews.plate_texture: worst |log10| of band-power ratios (92-736 km) and 368 km relief p25/50/75;
   hypsometry score worst |log10| of land fraction and land p25 / p50 / p75 / p90 ratios;
   arrangement      worst |log10| of high-ground share, flanked-lowland share and slope p90 (planet_training.
-                   arrangement_metrics on ~2,950 km windows, scripts.plate_texture.arrangement; added in step 8 after
+                   arrangement_metrics on ~2,950 km windows, planet_reviews.plate_texture.arrangement; added in step 8 after
                    round mantle swells passed the texture score without making ranges);
   budget score     |continental volume change over the run| (a fraction: -33% scores 0.33, as a factor-2 error does);
   flux score       log10 distance of the continents' net rock export to the ocean from Earth's 4-8 km^3/yr;
@@ -36,9 +36,9 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
+from planet_reviews.hypsometry import EARTH_EXPORT_KM3_YR, QS, shelf_metrics
 
 ROOT = Path(__file__).resolve().parents[1]
-QS = ('25', '50', '75', '90')
 MAX_NAME = 80
 
 
@@ -65,7 +65,7 @@ def one(job):
 
 
 def score(seed_dir, earth_tex, earth_hyp, g):
-    from scripts import plate_texture as pt
+    from planet_reviews import plate_texture as pt
     z = np.load(Path(seed_dir)/'snapshots'/'t+0000.0.npz')['elevation_m'].astype(np.float64)
     tex = pt.compare(pt.texture(z, g), earth_tex)
     ar, ea = pt.arrangement(z, g), earth_tex['arrangement']
@@ -101,21 +101,10 @@ def score(seed_dir, earth_tex, earth_hyp, g):
 SHELF_BANDS = {'whole_p70_m': (-150., 0.), 'continental_submerged': (.20, .35), 'land_p25_m': (-np.inf, 250.)}
 
 
-def shelf_metrics(z, cont, g):
-    a = g.area
-    land = z > 0
-    return {'whole_p70_m': float(np.percentile(z, 70)), 'continental_submerged': float(a[cont & ~land].sum()/a[cont].sum()),
-            'land_p25_m': float(np.percentile(z[land], 25)), 'shallow_sea_share': float(a[(z > -200) & ~land].sum()/a.sum()),
-            'continental_fraction': float(a[cont].sum()/a.sum())}
-
 
 def shelf_pass(m):
     return bool(all(lo <= m[k] <= hi for k, (lo, hi) in SHELF_BANDS.items()))
 
-
-# rock delivered from the continents to the ocean, km^3/yr: ~14 Gt/yr of pre-human suspended load plus ~4 Gt/yr
-# dissolved (Milliman & Farnsworth 2011; Syvitski et al. 2005), at 2.65 t/m^3, ~6.8; band kept wide
-EARTH_EXPORT_KM3_YR = (4., 8.)
 
 
 ARRANGEMENT_KEYS = ('high_share', 'flanked_low_fraction', 'slope_p90_m_per_km')
@@ -132,8 +121,8 @@ def main(argv=None):
     a = p.parse_args(argv)
     from planet_tectonics.plates import PARAMS
     from planet_grid.sphere_graph import CubeSphere
-    from scripts import plate_texture as pt
-    from scripts.earth_reference import load
+    from planet_reviews import plate_texture as pt
+    from planet_earth.reference import load
     keys, values = [], []
     for spec in a.grid:
         k, v = spec.split('=', 1)

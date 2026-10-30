@@ -14,8 +14,8 @@ import numpy as np
 
 from planet_landscape import graph_landscape as gl
 from planet_grid.sphere_graph import CubeSphere
-from scripts.crust_review import run_params, total_thickness_m
-from scripts.margin_width import BOUNDARY_KM
+from planet_reviews.crust_review import run_params, total_thickness_m
+from planet_reviews.margin_width import BOUNDARY_KM
 
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -17,10 +17,10 @@ import numpy as np
 
 from planet_tectonics import plates as P
 from planet_grid.sphere_graph import CubeSphere
-from scripts.crust_review import label_free_continent, run_params
+from planet_reviews.crust_review import label_free_continent, run_params
 
 FLOOR_BELOW_M = 1500.
-GLOBSED_OCEAN_M = 610.       # label-free ocean, n = 217 (scripts.ocean_sediment_probe)
+GLOBSED_OCEAN_M = 610.       # label-free ocean, n = 217 (planet_reviews.ocean_sediment_probe)
 
 
 def seed_dirs(dirs):

@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from scripts import crust_review as cr
+from planet_reviews import crust_review as cr
 
 ROOT = Path(__file__).resolve().parents[1]
 C1 = ROOT/'data'/'crust1'

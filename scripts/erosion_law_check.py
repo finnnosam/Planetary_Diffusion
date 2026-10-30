@@ -28,6 +28,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+from planet_earth.bird import orogen_mask
 
 ROOT = Path(__file__).resolve().parents[1]
 CLASSES = ((0., 20.), (20., 100.), (100., 500.), (500., 1e9))
@@ -38,30 +39,11 @@ RATE_FIELDS = ('EBE_MMKYR', 'ebe_mmkyr', 'EBE_MM_KYR', 'ebe_mm_kyr')
 AREA_FIELDS = ('AREA', 'area', 'AREA_KM2', 'area_km2')
 
 
-def lonlat(xyz):
-    x, y, z = np.asarray(xyz).T
-    return np.degrees(np.arctan2(y, x)), np.degrees(np.arcsin(np.clip(z, -1, 1)))
-
 
 def to_xyz(lon, lat):
     lo, la = np.radians(lon), np.radians(lat)
     return np.stack((np.cos(la)*np.cos(lo), np.cos(la)*np.sin(lo), np.sin(la)), -1)
 
-
-def orogen_mask(g, path):
-    """Nodes inside Bird 2003's orogen polygons (longitudes unwrapped around each ring's first vertex)."""
-    from matplotlib.path import Path as MPath
-    lon, lat = lonlat(g.xyz)
-    inside = np.zeros(g.size, bool)
-    for f in json.loads(Path(path).read_text(encoding='utf-8'))['features']:
-        geom = f['geometry']
-        for poly in (geom['coordinates'] if geom['type'] == 'MultiPolygon' else [geom['coordinates']]):
-            ring = np.asarray(poly[0], float)
-            l0 = ring[0, 0]
-            rl = (ring[:, 0]-l0+180) % 360-180+l0
-            pl = (lon-l0+180) % 360-180+l0
-            inside |= MPath(np.c_[rl, ring[:, 1]]).contains_points(np.c_[pl, lat])
-    return inside
 
 
 def law_rate(n, z, orogen):

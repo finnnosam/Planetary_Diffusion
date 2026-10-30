@@ -63,7 +63,7 @@ def probe(sd, t):
            'band_len_ratio_ocean_src': float(bandall[S[~cont[S]]].sum()/ell[S[~cont[S]]].sum()),
            'band_ocean_ratio_cont_src': float(band[S[cont[S]]].sum()/ell[S[cont[S]]].sum()),
            'band_ocean_ratio_ocean_src': float(band[S[~cont[S]]].sum()/ell[S[~cont[S]]].sum())}
-    from scripts.boundary_lengths import typed_segments
+    from planet_reviews.boundary_lengths import typed_segments
     ts = typed_segments(g, own, pj, cont)
     L, typ, conv, na, nb = ts['L'], ts['typ'], ts['conv'], ts['na'], ts['nb']
     oo = ~(cont[na] | cont[nb]); s2 = typ == 2

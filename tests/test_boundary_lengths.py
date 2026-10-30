@@ -1,7 +1,7 @@
 import numpy as np
 
 from planet_grid.sphere_graph import CubeSphere
-from scripts.boundary_lengths import lengths
+from planet_reviews.boundary_lengths import lengths
 
 
 def test_great_circle_length():

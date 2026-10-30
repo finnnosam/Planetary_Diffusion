@@ -419,7 +419,7 @@ def test_earth_erosion_law_and_margin_budget_are_the_defaults(tmp_path):
     assert p['margin_shortening'] is True and p['sediment_accretion'] == .13
     # runs that saved only their overrides are read with the defaults they ran with
     import json
-    from scripts.crust_review import run_params
+    from planet_reviews.crust_review import run_params
     (tmp_path/'stats.json').write_text(json.dumps({'params': {'erosion_theta': 200.}}))
     old = run_params(tmp_path)
     assert old['erosion_theta'] == 200. and old['erosion_K_factor'] == .75 and old['margin_shortening'] is False
@@ -447,9 +447,10 @@ def test_earth_stable_crust_quantiles_match_crust1():
     if not (root/'data'/'crust1'/'crsthk.xyz').exists():
         pytest.skip('CRUST1.0 not present')
     from planet_landscape import graph_landscape as gl
-    from scripts.crust_review import wpct
-    from scripts.interior_probe import GROUPS
-    from scripts.margin_width import C1, crust1_cell, earth_boundaries
+    from planet_reviews.crust_review import wpct
+    from planet_reviews.interior_probe import GROUPS
+    from planet_earth.bird import earth_boundaries
+    from planet_earth.crust1 import C1, crust1_cell
     g = CubeSphere(217); a = g.area; cell = crust1_cell(g)
     T = np.loadtxt(C1/'crsthk.xyz')[:, 2][cell]*1e3; S = np.loadtxt(C1/'sedthk.xyz')[:, 2][cell]*1e3
     ty = np.array([l.split() for l in (C1/'CNtype1-1.txt').read_text().splitlines() if l.strip()]).ravel()[cell]

@@ -1,5 +1,5 @@
 """Set the plate layer's incision threshold (erosion_theta) at its own grid, n = 217 (46 km), against Earth's
-hypsometry on the same grid (scripts.earth_reference, ETOPO 2022 without ice sheets).
+hypsometry on the same grid (planet_earth.reference, ETOPO 2022 without ice sheets).
 
   python -m scripts.calibrate_plate_erosion                       # theta 8,12,16,20,25 x seeds 1001,1002, parallel
   python -m scripts.calibrate_plate_erosion --thetas 10,15 --seeds 1001 --workers 4
@@ -73,7 +73,7 @@ def main(argv=None):
     if a.n < 96:
         raise SystemExit('n < 96: the erosion parameters are for ~46 km cells and lose meaning on much coarser grids '
                          '(at n = 48 the slope cap alone allows 10 km steps between cells)')
-    from scripts.earth_reference import load
+    from planet_earth.reference import load
     earth = load(a.n)['no_ice_sheets']
     print('Earth (no ice sheets, n=%d): land %.1f%%, land p10/25/50/75/90 = %s m' % (
         a.n, 100*earth['land_fraction'], '/'.join(f"{earth['land_percentiles_m'][q]:.0f}" for q in QS)), flush=True)
