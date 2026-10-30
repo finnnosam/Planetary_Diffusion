@@ -1,0 +1,16 @@
+{
+ "EarthByte/Grids/age.2020.1.GTS2012.2m.grd": "ff07647c8422e18a0aaf4f6d250314613d5551f5715e638afdb6e03aa0f1a87c",
+ "GlobSed/V3/GlobSed_package3/ArcGIS_ascii/globsed-v3.asc": "c469d584d7b5636ea15bc0f7528711d1ac4c0de8be283e5608715678b19ea5ae",
+ "crust1/CNtype1-1.txt": "4065e4170b510edc049713aeccaf14ffd9402002c740b7ea6cbb88e3ce58f5a6",
+ "crust1/CNtype1_key.txt": "2c58482967f64ff2f0facd781ff3efdcf9020cc7e51592e91c6d167af812bdd5",
+ "crust1/crsthk.xyz": "18729df6312b6df303dea4445a6757d7c7e69c5ce086cba5937fa67108c45ace",
+ "crust1/crust1-continental-summary.json": "6f70c0d32904ee3274831938d13ff3e838fe748c064dad5d8aa3807bc91bce7d",
+ "crust1/sedthk.xyz": "444c57b73e56831774ec18856dad8e8300640ceb9b1343cc2772148874c73270",
+ "etopo_10m.tif": "9a45dd6dc5b0959cde00d64cc348aa5f731b31ceb7537d638a1162afa12d1254",
+ "etopo_2022_30s_surface.tif": "c85d2139821b396c06560a3356e993b2d9316baee7970f234586805fb7bc276e",
+ "gsrm/GSRM_average_strain_v2.1.txt": "26cb5f6fd5faca7050375e5cac8396a9713585031206d8ba221575feae33b42b",
+ "octopus/crn_int_basins.json": "5b6c81cdc4dc7bb0777eb397429fe915a571efda3dd2148dd181fd9fb9531150",
+ "tectonicplates-master/GeoJSON/PB2002_boundaries.json": "42b3e0876a7e40f133e958ba7ab85f8851b5c693a046fbc3b138e7751863d92a",
+ "tectonicplates-master/GeoJSON/PB2002_orogens.json": "d808c74e3f9f22aae37b8670d05e03990d94aa8a06c82485069d3d3a56767c3a",
+ "tectonicplates-master/PB2002_steps.dbf": "8e0cf4d36396163bf11d1136bca3b8201bf94ac84997003fbcd100dc6082d1cd"
+}
