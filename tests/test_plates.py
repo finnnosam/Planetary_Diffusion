@@ -1134,3 +1134,84 @@ def test_slab_initiation_keeps_the_ledgers():
     assert (sim.btype == P.SUBDUCTION).any()
     for pl in sim.plates:                                # the count lives only on the plate's own crust
         assert not pl.slab[~pl.mask].any()
+
+
+def test_force_law_lengths_is_the_default():
+    assert P.PARAMS['force_law'] == 'lengths'
+
+
+def test_boundary_node_length():
+    # force_law 'torque' gives each boundary node BOUNDARY_NODE_H h of line: on random great circles the one-side
+    # boundary nodes of an 8-neighbour cube-sphere carry that much circle each (median over 24 circles)
+    from planet_tectonics.motion import BOUNDARY_NODE_H
+    for n in (48, 96):
+        g = CubeSphere(n)
+        h = np.sqrt(g.area.mean())
+        nb = np.where(g.nbr >= 0, g.nbr, np.arange(g.size)[:, None])
+        rng = np.random.default_rng(1)
+        r = []
+        for _ in range(24):
+            ax = rng.normal(size=3); ax /= np.linalg.norm(ax)
+            side = g.xyz@ax > 0
+            r.append(2*np.pi*g.radius/((side[nb] != side[:, None]).any(1) & side).sum()/h)
+        assert abs(np.median(r)-BOUNDARY_NODE_H) < .03
+
+
+def test_torque_law_without_boundary_forces_is_at_rest():
+    # with no trench, ridge or convergent node, nothing drives a plate: basal drag alone brings it to rest
+    g = CubeSphere(48)
+    sim = P.PlateSim(g, seed=5, params={'water_volume_km3': None, 'force_law': 'torque'})
+    sim._classify()
+    w = sim._torque_omega(sim.plates)
+    assert np.abs(w).max() > 0
+    sim.btype = np.where(sim.btype > 0, P.TRANSFORM, 0).astype(sim.btype.dtype)
+    sim.trench = np.zeros_like(sim.trench)
+    assert np.abs(sim._torque_omega(sim.plates)).max() < 1e-12*np.abs(w).max()
+
+
+def test_torque_law_pulls_toward_the_trench_and_scales_with_the_force():
+    # a plate's own slab pulls it toward its trench (positive velocity along the outward normal at its trench nodes);
+    # every speed is linear in the forces (Stokes balance)
+    g = CubeSphere(48)
+    sim = P.PlateSim(g, seed=5, params={'water_volume_km3': None, 'force_law': 'torque'})
+    for _ in range(15):
+        sim.step()
+    sim.plates = [pl for pl in sim.plates if (sim.owner == pl.id).any()]
+    from planet_tectonics.boundaries import boundary_frame_ring
+    pid = np.array([pl.id for pl in sim.plates]); slot = np.zeros(pid.max()+1, np.int64); slot[pid] = np.arange(len(pid))
+    om = np.stack([pl.omega(g.radius) for pl in sim.plates])
+    other, nrm = boundary_frame_ring(sim.owner, slot, om, g.xyz, g.nbr, g.radius)
+    sim.p['ridge_push_n_m'] = 0.
+    w = sim._torque_omega(sim.plates)
+    tr = sim.trench & (other >= 0)
+    assert tr.sum() > 20
+    v = np.cross(w[slot[sim.owner[tr]]], g.xyz[tr])
+    assert np.mean((v*nrm[tr]).sum(1) > 0) > .8
+    sim.p['slab_pull_n_m'] *= 2; sim.p['slab_terminal_cm_yr'] *= 2     # slab resistance unchanged
+    assert np.allclose(sim._torque_omega(sim.plates), 2*w, rtol=1e-9, atol=1e-30)
+
+
+def test_torque_law_keeps_the_ledgers():
+    g = CubeSphere(48)
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True, 'force_law': 'torque'})
+    v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()
+    for _ in range(40):
+        sim.step()
+    assert abs((sim.continental_volume()-v0)-sum(sim.ledger.values())) < 1e-9*v0
+    assert abs((sim.continental_sediment_volume()-s0)-sum(sim.sed_ledger.values())) < 1e-9*v0
+    sp = np.array([pl.speed for pl in sim.plates])
+    assert sp.max() < 15 and np.isfinite(sp).all()
+
+
+def test_torque_law_on_earths_plates():
+    # the Earth test (planet_reviews.force_balance_earth) with the PARAMS coefficients: T-a variance reduction >= 0.6,
+    # T-b slab-less plates <= 3.5 cm/yr, T-d boundary rates (forty-third pass)
+    import pytest
+    from planet_grid.paths import DATA, OUTPUTS
+    if not (DATA/'tectonicplates-master'/'GeoJSON'/'PB2002_plates.json').exists() or not (
+            OUTPUTS/'planet-reference'/'earth-n217.npz').exists():
+        pytest.skip('Bird 2003 plates or the Earth reference grid not on this machine')
+    from planet_reviews import force_balance_earth as F
+    r = F.evaluate_params()
+    sc = F.score(r['g'], r['pid'], r['names'], r['st'], r['w'], r['w_obs'])
+    assert sc['pass']['T-a'] and sc['pass']['T-b'] and sc['pass']['T-d'], sc

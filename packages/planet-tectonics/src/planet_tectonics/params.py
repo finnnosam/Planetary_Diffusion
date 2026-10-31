@@ -272,6 +272,24 @@ PARAMS = {
     'cont_drag': .3,               # speed factor (1 - cont_drag * continental fraction)
     'collision_ref_km': 1500.,     # collision length that halves the target speed
     'tau_speed_myr': 10., 'tau_axis_myr': 20.,
+    # the force law (forty-third pass). 'lengths' (as built): the target speed from the plate's trench, ridge and
+    # collision lengths (v_min_cm_yr ... collision_ref_km above) and the pole turned toward the normalised pull, so a
+    # plate whose pulls cancel still moves at its full target and every plate moves at least v_min_cm_yr. 'torque':
+    # the angular velocities that balance the torques on all plates at once (Forsyth & Uyeda 1975; MotionMixin.
+    # _torque_omega): slab pull at trench nodes, ridge push at oceanic ridge nodes, against basal drag (thicker under
+    # continental keels) and slab resistance; the plates' angular velocities relax toward it over tau_speed_myr.
+    # Coefficients: ridge push from half-space cooling (Turcotte & Schubert 2014 eq. 6.405, ~80-100 Myr lithosphere);
+    # the rest fitted to Earth's plate motions on Bird's (2003) boundaries inside literature ranges
+    # (planet_reviews.force_balance_earth; variance reduction 0.67, slab-less plates 0.7-2.7 cm/yr). The fitted slab
+    # suction and convergent coupling are zero (coupling locks Earth's CCB / OCB: closing p50 1-2 mm/yr against 7-13)
+    'force_law': 'lengths',
+    'basal_drag_pa_s_m': 1.7e15,   # eta/h of the asthenosphere (2.5e20 Pa s over 150 km)
+    'keel_drag_factor': 3.4,       # basal drag under continental crust / under oceanic
+    'slab_pull_n_m': 5e13,         # gross slab pull per km of trench (the fit's upper bound: Schellart 2004 2-4e13)
+    'slab_terminal_cm_yr': 8.4,    # slab pull / slab resistance: the speed of a plate pulled by its slab alone
+    'ridge_push_n_m': 3e12,
+    'slab_suction_frac': 0.,       # suction on the overriding plate, x slab pull (fitted 0)
+    'convergent_coupling': 0.,     # resistance at collision / slab-less convergence, x slab resistance (fitted off)
     'boundary_min_mm_yr': 5.,      # below this, a boundary is a transform
     # boundary normal used to type boundaries (thirty-third pass). 'node' (as built): each node is typed by the one
     # neighbour on another plate with the largest normal rate, so the normal is a grid direction; on the grid's

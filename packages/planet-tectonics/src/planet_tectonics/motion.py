@@ -3,9 +3,13 @@ import numpy as np
 
 from planet_grid import fields
 
-from planet_tectonics.boundaries import classify_boundaries, classify_boundaries_ring
+from planet_tectonics.boundaries import boundary_frame_ring, classify_boundaries, classify_boundaries_ring
 from planet_tectonics.params import COLLISION, CONVERGENT, RIDGE, SUBDUCTION
 
+BOUNDARY_NODE_H = .796             # km of boundary line per boundary node on one side, in units of the node spacing h
+                                   # (8-neighbour cube-sphere; 24 random great circles at n = 96 and 217: median 0.796,
+                                   # p10-p90 0.72-0.92; tests/test_plates.py measures it)
+YR_S = 3.15576e7
 SLAB_BAND_RINGS = 2                # N: the slab count is kept this many rings into the overriding plate, so it survives
                                    # the edge moving by up to two cells (~92 km at n = 217) in a step
 
@@ -176,7 +180,82 @@ class MotionMixin:
         return speed, axis
 
 
+    def _torque_omega(self, plates):
+        """force_law 'torque' (forty-third pass): the angular velocities (rad/yr) that balance the torques on all
+        plates at once (Forsyth & Uyeda 1975; no inertia), SI inside:
+          sum over the plate's trench nodes of F_sp L R (x x n)  [slab pull, n the normal out of the plate]
+        + sum over its overriding nodes of F_su L R (x x n)      [slab suction toward the trench]
+        + sum over its oceanic ridge nodes of F_rp L R (x x -n)  [ridge push]
+        = C_b R^2 sum_nodes a (1 + (keel-1) cont) (I - x x^T) w   [basal drag; keels under continental nodes]
+        + C_s L R^2 sum_trench q q^T w                           [slab resistance, q = x x n]
+        + C_c L R^2 sum_{collision, convergent} q q^T (w - w_other)   [convergence without a slab]
+        L = BOUNDARY_NODE_H h per boundary node. Coefficients from the fit to Earth's plates on Bird's boundaries
+        (planet_reviews.force_balance_earth)."""
+        g, p = self.g, self.p
+        K = len(plates)
+        pid = np.array([pl.id for pl in plates])
+        slot = np.full(max(pid.max(), int(self.owner.max()))+1, -1, np.int64); slot[pid] = np.arange(K)
+        omega = np.stack([pl.omega(g.radius) for pl in plates])
+        full = np.zeros(slot.size, np.int64); full[pid] = np.arange(K)
+        other, nrm = boundary_frame_ring(self.owner, full, omega, g.xyz, g.nbr, g.radius)
+        R = g.radius
+        Ln = BOUNDARY_NODE_H*np.sqrt(g.area.mean())
+        x = g.xyz
+        row = slot[self.owner]
+        cont = self.world['cont']
+        w = g.area*(1+(p['keel_drag_factor']-1)*cont)
+        A = np.zeros((K, K, 3, 3)); rhs = np.zeros((K, 3))
+        ok = row >= 0
+        sw = np.bincount(row[ok], w[ok], K)
+        for i in range(3):
+            for j in range(3):
+                A[np.arange(K), np.arange(K), i, j] -= p['basal_drag_pa_s_m']*R**2*np.bincount(row[ok], (w*x[:, i]*x[:, j])[ok], K)
+            A[np.arange(K), np.arange(K), i, i] += p['basal_drag_pa_s_m']*R**2*sw
+        Fsp = p['slab_pull_n_m']
+        Cs = Fsp/(p['slab_terminal_cm_yr']*1e-2/YR_S)
+        Fsu = p['slab_suction_frac']*Fsp
+        Cc = p['convergent_coupling']*Cs
+        q = np.cross(x, nrm)
+        bt = self.btype
+        def add_force(m, F, sign):
+            if F:
+                np.add.at(rhs, row[m], sign*F*Ln*R*q[m])
+        def add_drag(m, C, couple):
+            if not C or not m.any():
+                return
+            qq = C*Ln*R**2*q[m, :, None]*q[m, None, :]
+            np.add.at(A, (row[m], row[m]), qq)
+            if couple:
+                np.add.at(A, (row[m], slot[other[m]]), -qq)
+        b = (other >= 0) & ok
+        tr = b & self.trench
+        add_force(tr, Fsp, 1.); add_drag(tr, Cs, False)
+        add_force(b & (bt == SUBDUCTION) & ~self.trench, Fsu, 1.)
+        add_force(b & (bt == RIDGE) & ~cont, p['ridge_push_n_m'], -1.)
+        cv = b & ((bt == COLLISION) | (bt == CONVERGENT))
+        cv &= slot[np.where(other >= 0, other, 0)] >= 0
+        add_drag(cv, Cc, True)
+        M = A.transpose(0, 2, 1, 3).reshape(3*K, 3*K)
+        try:
+            w = np.linalg.solve(M, rhs.reshape(-1))
+        except np.linalg.LinAlgError:                    # a plate of one or two nodes has no drag against spin about
+            w = np.linalg.lstsq(M, rhs.reshape(-1), rcond=None)[0]     # its own axis: the least-norm balance
+        return w.reshape(K, 3)*YR_S                      # rad/s -> rad/yr
+
+
     def _update_motion(self):
+        fl = self.p['force_law']
+        if fl == 'torque':
+            plates = [pl for pl in self.plates if (self.owner == pl.id).any()]
+            if not plates:
+                return
+            wt = self._torque_omega(plates)
+            b = min(1., self.p['dt_myr']/self.p['tau_speed_myr'])
+            for pl, w in zip(plates, wt):
+                self._set_omega(pl, (1-b)*self._omega_vec(pl)+b*w*self.g.radius*1e2)    # speed x axis in cm/yr
+            return
+        if fl != 'lengths':
+            raise ValueError(f"force_law {fl!r}: 'lengths' or 'torque'")
         for pl in self.plates:
             own = self.owner == pl.id
             if not own.any():

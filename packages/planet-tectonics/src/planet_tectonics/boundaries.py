@@ -124,3 +124,65 @@ def classify_boundaries_ring(owner, slot, omega, xyz, nbr, score, cont, radius, 
                     btype[i] = 1; trench[i] = False
         rate[i] = best
     return btype, rate, trench
+
+
+
+@njit(cache=True)
+def boundary_frame_ring(owner, slot, omega, xyz, nbr, radius):
+    """For every boundary node, the neighbouring plate that types it under classify_boundaries_ring (the one with the
+    largest |normal rate|) and the unit boundary normal toward that plate (the two-ring normal, tangent at the node);
+    -1 and zeros elsewhere. Used by force_law 'torque' (forty-third pass) for the direction of boundary forces."""
+    n = owner.shape[0]
+    K = nbr.shape[1]
+    other = np.full(n, -1, np.int64)
+    normal = np.zeros((n, 3))
+    ring = np.empty(K*K+K, np.int64)
+    for i in range(n):
+        a = owner[i]
+        x0, x1, x2 = xyz[i, 0], xyz[i, 1], xyz[i, 2]
+        nr = -1
+        best = 0.
+        done = False
+        for k in range(K):
+            j = nbr[i, k]
+            if j < 0 or owner[j] == a:
+                continue
+            b = owner[j]
+            seen = False
+            for k0 in range(k):
+                j0 = nbr[i, k0]
+                if j0 >= 0 and owner[j0] == b:
+                    seen = True
+            if seen:
+                continue
+            if nr < 0:
+                nr = 0
+                for k1 in range(K):
+                    j1 = nbr[i, k1]
+                    if j1 < 0:
+                        continue
+                    ring[nr] = j1; nr += 1
+                    for k2 in range(K):
+                        j2 = nbr[j1, k2]
+                        if j2 >= 0 and j2 != i:
+                            ring[nr] = j2; nr += 1
+            d0 = 0.; d1 = 0.; d2 = 0.
+            for r in range(nr):
+                q = ring[r]
+                sg = 1. if owner[q] == b else (-1. if owner[q] == a else 0.)
+                d0 += sg*(xyz[q, 0]-x0); d1 += sg*(xyz[q, 1]-x1); d2 += sg*(xyz[q, 2]-x2)
+            dn = d0*x0+d1*x1+d2*x2
+            d0 -= dn*x0; d1 -= dn*x1; d2 -= dn*x2
+            L = np.sqrt(d0*d0+d1*d1+d2*d2)
+            if L == 0.:
+                continue
+            sa, sb = slot[a], slot[b]
+            w0 = omega[sa, 0]-omega[sb, 0]; w1 = omega[sa, 1]-omega[sb, 1]; w2 = omega[sa, 2]-omega[sb, 2]
+            v0 = (w1*x2-w2*x1)*radius; v1 = (w2*x0-w0*x2)*radius; v2 = (w0*x1-w1*x0)*radius
+            conv = (v0*d0+v1*d1+v2*d2)/L
+            if abs(conv) >= abs(best) or not done:
+                best = conv
+                done = True
+                other[i] = b
+                normal[i, 0] = d0/L; normal[i, 1] = d1/L; normal[i, 2] = d2/L
+    return other, normal
