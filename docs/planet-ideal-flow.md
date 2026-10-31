@@ -1,6 +1,6 @@
 # Planet generator: ideal flow (long-term target, 17 Oct 2026)
 
-This is where the chain could end up, not what gets built first. The first build is `docs/planet-layer-plan.md`.
+This is where the chain could end up, not what gets built first. The first build is the chain in the [README](../README.md) and [`docs/contracts/`](contracts/README.md).
 Each stage lists:
 - its spacing and clock;
 - the fields it outputs and which stage consumes them;
