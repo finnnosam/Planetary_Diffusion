@@ -1024,3 +1024,113 @@ def test_pair_polarity_follows_the_overlap_resolution():
                 assert tr[i] == (now[key] != own[i])
                 checked += 1
     assert checked > 50
+
+
+def test_subduction_initiation_instant_is_the_default():
+    assert P.PARAMS['subduction_initiation'] == 'instant'
+    assert P.PARAMS['slab_init_km'] == 125.
+
+
+def _frozen_gate_sim(seed=5):
+    g = CubeSphere(48)
+    sim = P.PlateSim(g, seed=seed, params={'water_volume_km3': None, 'subduction_initiation': 'convergence'})
+    return g, sim
+
+
+def _raw_types(sim):
+    """The typing without the gate, on the same geometry and motion."""
+    sim.p['subduction_initiation'] = 'instant'
+    sim._classify()
+    bt, rate, tr = sim.btype.copy(), sim.conv_rate.copy(), sim.trench.copy()
+    sim.p['subduction_initiation'] = 'convergence'
+    return bt, rate, tr
+
+
+def test_slab_forms_after_slab_init_km_of_convergence():
+    # subduction_initiation 'convergence' (B-d3) on frozen geometry and motion: each call of _classify counts one step
+    # of convergence. A convergent node is CONVERGENT (no slab, no trench flag) until the largest count in its band
+    # reaches slab_init_km, then SUBDUCTION with the raw typing's trench flag; never before
+    g, sim = _frozen_gate_sim()
+    bt0, rate, tr0 = _raw_types(sim)
+    sub = bt0 == P.SUBDUCTION
+    over = sub & ~tr0
+    assert over.sum() > 50
+    D, dt = sim.p['slab_init_km'], sim.p['dt_myr']
+    R = 2
+    seen_conv = False
+    for k in range(1, 40):
+        # a count travels at most two band reaches along the plate per step: the earliest a node can read a slab is
+        # set by the fastest closing rate within that reach
+        vmax = sim._spread_same_plate(np.where(over, rate, 0.), 2*R*k)
+        sim._classify()
+        bt, tr = sim.btype, sim.trench
+        assert ((bt == P.SUBDUCTION) | (bt == P.CONVERGENT))[sub].all()
+        assert not ((bt == P.SUBDUCTION) & ~sub).any() and not ((bt == P.CONVERGENT) & ~sub).any()
+        assert (bt[~sub] == bt0[~sub]).all()
+        assert not tr[bt == P.CONVERGENT].any()
+        assert (tr[bt == P.SUBDUCTION] == tr0[bt == P.SUBDUCTION]).all()
+        early = over & (bt == P.SUBDUCTION) & (k*vmax*1e3*dt < D*(1-1e-6))
+        assert not early.any(), k
+        seen_conv |= (bt == P.CONVERGENT).any()
+        due = over & (k*rate*1e3*dt >= D*(1+1e-6))
+        assert (bt[due] == P.SUBDUCTION).all(), k
+    assert seen_conv
+    assert (sim.btype[sub] == P.SUBDUCTION).sum() > .9*sub.sum()
+
+
+def test_an_opening_edge_detaches_the_slab_and_a_seed_starts_with_it():
+    g, sim = _frozen_gate_sim()
+    bt0, rate, tr0 = _raw_types(sim)
+    over = (bt0 == P.SUBDUCTION) & ~tr0
+    for _ in range(40):
+        sim._classify()
+    assert (sim.btype[over] == P.SUBDUCTION).mean() > .9
+    for pl in sim.plates:                                # reverse every motion: convergent edges open as ridges
+        pl.axis = -pl.axis
+    btr, _, trr = _raw_types(sim)                        # (the raw typing leaves the counts alone)
+    sim._classify()
+    opened = sim.btype == P.RIDGE
+    assert opened[over].mean() > .9
+    # where the whole band opened (no overriding edge, old or new, within two reaches), the slab is gone
+    keep = (over & ~opened) | ((btr == P.SUBDUCTION) & ~trr)
+    gone = over & opened & ~(sim._spread_same_plate(keep.astype(float), 4) > 0)
+    assert gone.sum() > .5*over.sum()
+    for pl in sim.plates:
+        pl.axis = -pl.axis
+    sim._classify()                                      # converging again: the slab has to form anew
+    assert (sim.btype[gone] == P.CONVERGENT).all()
+    # a pair made by subduction initiation starts with its slab (spontaneous initiation)
+    for pl in sim.plates:
+        pl.axis = -pl.axis
+    sim._classify()
+    for pl in sim.plates:
+        pl.axis = -pl.axis
+    own = sim.owner
+    I = np.flatnonzero(over)
+    J = [next(j for j in g.nbr[i] if j >= 0 and own[j] != own[i]) for i in I]
+    pairs = [(min(int(own[i]), int(own[j])), max(int(own[i]), int(own[j]))) for i, j in zip(I, J)]
+    key = max(set(pairs), key=pairs.count)
+    sim.slab_seed_pairs = {key}
+    sim._classify()
+    on = np.array([q == key for q in pairs])
+    assert (sim.btype[I[on]] == P.SUBDUCTION).mean() > .9
+    rest = gone[I] & ~on & ~(sim._spread_same_plate(np.isin(np.arange(g.size), I[on]).astype(float), 4) > 0)[I]
+    assert rest.sum() > 10 and (sim.btype[I[rest]] == P.CONVERGENT).all()
+    assert not sim.slab_seed_pairs
+
+
+def test_slab_initiation_keeps_the_ledgers():
+    g = CubeSphere(48)
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True,
+                                        'subduction_initiation': 'convergence', 'trench_polarity': 'pair'})
+    v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()
+    seen = 0
+    for _ in range(60):
+        sim.step()
+        seen += int((sim.btype == P.CONVERGENT).any())
+    assert abs((sim.continental_volume()-v0)-sum(sim.ledger.values())) < 1e-9*v0
+    assert abs((sim.continental_sediment_volume()-s0)-sum(sim.sed_ledger.values())) < 1e-9*v0
+    assert seen > 30
+    assert (sim.btype == P.SUBDUCTION).any()
+    for pl in sim.plates:                                # the count lives only on the plate's own crust
+        assert not pl.slab[~pl.mask].any()

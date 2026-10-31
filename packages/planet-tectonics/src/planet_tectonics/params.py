@@ -119,6 +119,19 @@ PARAMS = {
     # -245..-178 Myr): arcs grow on the downgoing plate and slab pull goes to the overriding one there. 'pair': where the
     # pair overlapped this step, the node follows that polarity; elsewhere the node rule. Default 'node' until a sweep decides.
     'trench_polarity': 'node',
+    # B-d3 (forty-second pass): when a convergent boundary becomes a subduction zone with a slab. 'instant' (as built):
+    # every convergence above boundary_min_mm_yr with ocean on one side is a trench with slab pull and an arc from its
+    # first step, so the planet has no slow oceanic convergence without a slab (Bird 2003's OCB: 17.4k km, closing p50
+    # 7 mm/yr; 94% of the planet's convergent boundary subducts, Earth's 56%). 'convergence': a slab sustains itself only
+    # after slab_init_km of underthrusting at that place (M: Gurnis, Hall & Lavier 2004, G-cubed 5, Q07001: the older
+    # plate must be underthrust ~100-150 km before forced convergence becomes self-sustaining subduction, and the
+    # cumulative convergence, not its rate, sets the force balance; Hall et al. 2003, EPSL 212: ~100 km); midpoint 125.
+    # Until then the boundary is CONVERGENT (no slab): no slab pull, no arc, no subduction erosion, no margin shortening,
+    # no extra resistance (Hall et al. 2003: the resisting forces are small against the driving ones); crust is still
+    # consumed by the overlap rule. The convergence is counted on the overriding plate's raster ('slab', km) beside its
+    # edge; an opening (ridge-typed) edge detaches the slab; the subduction-initiation event (old ocean founders on its
+    # own: spontaneous initiation, Stern 2004, EPSL 226) starts with its slab. Default 'instant' until a sweep decides.
+    'subduction_initiation': 'instant', 'slab_init_km': 125.,
     # subduction erosion: the trench removes crust from the base of the overriding plate near it (forearc), the
     # main continental loss balancing arc growth on Earth (~1.3-1.7 km^3/yr); flux = convergence x H_se. On oceanic
     # crust only arc crust above ocean_thick_m can be removed
@@ -277,6 +290,7 @@ PARAMS = {
 
 
 RIDGE, SUBDUCTION, COLLISION, TRANSFORM = 1, 2, 3, 4
+CONVERGENT = 5                     # convergent without a slab yet (subduction_initiation 'convergence'; Bird's OCB)
 
 
 

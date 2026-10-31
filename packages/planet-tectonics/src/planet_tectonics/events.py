@@ -26,7 +26,7 @@ class EventsMixin:
         lab = part[wn] & pl.mask
         new = self._new_plate(pl.axis, pl.speed)
         new.Q = pl.Q.copy()
-        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed'):
+        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed', 'slab'):
             arr = getattr(pl, name)
             na = getattr(new, name)
             na[lab] = arr[lab]
@@ -90,7 +90,7 @@ class EventsMixin:
         ok = small.mask[j]
         k, j = k[ok], j[ok]
         free = ~big.mask[k]
-        for name in ('cont', 'thick', 'born', 'orog', 'sed'):
+        for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab'):
             getattr(big, name)[k[free]] = getattr(small, name)[j[free]]
         big.under[k[free]] = 0
         big.mask[k[free]] = True
@@ -102,7 +102,7 @@ class EventsMixin:
             near, _ = nearest_label(src_lab, g.nbr, g.dist)
             src = near[need]
             big.mask[need] = True
-            for name in ('cont', 'thick', 'born', 'orog', 'sed'):
+            for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab'):
                 arr = getattr(big, name); arr[need] = arr[src]
         both = ~free & small.cont[j] & big.cont[k]
         self.area_ledger['merge'] = self.area_ledger.get('merge', 0.)-float(g.area[k[both]].sum())
@@ -203,7 +203,7 @@ class EventsMixin:
 
         def vol(pl, r, f):
             return float((f[r].astype(np.float64)*a[r]*(pl.mask[r] & pl.cont[r])).sum())
-        names = ('cont', 'thick', 'born', 'orog', 'sed')
+        names = ('cont', 'thick', 'born', 'orog', 'sed', 'slab')
         v0 = vol(src, ro, src.thick)+vol(dst, k, dst.thick)
         s0 = vol(src, ro, src.sed)+vol(dst, k, dst.sed)
         if k.size:
@@ -292,4 +292,6 @@ class EventsMixin:
             c = (g.area[old, None]*g.xyz[old]).sum(0); c /= np.linalg.norm(c)
             n = np.cross(c, self.rng.normal(size=3)); n /= np.linalg.norm(n)
             part = own & (g.xyz@n > 0)
-        self.split(pl, part, -p['init_speed_cm_yr'], 'subduction initiation')
+        new = self.split(pl, part, -p['init_speed_cm_yr'], 'subduction initiation')
+        if new is not None:                              # spontaneous initiation: the old slab sinks on its own (Stern 2004)
+            self.slab_seed_pairs = getattr(self, 'slab_seed_pairs', set()) | {(min(pl.id, new.id), max(pl.id, new.id))}

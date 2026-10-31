@@ -27,6 +27,9 @@ share of all subduction >= 0.60 (Earth today 30.7k of 51.5k). One-sided, because
 ringed by subduction (Collins 2003; Cawood 2005: the Terra Australis orogen alone ~18,000 km) and held more of it,
 ~65.7k km at ~235 Ma against ~42.4k today by the same tomographic count (van der Meer et al. 2014, PNAS 111, 4380).
 No measured split exists for the start, so the present-day bands of T2 / T3 are printed but do not decide there.
+With subduction_initiation 'convergence' (B-d3, forty-second pass) T2 / T3 count trench with a slab only, as Bird's SUB;
+convergence without a slab yet (the planet's OCB) is printed beside, window means: ocean-ocean length and closing
+p50 against Bird's OCB (17.4k km, p50 7 mm/yr), and the ocean-ocean convergence in all (trench + OCB; Earth 38.2k).
 """
 import argparse
 import json
@@ -94,6 +97,9 @@ def seed_numbers(g, sd):
             'production': float(np.mean([r['production_km2_yr'] for r in late])),
             'w_io_km': wm('io_km'), 'w_cont_sub_km': wm('cont_sub_km'), 'w_production': wm('production_km2_yr'),
             'w_ridge_km': wm('ridge_km'), 'w_shape_ratio': wm('shape_ratio'), 'w_detached_mkm2': wm('detached_mkm2'),
+            'w_ocb_km': wm('ocb_km'), 'w_noslab_cont_km': wm('noslab_cont_km'),
+            'w_ocb_p50': float(np.nanmean([r['ocb_rate_p10_p50_p90'][1] for r in win])) if any(r['ocb_km'] > 0 for r in win) else float('nan'),
+            'w_ocb_slow': float(np.mean([r['ocb_slow_share'] for r in win])),
             'consumption_io': float(np.mean([r['consumption_io_km2_yr'] for r in late])),
             'io_share_oo': now['io_share_of_ocean_ocean'], 'shape_ratio': now['shape_ratio'],
             'plates': len(areas), 'plates_1mkm2': int((areas >= 1).sum()), 'share_in_1mkm2': float(areas[areas >= 1].sum()/areas.sum()),
@@ -153,6 +159,10 @@ def main(argv=None):
               f"{j(rows, 'largest_mkm2', '{:.0f}')} Mkm^2; shape ratio {m('shape_ratio'):.2f}; io / ocean-ocean "
               f"{m('io_share_oo'):.2f}; intra-oceanic consumption {m('consumption_io'):.2f} km^2/yr; area-weighted speed "
               f"{m('speed_area_weighted'):.1f} cm/yr")
+        print(f"  convergence without a slab (window): ocean-ocean {j(rows, 'w_ocb_km', '{:.1f}', 1e3)}k km, mean "
+              f"{m('w_ocb_km')/1e3:.1f}k (Bird OCB 17.4k), closing p50 {j(rows, 'w_ocb_p50', '{:.0f}')} mm/yr (Bird 7), slower "
+              f"than 20 mm/yr {m('w_ocb_slow'):.2f} (Bird 0.81); continental side {m('w_noslab_cont_km')/1e3:.1f}k; ocean-ocean "
+              f"convergence in all (trench + OCB) {(m('w_io_km')+m('w_ocb_km'))/1e3:.1f}k (Earth 38.2k)")
         print(f"  ocean floor mean age {j(rows, 'ocean_age_mean', '{:.0f}')} Myr; area by age (20 Myr bins) "
               + ' '.join(f'{x:.2f}' for x in np.mean([r['age_hist'] for r in rows], 0)))
         print(f"  piece rule: {rows[0]['piece_stats'] or '-'}; events (seed 1) {rows[0]['events']}; run time "

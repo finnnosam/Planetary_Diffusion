@@ -23,6 +23,12 @@ class, length, divergence / convergence rate), each step's crust from CRUST1.0 t
 subduction steps name the subducting plate by the slash (A/B: B subducts; A\\B: A subducts); plate NNR speeds from
 outputs/planet-reference/earth-plate-speeds-nnr.json (thirteenth pass). Bird's OCB class (oceanic convergent
 boundary without a slab, 17.4k km) is shown beside SUB: on Earth that convergence makes no trench.
+
+Runs with subduction_initiation 'convergence' (B-d3, forty-second pass) type convergence without a slab yet as
+CONVERGENT (5) in boundary_type: a contour segment typed subduction whose side nodes read CONVERGENT and neither reads
+SUBDUCTION is the planet's OCB, kept out of the intra-oceanic and continental-side trench (Earth's 20.8k / 30.7k are
+Bird's SUB only) and reported beside (ocb_km, its closing rates; Earth OCB 17.4k, p50 7 mm/yr). Runs without the
+rule have no CONVERGENT nodes, so their numbers are unchanged.
 """
 import argparse
 import json
@@ -150,6 +156,7 @@ def node_lengths(g, z, plates):
     score = np.where(cont, 1e6+1e5*share[slot[pid]], -age)
     bt, rate, trench = P.classify_boundaries_ring(pid, slot, omega, g.xyz, g.nbr, score, cont, g.radius,
                                                   P.PARAMS['boundary_min_mm_yr']*1e-3)
+    trench &= z['boundary_type'] != P.CONVERGENT       # no slab pull before the slab forms (B-d3)
     h = np.sqrt(g.area.mean())/1e3
     out = {}
     for k in ids:
@@ -175,8 +182,12 @@ def snapshot_metrics(g, f):
     L, typ, cv, na, nb, ka, kb = s['L'], s['typ'], s['conv'], s['na'], s['nb'], s['ka'], s['kb']
     oo = ~(cont[na] | cont[nb])
     frag = ~(main[na] & main[nb])
-    io = (typ == 2) & oo
-    cs = (typ == 2) & ~oo
+    bts = z['boundary_type']
+    side_sub = (bts[na] == P.SUBDUCTION) | (bts[nb] == P.SUBDUCTION)
+    noslab = (typ == 2) & ((bts[na] == P.CONVERGENT) | (bts[nb] == P.CONVERGENT)) & ~side_sub   # B-d3: no slab yet
+    io = (typ == 2) & oo & ~noslab
+    cs = (typ == 2) & ~oo & ~noslab
+    ocb = noslab & oo
     ri = typ == 1
     r = {'t': float(z['time_myr']), 'plates': len(plates), 'total_km': float(L.sum()),
          'cap_half_perimeters_km': float(cap_perimeter_km(np.array(areas)).sum()/2),
@@ -188,7 +199,10 @@ def snapshot_metrics(g, f):
          'ridge_rate_p50': wpct(-cv[ri], L[ri], (.5,))[0],
          'production_km2_yr': float((L[ri]*-cv[ri]).sum()*1e-6), 'consumption_io_km2_yr': float((L[io]*cv[io]).sum()*1e-6),
          'consumption_cont_km2_yr': float((L[cs]*cv[cs]).sum()*1e-6),
-         'consumption_coll_km2_yr': float((L[typ == 3]*cv[typ == 3]).sum()*1e-6)}
+         'consumption_coll_km2_yr': float((L[typ == 3]*cv[typ == 3]).sum()*1e-6),
+         'ocb_km': float(L[ocb].sum()), 'ocb_rate_p10_p50_p90': wpct(cv[ocb], L[ocb], (.1, .5, .9)),
+         'ocb_slow_share': float(L[ocb & (cv < SLOW_MM_YR)].sum()/max(L[ocb].sum(), 1.)),
+         'noslab_cont_km': float(L[noslab & ~oo].sum()), 'consumption_ocb_km2_yr': float((L[ocb]*cv[ocb]).sum()*1e-6)}
     r['shape_ratio'] = r['total_km']/r['cap_half_perimeters_km']
     r['io_share_of_ocean_ocean'] = r['io_km']/max(r['ocean_ocean_km'], 1.)
     # speeds: NNR, the law's target, slab fraction of the perimeter (contour: downgoing side = lower score)

@@ -16,7 +16,7 @@ import numpy as np
 
 from planet_grid import fields
 from planet_grid.sphere_graph import CubeSphere
-from planet_tectonics.plates import PlateSim, RIDGE, SUBDUCTION, COLLISION, TRANSFORM
+from planet_tectonics.plates import PlateSim, RIDGE, SUBDUCTION, COLLISION, TRANSFORM, CONVERGENT
 from planet_grid.paths import OUTPUTS
 
 EARTH = {'land_fraction': .29, 'land_mean_elevation_m': 840., 'ocean_age_mean_myr': 64., 'ocean_age_max_myr': 180., 'ridge_km': 65000.,
@@ -28,7 +28,8 @@ def boundary_lengths(g, st):
     bt = st['boundary_type']
     # boundary nodes appear on both sides; halve to get line length
     return {name: float((bt == code).sum()*h/2) for name, code in (('ridge_km', RIDGE), ('subduction_km', SUBDUCTION),
-                                                                      ('collision_km', COLLISION), ('transform_km', TRANSFORM))}
+                                                                      ('collision_km', COLLISION), ('transform_km', TRANSFORM),
+                                                                      ('convergent_no_slab_km', CONVERGENT))}
 
 
 def summary(sim, st):

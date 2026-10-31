@@ -223,6 +223,7 @@ class CompositionMixin:
             pl.orog[new] = w['orog'][wn[new]]
             pl.sed[new] = w['sed'][wn[new]]
             pl.under[new] = 0
+            pl.slab[new] = 0
             self.ledger['new_nodes'] += float((pl.thick[new]*a[new]*pl.cont[new]).sum())
             self.sed_ledger['new_nodes'] += float((pl.sed[new]*a[new]*pl.cont[new]).sum())
             # consumed nodes can still be read by a world node of this plate (the forward and backward maps are not
@@ -239,11 +240,12 @@ class CompositionMixin:
             pl.mask[gone] = False
             pl.mask[new] = True
             pl.cont[~pl.mask] = False
+            pl.slab[~pl.mask] = 0
             hole, src = plate_holes(pl.mask, g.nbr)
             if hole.any():
                 hs = src[hole]
                 pl.mask[hole] = True
-                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed):
+                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed, pl.slab):
                     arr[hole] = arr[hs]
                 self.ledger['holes'] += float((pl.thick[hole]*a[hole]*pl.cont[hole]).sum())
                 self.area_ledger['holes'] = self.area_ledger.get('holes', 0.)+float(a[hole & pl.cont].sum())
