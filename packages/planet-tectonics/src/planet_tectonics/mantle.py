@@ -25,7 +25,7 @@ PARAMS = {
     'lip_volume_km3': (5e5, 4e6), 'lip_radius_km': 600., 'lip_duration_myr': 2.,
     'dyn_rule': 'random', 'rho_mantle': 3300., 'rho_water': 1030., 'threads': None,
     'slab_dip_deg': 58., 'lm_sink_mm_yr': 12., 'flow_z_cut_km': 300., 'flow_lmax': 31, 'viscosity_file': None,
-    'slab_alpha': 'depth',
+    'slab_alpha': 'thermo',
 }
 
 

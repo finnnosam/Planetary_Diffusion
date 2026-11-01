@@ -204,8 +204,11 @@ PARAMS = {
     # Steinberger & Calderwood 2006, 2.08e-5 at 660 km, 2.5e-5 below 670 km, 1.0e-5 at the CMB): the mass and the
     # temperature deficit of a parcel are kept, its density anomaly falls with alpha. Added by the forty-sixth pass's
     # rule (P-d high in the cloud pre-check with 'constant': 1,010 m rms against the proxy's 222; 'depth' 623 m).
-    # Earth's tomographic densities carry the decrease already, so 'depth' is the like-for-like counterpart
-    'slab_alpha': 'depth',
+    # Earth's tomographic densities carry the decrease already, so 'depth' is the like-for-like counterpart.
+    # 'thermo' (fifty-first pass, journal 72; the default for 'slabs' since): the slab's own thermodynamics from
+    # SLB2011 (mantle_flow.thermo_ratio): its entropy deficit is kept, so its temperature deficit grows along the
+    # adiabat; 1.09x 'depth' at 825 km, 1.6x at 2,825 km; Earth's record (E3) 645 m against 'depth' 516 m
+    'slab_alpha': 'thermo',
     # basal traction (with force_law 'torque' and dyn_rule 'slabs'): basal drag acts on the plate's velocity relative
     # to the free-slip flow, C_b (1 + (keel - 1) c)(v_flow - v_plate), so it uses the existing drag coefficients and
     # adds none (journal 66, section 2). Swept only after its paired probe passes (P-h)

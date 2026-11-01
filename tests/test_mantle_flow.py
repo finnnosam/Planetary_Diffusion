@@ -101,7 +101,7 @@ def test_u4_layer_loads_sum_to_the_mass():
 
 
 def test_u5_random_is_the_default_and_slabs_keeps_the_hotspots():
-    assert P.PARAMS['dyn_rule'] == 'random' and P.PARAMS['basal_traction'] is False and P.PARAMS['slab_alpha'] == 'depth'
+    assert P.PARAMS['dyn_rule'] == 'random' and P.PARAMS['basal_traction'] is False and P.PARAMS['slab_alpha'] == 'thermo'
     if not (DATA/'mantle'/'visc.sh08').exists():
         pytest.skip('data/mantle/visc.sh08 missing')
     g = CubeSphere(24)
@@ -141,6 +141,19 @@ def test_u6_earth_precheck_numbers_reproduce():
     s = mfe.summary(*mfe.earth_flow('smean2', True, 300.))
     assert abs(s['rms_m']/222-1) < .01 and abs(s['flow_rms_cm_yr']/1.35-1) < .01
     assert abs(s['share_l1_3']-.84) < .01
+
+
+def test_thermo_ratio_is_the_pass51_table():
+    z = mf.THERMO_Z0_KM+mf.THERMO_DZ_KM*np.arange(len(mf.THERMO_F))
+    assert len(mf.THERMO_F) == len(mf.load_radii(R, 300e3)) == 51 and z[-1] == 2825.
+    assert np.allclose((R-mf.load_radii(R, 300e3))/1e3, z)          # tabulated at the load-layer mid-depths
+    f = mf.thermo_ratio(z)
+    assert np.allclose(f, mf.THERMO_F) and abs(mf.thermo_ratio(325.)-.7106) < 1e-12
+    lm = z > 700.
+    assert (np.diff(f[lm]) < 0).all()                               # falls through the lower mantle
+    r = f/mf.alpha_ratio(z)                                         # above the ambient-alpha factor below 800 km,
+    assert (r[z > 800.] > 1.05).all() and (np.diff(r[lm]) > 0).all() and 1.55 < r[-1] < 1.65   # growing with depth
+    assert mf.thermo_ratio(100.) == f[0] and mf.thermo_ratio(2891.) == f[-1]
 
 
 def test_alpha_ratio_follows_its_sources():

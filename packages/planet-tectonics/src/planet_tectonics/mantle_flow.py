@@ -257,6 +257,30 @@ def alpha_ratio(z_km):
     return np.where(z < 660., um, np.where(z < 670., np.interp(z, [660., 670.], [ALPHA_UM[-1][1], ALPHA_LM_TOP]), lm))/ALPHA_GDH1
 
 
+# The slab's thermal mass at depth per unit of its surface (GDH1) mass, from a thermodynamic model fitted to
+# experiments (Stixrude & Lithgow-Bertelloni 2011, SLB2011, evaluated with BurnMan 2.1.0; fifty-first pass, journal
+# 72): a GDH1 plate (95 km, 1,450 C) of age 63 Myr laid on the ambient isentrope (potential temperature 1,600 K) of a
+# pyrolite with fixed modes per region; every element follows its own isentrope (latent-heat jumps 410 +2.5%, 660
+# -1.0%); the mass is sum (1 - rho_ambient / rho_element) dm over the elements, normalised by the same sum for the
+# plate column at the trench, so the surface mass stays the measured subsidence mass. The mean of the no-conduction
+# and fully diffused limits (they differ by <= 2%); potential temperature 1,550-1,650 K and plate ages 42-85 Myr move
+# it by <= 2%. Unlike alpha_ratio it keeps the parcel's entropy deficit, not its temperature deficit: along the
+# adiabat a parcel's temperature deficit grows with the absolute temperature (x 1.2 at 825 km, x 1.6 at 2,825 km).
+# Tabulated at the load-layer mid-depths below a 300 km cut (325, 375, ..., 2,825 km).
+THERMO_Z0_KM, THERMO_DZ_KM = 325., 50.
+THERMO_F = (0.7106, 0.6756, 0.7352, 0.7115, 0.6594, 0.6403, 0.6222, 0.8388, 0.8245, 0.8110, 0.7980, 0.7857, 0.7739,
+            0.7627, 0.7519, 0.7415, 0.7316, 0.7220, 0.7128, 0.7039, 0.6953, 0.6870, 0.6790, 0.6713, 0.6638, 0.6566,
+            0.6495, 0.6427, 0.6361, 0.6296, 0.6234, 0.6173, 0.6113, 0.6055, 0.5999, 0.5944, 0.5890, 0.5838, 0.5787,
+            0.5737, 0.5688, 0.5640, 0.5593, 0.5546, 0.5501, 0.5457, 0.5413, 0.5371, 0.5328, 0.5287, 0.5246)
+
+
+def thermo_ratio(z_km):
+    """The slab's thermal mass at depth z per unit of its surface mass (THERMO_F, linear between the tabulated
+    layer mid-depths, held at the ends)."""
+    z = np.asarray(z_km, np.float64)
+    return np.interp(z, THERMO_Z0_KM+THERMO_DZ_KM*np.arange(len(THERMO_F)), np.asarray(THERMO_F))
+
+
 # ------------------------------------------------------------------ the slab record
 class SlabRecord:
     """Subducted lithosphere in the mantle frame: parcel position (unit vector), depth (m), mass excess (kg), birth
@@ -384,7 +408,7 @@ def thermal_mass_excess(age_myr, rho_mantle, rho_water):
 class MantleFlow:
     """The record, the kernels and the current flow on a graph. p: rho_mantle, flow_lmax, flow_z_cut_km, slab_dip_deg,
     lm_sink_mm_yr, viscosity_file (path), threads, slab_alpha ('constant': the surface expansivity at all depths;
-    'depth': alpha_ratio)."""
+    'depth': alpha_ratio; 'thermo': thermo_ratio)."""
 
     def __init__(self, graph, p):
         from planet_grid.paths import DATA
@@ -397,13 +421,15 @@ class MantleFlow:
         base, eta = read_viscosity(vf)
         self.radii = load_radii(graph.radius, self.z_cut)
         self.kernels = FlowKernels(graph.radius, self.radii, base, eta, self.lmax)
-        sa = p.get('slab_alpha', 'depth')
-        if sa == 'depth':                                 # the expansivity's decrease with depth (mineral physics)
+        sa = p.get('slab_alpha', 'thermo')
+        if sa == 'thermo':                                # the slab's own thermodynamics (SLB2011, pass 51)
+            self.factor = thermo_ratio((graph.radius-self.radii)/1e3)
+        elif sa == 'depth':                               # the ambient expansivity's decrease with depth
             self.factor = alpha_ratio((graph.radius-self.radii)/1e3)
         elif sa == 'constant':
             self.factor = None
         else:
-            raise ValueError(f"slab_alpha {sa!r}: 'constant' or 'depth'")
+            raise ValueError(f"slab_alpha {sa!r}: 'thermo', 'depth' or 'constant'")
         self.record = SlabRecord(p['slab_dip_deg'], p['lm_sink_mm_yr'])
         nalm = (self.lmax+1)*(self.lmax+2)//2
         self.H = np.zeros(nalm, np.complex128)            # air-loaded dynamic topography (m)
