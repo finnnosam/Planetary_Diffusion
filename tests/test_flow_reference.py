@@ -29,8 +29,9 @@ def _cheb(N):
 
 
 def reference_kernel(l, load_r, edges, etas, N=16, g=mf.G, a=A_M, eta0=1e21):
-    """(KH, KV) as FlowKernels defines them: -sigma_rr(a)/g and u_h(a) per unit sheet (1 kg/m^2) at non-dimensional
-    radius load_r; edges: layer boundaries (non-dimensional radius, CMB to 1), etas: their viscosities (Pa s).
+    """(KH, KV, KC) as FlowKernels defines them: -sigma_rr(a)/g, u_h(a) and +sigma_rr(c)/g (pass 50: the CMB
+    deflection's mass) per unit sheet (1 kg/m^2) at non-dimensional radius load_r; edges: layer boundaries
+    (non-dimensional radius, CMB to 1), etas: their viscosities (Pa s).
     Units: r in a, eta in eta0, stress in g sigma (so the jump is 1), velocity in g a / eta0."""
     edges, etas = list(edges), list(etas)
     k = int(np.searchsorted(edges, load_r))-1
@@ -78,7 +79,7 @@ def reference_kernel(l, load_r, edges, etas, N=16, g=mf.G, a=A_M, eta0=1e21):
         rr = np.sqrt(np.abs(A).max(1)); cc = np.sqrt(np.abs(A).max(0)); rr[rr == 0] = 1; cc[cc == 0] = 1
         A = A/rr[:, None]/cc[None, :]; dr *= rr; dc *= cc
     x = np.linalg.solve(A, b/dr)/dc
-    return -srr(nd-1, n-1)@x, x[sl(nd-1, 1)][n-1]*g*a/eta0
+    return -srr(nd-1, n-1)@x, x[sl(nd-1, 1)][n-1]*g*a/eta0, srr(0, 0)@x
 
 
 DEPTHS_KM = (325., 575., 1075., 1525., 1925., 2525., 2825.)   # 1925 and 1075 lie 5 km from sh08 layer boundaries
@@ -91,8 +92,9 @@ def _check(base, eta, edges):
     for l in DEGREES:
         vmax = np.abs(K.KV[l]).max()
         for j, r in enumerate(radii):
-            kh, kv = reference_kernel(l, r/A_M, edges, eta)
+            kh, kv, kc = reference_kernel(l, r/A_M, edges, eta)
             assert abs(kh-K.KH[l, j]) < 2e-4, (l, DEPTHS_KM[j], kh, K.KH[l, j])
+            assert abs(kc-K.KC[l, j]) < 2e-4, (l, DEPTHS_KM[j], kc, K.KC[l, j])
             if abs(K.KV[l, j]) > 1e-3*vmax:
                 assert abs(kv/K.KV[l, j]-1) < 2e-3, (l, DEPTHS_KM[j], kv, K.KV[l, j])
 
@@ -106,3 +108,26 @@ def test_kernels_match_the_reference_isoviscous():
 def test_kernels_match_the_reference_sh08():
     base, eta = mf.read_viscosity(VISC)
     _check(base, eta, list(np.append(np.append(mf.CMB_RADIUS_M/A_M, base[1:]), 1.)))
+
+
+def test_geoid_kernels_limits_signs_and_self_gravitation_off():
+    """Pass 50. Sheets at either boundary are compensated by its deflection (no geoid); an isoviscous mantle gives a
+    negative geoid over a dense sheet at every depth and degree, and a lower mantle 30x stiffer makes it positive at
+    1,000 km for l = 2 and 4 (Hager 1984: 'a factor of thirty ... is likely sufficient'); the self-gravitating solve
+    with zero density contrasts is the plain kernel."""
+    c = mf.CMB_RADIUS_M
+    edge = mf.FlowKernels(A_M, np.array([A_M*(1-1e-7), c*(1+1e-7)]), np.array([c/A_M]), np.array([1e21]), 8)
+    deep = mf.FlowKernels(A_M, np.array([A_M-1000e3]), np.array([c/A_M]), np.array([1e21]), 8)
+    KN, _ = edge.geoid_kernels()
+    assert np.allclose(edge.KH[1:, 0], -1, atol=1e-5) and np.allclose(edge.KC[1:, 1], -1, atol=1e-5)
+    assert np.abs(KN[2:]).max() < 1e-4*np.abs(deep.geoid_kernels()[0][2:]).max()
+    radii = A_M-np.arange(350., 2850., 250.)*1e3
+    iso = mf.FlowKernels(A_M, radii, np.array([c/A_M]), np.array([1e21]), 8)
+    assert (iso.geoid_kernels()[0][2:] < 0).all()
+    stiff = mf.FlowKernels(A_M, np.array([A_M-1000e3]), np.array([c/A_M, (A_M-670e3)/A_M]), np.array([3e22, 1e21]), 8)
+    KN30, _ = stiff.geoid_kernels()
+    assert KN30[2, 0] > 0 and KN30[4, 0] > 0
+    for K in (iso, stiff):
+        KN, KH = K.geoid_kernels()
+        KN0, KH0 = K.geoid_kernels(True, 0., 0.)
+        assert np.allclose(KN0[2:], KN[2:], rtol=0, atol=1e-18) and np.allclose(KH0[1:], KH[1:])

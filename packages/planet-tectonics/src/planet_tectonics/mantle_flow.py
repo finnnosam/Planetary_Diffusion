@@ -34,7 +34,10 @@ import numpy as np
 from planet_grid import fields
 
 G = 9.81
+GRAV_CONST = 6.674e-11            # m^3 kg^-1 s^-2 (the geoid kernels; pass 50)
 CMB_RADIUS_M = 3480e3
+RHO_CORE_JUMP = 4340.             # kg/m^3: PREM's density step at the CMB (9,903 - 5,566; Dziewonski & Anderson 1981),
+                                  # used only by the self-gravitating geoid bound
 ETA0 = 1e21                       # scaling viscosity of the non-dimensional system (any value; results do not depend on it)
 Z_660_M = 660e3                   # upper / lower mantle boundary
 Z_EXIT_M = 2850e3                 # parcels leave the record here (the slab graveyard above the CMB)
@@ -136,7 +139,10 @@ class FlowKernels:
     """Surface response to a unit density sheet (1 kg/m^2) at each load radius, per degree l = 1..lmax:
     KH[l, j] = -sigma_rr(surface) / g (kg/m^2; the air-loaded topography is KH sigma / rho_m: negative over a dense
     sheet, -> -1 for a sheet at the surface, -> 0 at the CMB) and
-    KV[l, j] = u_h(surface) (m/s per kg/m^2; horizontal velocity u_h grad_1 Y)."""
+    KV[l, j] = u_h(surface) (m/s per kg/m^2; horizontal velocity u_h grad_1 Y), and (pass 50, for the geoid)
+    KC[l, j] = +sigma_rr(CMB) / g (kg/m^2): the mass per area of the CMB's deflection (the core is a hydrostatic fluid, so
+    its pressure at the CMB radius has no l >= 1 part and the boundary moves by sigma_rr / (drho_c g); a dense sheet
+    pushes it down, -> -1 for a sheet at the CMB, -> 0 at the surface)."""
 
     def __init__(self, radius_m, load_radii_m, base_frac, eta, lmax, cmb_m=CMB_RADIUS_M):
         self.a, self.c, self.lmax = float(radius_m), float(cmb_m), int(lmax)
@@ -144,7 +150,7 @@ class FlowKernels:
         self.tops, self.eta = tops, np.asarray(eta, np.float64)
         self.r = np.asarray(load_radii_m, np.float64)
         J = len(self.r)
-        self.KH = np.zeros((lmax+1, J)); self.KV = np.zeros((lmax+1, J))
+        self.KH = np.zeros((lmax+1, J)); self.KV = np.zeros((lmax+1, J)); self.KC = np.zeros((lmax+1, J))
         for l in range(1, lmax+1):
             dec = []
             for et in self.eta:
@@ -158,6 +164,7 @@ class FlowKernels:
                 Xa = Pac@np.array([0., Vc, Rc, 0.])+s
                 self.KH[l, j] = -Xa[2]*ETA0/self.a/G
                 self.KV[l, j] = Xa[1]
+                self.KC[l, j] = Rc*ETA0/self.c/G
 
     def _between(self, dec, r2, r1):
         """Propagator from r1 up to r2 through the viscosity layers."""
@@ -179,6 +186,43 @@ class FlowKernels:
         H = (self.KH[li, :].T*loads).sum(0)
         V = (self.KV[li, :].T*loads).sum(0)
         return H, V
+
+    def geoid_kernels(self, self_grav=False, rho_top=None, rho_core=RHO_CORE_JUMP):
+        """(KN, KHs): the surface geoid (m per kg/m^2 of load) and the surface deflection mass (kg/m^2 per kg/m^2),
+        per degree and load radius. Without self-gravitation (self_grav False) the deflections are KH and KC and
+        N_l = 4 pi G_N a / ((2l+1) g) [ (r/a)^(l+2) + KH + KC (c/a)^(l+2) ] (each sheet's exterior potential).
+        With self_grav the deflections are measured from the perturbed equipotentials: m_a = KH sigma + rho_top N(a),
+        m_c = KC sigma + rho_core N(c), solved per degree; this is the boundary part of self-gravitation in a mantle
+        of uniform density (the reduced pressure p + rho_0 phi absorbs the rest), a bound, not PREM's stratification.
+        rho_top: the surface density contrast (kg/m^3; required with self_grav)."""
+        a, c = self.a, self.c
+        L = np.arange(self.lmax+1)[:, None]
+        k = 4*np.pi*GRAV_CONST/((2*L+1.)*G)                       # N = k * (radius x surface density) x geometry
+        ra = self.r[None, :]/a
+        load_a = self.r[None, :]*ra**(L+1)                       # r_j (r_j/a)^(l+1): sheet seen from the surface
+        if not self_grav:
+            KN = k*(load_a+a*self.KH+c*self.KC*(c/a)**(L+1))
+            KN[0] = 0.
+            return KN, self.KH.copy()
+        if rho_top is None:
+            raise ValueError('self_grav needs rho_top')
+        load_c = self.r[None, :]*(c/self.r[None, :])**L          # sheet seen from the CMB (inside it)
+        KN = np.zeros_like(self.KH); KHs = np.zeros_like(self.KH)
+        for l in range(1, self.lmax+1):
+            kl = k[l, 0]; q = (c/a)**(l+1); p = (c/a)**l
+            M = np.array([[1-rho_top*kl*a, -rho_top*kl*c*q], [-rho_core*kl*a*p, 1-rho_core*kl*c]])
+            rhs = np.stack([self.KH[l]+rho_top*kl*load_a[l], self.KC[l]+rho_core*kl*load_c[l]])
+            ma, mc = np.linalg.solve(M, rhs)
+            KN[l] = kl*(a*ma+load_a[l]+c*q*mc)
+            KHs[l] = ma
+        return KN, KHs
+
+    def geoid(self, loads, self_grav=False, rho_top=None, rho_core=RHO_CORE_JUMP):
+        """Geoid coefficients (m) of the loads (J, nalm; kg/m^2), degrees 1..lmax (degree 1 is reported but has no
+        meaning in a centre-of-mass frame)."""
+        KN, _ = self.geoid_kernels(self_grav, rho_top, rho_core)
+        li = alm_l(self.lmax)
+        return (KN[li, :].T*loads).sum(0)
 
 
 # ------------------------------------------------------------------ thermal expansivity with depth

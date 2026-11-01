@@ -9,6 +9,8 @@
  "etopo_10m.tif": "9a45dd6dc5b0959cde00d64cc348aa5f731b31ceb7537d638a1162afa12d1254",
  "etopo_2022_30s_surface.tif": "c85d2139821b396c06560a3356e993b2d9316baee7970f234586805fb7bc276e",
  "gsrm/GSRM_average_strain_v2.1.txt": "26cb5f6fd5faca7050375e5cac8396a9713585031206d8ba221575feae33b42b",
+ "mantle/egm2008-hc-geoid.chambat.31.ab": "e1e709a84f73bad98da1b08228a322c4c5c2f301f4e618be9b3f201d2e9407e0",
+ "mantle/egm2008-hc-geoid.nakiboglu.ab": "73f676bf7048fc8e32da386a3124db61b831f469491c37399ae8f498dc7d0a80",
  "mantle/s40rts.31.m.ab": "1cc5790e9376d10bd9d9905e1c577f5c520665b4571805adbc160cb732bb5774",
  "mantle/smean2.31.m.ab": "b29cfc5b3b701bb5464e1dff50eb18b8a817c6a93a6409f6da34a769e32f332d",
  "mantle/visc.sh08": "31fb6ed783c14fc0f8f8bf8e0befd85ea00f976577342584b832cad129d26691",
