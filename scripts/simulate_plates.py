@@ -6,6 +6,11 @@
 Writes outputs/planet-plates/<timestamp>/: index.html with maps every 25 Myr and present-day fields, stats.json
 (time series and present-day statistics against Earth), and snapshots/ (world fields every --save-every Myr over the
 last --save-last Myr, every 10 Myr before; plate rotations at every save).
+
+Every entry of the stats series also carries 'trench_arrivals' (planet_reviews.crust_budget.trench_arrivals of that
+step's state: arc / plateau crust and sediment carried into subduction boundaries, km^3/yr, and the node lengths),
+so crust_budget does not need 1 Myr snapshots (forty-eighth pass). The landscape stage does: a run that feeds it keeps
+--save-every 1 (the default here; sweeps save every 5 Myr).
 """
 import argparse
 import json
@@ -125,6 +130,7 @@ def draw(out, maps, present, eq):
 
 
 def run_seed(seed, a, out):
+    from planet_reviews.crust_budget import trench_arrivals
     g = CubeSphere(a.n)
     t0 = time.perf_counter()
     sim = PlateSim(g, seed=seed, t0=-a.years, params=a.params)
@@ -136,6 +142,7 @@ def run_seed(seed, a, out):
     def record(s):
         st = s.state()
         series.append(summary(s, st))
+        series[-1]['trench_arrivals'] = trench_arrivals(st, g, s.p)   # output only (forty-eighth pass)
         late = s.t > -a.save_last-1e-6
         if (late and round(s.t) % a.save_every == 0) or round(s.t) % 10 == 0:
             save_snapshot(sdir/'snapshots', s, st)

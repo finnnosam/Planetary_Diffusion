@@ -3,8 +3,10 @@
   python -m planet_reviews.crust_budget outputs\\planet-calibration\\sweep-20261025-170555\\boundary_normal-ring_extension-False_ext_onset_thick_m-45000
   python -m planet_reviews.crust_budget --latest
 
-Reads only what the runs saved (stats.json series every 1 Myr, snapshots every 10 Myr before -40 Myr and every 1 Myr
-after); changes nothing in the model. For every combination folder (or seed folder):
+Reads only what the runs saved (stats.json series every 1 Myr, snapshots every 10 Myr before -40 Myr and every 1 or
+5 Myr after); changes nothing in the model. The trench arrivals (3.) come from the series' 'trench_arrivals' (runs from
+the forty-eighth pass on) or, for older runs, from the 1 Myr snapshots of the last 40 Myr; both are trench_arrivals
+of the same state. For every combination folder (or seed folder):
 
 1. B's integrated tests (fixed 26 Oct, thirty-fourth pass; Earth computed here from ETOPO on the same grid where it
    can be): water the basins hold below the datum (global equivalent layer) within +-100 m of Earth's; continental
@@ -13,7 +15,7 @@ after); changes nothing in the model. For every combination folder (or seed fold
 2. The budget in km^3/yr over the whole run and over the last 40 Myr (Earth's fluxes are present-day rates): the
    continental crust (crystalline), the sediment on it, the ocean floor's sediment, and island arcs (oceanic crust
    thicker than ocean_thick_m), each with its closure residual.
-3. Island arcs: the stock and its thickness, where it sits, what reaches trenches (last 40 Myr, 1 Myr snapshots:
+3. Island arcs: the stock and its thickness, where it sits, what reaches trenches (last 40 Myr, every Myr:
    arc and plateau crust on the downgoing side of a subduction boundary, times the closing rate, facing continental
    or oceanic crust), and the loss by difference (growth - change of stock - turned continental + eroded).
 4. Trench length (contour, planet_reviews.boundary_lengths; continental vs intra-oceanic) and per-km rates.
@@ -162,6 +164,14 @@ def trench_arrivals(z, g, p):
     return out
 
 
+def series_arrivals(stats, t0=-40, t1=0):
+    """trench_arrivals at every Myr from t0 to t1 as the run recorded them in its stats series, or None if any step
+    lacks them (runs before the forty-eighth pass)."""
+    S = {round(r['time_myr'], 3): r.get('trench_arrivals') for r in stats['series']}
+    arr = [S.get(round(float(t), 3)) for t in range(t0, t1+1)]
+    return None if any(x is None for x in arr) else arr
+
+
 def contour_lengths(seed, t, g):
     from planet_reviews.boundary_lengths import lengths
     z = snap(seed, t)
@@ -236,7 +246,9 @@ def run_one(seed, g, earth):
     tests['crust_volume_change'] = stats['continental_crust_volume_change']
     whole = budget(seed, g, T0, 0., p, stats)
     recent = budget(seed, g, -40., 0., p, stats)
-    arr = [trench_arrivals(snap(seed, float(t)), g, p) for t in range(-40, 1)]
+    arr = series_arrivals(stats)
+    if arr is None:                                                   # runs before the forty-eighth pass
+        arr = [trench_arrivals(snap(seed, float(t)), g, p) for t in range(-40, 1)]
     arrivals = {k: float(np.mean([x[k] for x in arr])) for k in arr[0]}
     L = [contour_lengths(seed, float(t), g) for t in (-40, -30, -20, -10, 0)]
     lens = {k: float(np.mean([x.get(k, 0.) for x in L])) for k in ('subduction_km', 'subduction_continental_km',

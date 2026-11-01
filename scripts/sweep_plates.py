@@ -20,8 +20,10 @@ Rule, fixed before the sweep: the smallest score wins; within 0.03 of it, the co
 --rule shelf only combinations whose seed means pass SHELF_BANDS (whole-surface p70, continental crust under water,
 land p25) compete; if none passes, nothing is chosen.
 Writes outputs/planet-calibration/sweep-<timestamp>/results.json and keeps each run's snapshots
-(outputs/planet-calibration/sweep-<timestamp>/<combo>/seed<s>/snapshots), so the winner can go straight to the
-landscape stage. <combo> names only the parameters that differ between the combinations (e.g. rift_rule-pure_shear;
+(outputs/planet-calibration/sweep-<timestamp>/<combo>/seed<s>/snapshots) every --save-every Myr (default 5, since the
+forty-eighth pass: 30 snapshots per run instead of 62) over the last 40 Myr and every 10 Myr before. The landscape
+stage needs every 1 Myr over its window: rerun the chosen seed with scripts.simulate_plates (runs are deterministic),
+or sweep with --save-every 1. <combo> names only the parameters that differ between the combinations (e.g. rift_rule-pure_shear;
 a single combination is combo-01, or defaults without parameters), or combo-01, combo-02, ... when that would exceed MAX_NAME characters; the
 parameters shared by all combinations are in sweep.json, each combination's full set in <combo>/params.json and in
 results.json ('chosen_dir' names the winner's folder). Before 24 Oct the folder carried every swept parameter
@@ -53,10 +55,11 @@ def combo_names(combos):
 
 
 def one(job):
-    params, seed, out, years = job
+    params, seed, out, years, save_every = job
     os.environ.setdefault('NUMBA_NUM_THREADS', '2')
     from scripts import simulate_plates
-    argv = ['--n', '217', '--seeds', str(seed), '--years', str(years), '--out', str(out), '--param', 'threads=2']
+    argv = ['--n', '217', '--seeds', str(seed), '--years', str(years), '--out', str(out), '--param', 'threads=2',
+            '--save-every', str(save_every)]
     for k, v in params.items():
         argv += ['--param', f'{k}={v}']
     t0 = time.time()
@@ -118,6 +121,8 @@ def main(argv=None):
     p.add_argument('--rule', choices=('score', 'shelf'), default='score',
                    help="shelf: only combinations whose seed means pass SHELF_BANDS compete (step 8 shelf sweep)")
     p.add_argument('--workers', type=int, default=max(1, min(8, (os.cpu_count() or 2)//2)))
+    p.add_argument('--save-every', type=int, default=5,
+                   help='snapshot cadence (Myr) over the last 40 Myr (1 for a sweep whose runs feed the landscape stage)')
     a = p.parse_args(argv)
     from planet_tectonics.plates import PARAMS
     from planet_grid.sphere_graph import CubeSphere
@@ -142,13 +147,13 @@ def main(argv=None):
     name = lambda c: dirnames[combos.index(c)]
     fixed = {k: v for k, v in combos[0].items() if all(c.get(k) == v for c in combos)} if len(combos) > 1 else {}
     (out/'sweep.json').write_text(json.dumps({'fixed': fixed, 'combos': dict(zip(dirnames, combos)), 'seeds': seeds,
-                                              'years': a.years, 'rule': a.rule}, indent=1))
+                                              'years': a.years, 'rule': a.rule, 'save_every': a.save_every}, indent=1))
     for c in combos:
         (out/name(c)).mkdir(parents=True, exist_ok=True)
         (out/name(c)/'params.json').write_text(json.dumps(c, indent=1))
     if fixed:
         print('shared by all combinations: '+', '.join(f'{k}={v}' for k, v in fixed.items()), flush=True)
-    jobs = [(c, s, out/name(c), a.years) for c in combos for s in seeds]
+    jobs = [(c, s, out/name(c), a.years, a.save_every) for c in combos for s in seeds]
     print(f'{len(jobs)} runs on {a.workers} workers -> {out}', flush=True)
     g = CubeSphere(217)
     earth_tex, earth_hyp = pt.earth_texture(g), load(217)['no_ice_sheets']

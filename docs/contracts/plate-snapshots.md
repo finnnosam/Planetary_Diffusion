@@ -22,8 +22,19 @@ seed<s>/
     snapshots/t<time>-plates.json  the plates at that time
 ```
 
-Snapshots are saved every `--save-every` Myr (default 1) over the last `--save-last` Myr (default 40) and every
-10 Myr before that. The landscape needs every 1 Myr over its window.
+Snapshots are saved every `--save-every` Myr over the last `--save-last` Myr (default 40) and every 10 Myr before
+that. `--save-every` defaults to 1 in `scripts.simulate_plates` and, from 31 Oct 2026, to 5 in `scripts.sweep_plates`
+(recorded in `sweep.json` as `save_every`). The landscape needs every 1 Myr over its window: feed it from a
+`simulate_plates` run, or from a sweep run with `--save-every 1`.
+
+## `stats.json`: the series
+
+`series` holds one entry per Myr from the start to 0 Myr (the run's summary statistics; `present` is the last entry).
+From 31 Oct 2026 every entry also carries `trench_arrivals` (`planet_reviews.crust_budget.trench_arrivals` of that
+step's state): `arc_facing_continent_km3_yr`, `arc_facing_ocean_km3_yr`, `sed_facing_continent_km3_yr`,
+`sed_facing_ocean_km3_yr` (arc / plateau crust and sediment carried into subduction boundaries on the downgoing side,
+km³/yr, node lengths) and `length_node_facing_continent_km`, `length_node_facing_ocean_km`. Readers fall back to the
+1 Myr snapshots for runs without it.
 
 ## `t<time>.npz`: world fields at one time
 
