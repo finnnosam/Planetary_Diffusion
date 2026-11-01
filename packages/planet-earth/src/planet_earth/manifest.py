@@ -54,6 +54,12 @@ DATASETS = [
      'files': ['EarthByte/Grids/age.2020.1.GTS2012.2m.grd'],
      'source': 'https://www.earthbyte.org/webdav/ftp/earthbyte/agegrid/2020/Grids/', 'doi': '10.1029/2020GC009214',
      'used_by': 'ocean-floor age and production (planet_earth.seafloor_age, planet_reviews.plate_pieces_review)'},
+    {'key': 'mantle', 'name': 'Mantle tomography (SMEAN2, Becker 2016; S40RTS, Ritsema et al. 2011) and the radial viscosity '
+                              "profile 'sh08' (attributed to Steinberger & Holme 2008), from SEATREE",
+     'files': ['mantle/smean2.31.m.ab', 'mantle/s40rts.31.m.ab', 'mantle/visc.sh08'],
+     'source': 'https://github.com/thwbecker/seatree (python3/data/hc/, commit 940df70); data/mantle/SOURCE.txt',
+     'used_by': "dyn_rule 'slabs' (planet_tectonics.mantle_flow: the viscosity) and D's Earth reference "
+                '(planet_reviews.mantle_flow_earth, planet_reviews.dynamic_topography)'},
     {'key': 'riveratlas', 'name': 'HydroATLAS RiverATLAS v1.0 (Linke et al. 2019); optional, not used yet',
      'files': [], 'optional': True, 'folder': 'RiverATLAS_Data_v10_shp',
      'source': 'https://www.hydrosheds.org/hydroatlas', 'doi': '10.6084/m9.figshare.9890531',

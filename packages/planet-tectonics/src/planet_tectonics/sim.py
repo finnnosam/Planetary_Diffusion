@@ -61,6 +61,10 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self.flex_wet = SphereFlexure.for_graph(graph, self.p['te_m'], rho_load=1.,
                                                 rho_mantle=self.p['rho_mantle']-self.p['rho_water'], nthreads=self.p['threads'])
         mp = {k: self.p[k] for k in ('dyn_std_m', 'dyn_lmax', 'dyn_slope', 'dt_knot_myr')}
+        if self.p['dyn_rule'] != 'random':           # D: the slab flow (planet_tectonics.mantle_flow)
+            mp.update({k: self.p[k] for k in ('dyn_rule', 'rho_mantle', 'rho_water', 'threads', 'slab_dip_deg',
+                                              'lm_sink_mm_yr', 'flow_z_cut_km', 'flow_lmax', 'viscosity_file',
+                                              'slab_alpha')})
         self.mantle = Mantle(graph, np.random.default_rng([seed, 7]), t0, params=mp) if self.p['mantle'] else None
         self.dyn = self.mantle.topography(t0) if self.mantle else np.zeros(graph.size)
         self.next_id = 0
@@ -95,7 +99,12 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self.t += dt
         if self.mantle is not None:
             self.mantle.advance(self.t, dt)
-            self.dyn = self.mantle.topography(self.t)
+            if self.mantle.flow is not None:
+                self._feed_slab_record(dt)
+                wet = self.z_last < 0 if hasattr(self, 'z_last') else None
+                self.dyn = self.mantle.topography(self.t, wet)
+            else:
+                self.dyn = self.mantle.topography(self.t)
         idx, claimed = self._claims()
         self._world_from(idx, claimed, record=True)
         w = self.world
@@ -164,6 +173,24 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self._split_events()
 
 
+    def _feed_slab_record(self, dt):
+        """dyn_rule 'slabs': this step's parcels from the last classification's oceanic trench nodes (downgoing side):
+        area closing rate x dt x BOUNDARY_NODE_H h, times the floor's thermal mass excess; they descend toward the
+        overriding plate (the boundary normal at the node)."""
+        from planet_tectonics.mantle_flow import thermal_mass_excess
+        from planet_tectonics.motion import BOUNDARY_NODE_H
+        g, p, w = self.g, self.p, self.world
+        if hasattr(self, 'trench') and hasattr(self, 'b_normal'):
+            rate = np.maximum(self.conv_rate, 0.)
+            I = np.flatnonzero(self.trench & ~w['cont'] & (rate > 0) & (np.abs(self.b_normal).sum(1) > 0))
+        else:
+            I = np.zeros(0, np.int64); rate = np.zeros(g.size)
+        age = self.t-dt-w['born'][I]                 # age at the last classification
+        Ln = BOUNDARY_NODE_H*np.sqrt(g.area.mean())
+        mass = thermal_mass_excess(age, p['rho_mantle'], p['rho_water'])*rate[I]*dt*1e6*Ln
+        self.mantle.subduct(self.t, dt, g.xyz[I], self.b_normal[I] if I.size else np.zeros((0, 3)), mass, rate[I])
+
+
     def run(self, years_myr, callback=None, every=None):
         steps = int(round(years_myr/self.p['dt_myr']))
         for s in range(steps):
@@ -179,7 +206,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         w = self.world
         ocean_age = np.where(w['cont'], np.nan, self.t-w['born'])
         elev = self.elevation()
-        return {'time_myr': self.t, 'plate_id': self.owner.astype(np.int32), 'continental': w['cont'],
+        out = {'time_myr': self.t, 'plate_id': self.owner.astype(np.int32), 'continental': w['cont'],
                 'crust_thickness_m': w['thick'].astype(np.float32), 'crust_age_myr': (self.t-w['born']).astype(np.float32),
                 'ocean_age_myr': ocean_age.astype(np.float32), 'orogeny_age_myr': (self.t-w['orog']).astype(np.float32),
                 'boundary_type': self.btype if hasattr(self, 'btype') else np.zeros(self.g.size, np.int8),
@@ -189,6 +216,20 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
                 'dynamic_topography_m': self.dyn.astype(np.float32), 'new_crust': self.new_crust,
                 'sea_level_m': np.float32(getattr(self, 'sea_level', 0.)),
                 'tectonic_thickening_m': getattr(self, 'tectonic', np.zeros(self.g.size)).astype(np.float32)}
+        fl = self.mantle.flow if self.mantle is not None else None
+        if fl is not None:                           # D: the flow's coefficients and the record's profile
+            rec = fl.record
+            young = (rec.z >= fl.z_cut) & (self.t-rec.born < 100.)
+            near = np.zeros(self.g.size, np.float32)
+            if young.any():
+                np.add.at(near, fields.nearest_nodes(self.g, rec.pos[young]), rec.mass[young].astype(np.float32))
+            out.update({'dynamic_topography_air_m': self.mantle.topography(self.t).astype(np.float32),   # no water factor
+                        'flow_lmax': np.int32(fl.lmax), 'flow_topography_alm_m': fl.H.astype(np.complex64),
+                        'flow_velocity_alm_m_yr': fl.V.astype(np.complex64),
+                        'slab_mass_young_kg': near,
+                        'slab_mass_by_layer_kg': rec.mass_by_layer(fl.z_cut, len(fl.radii)),
+                        'slab_record_kg': np.array([rec.deposited_kg, rec.total_mass(), rec.exited_kg])})
+        return out
 
 
     def plate_table(self):

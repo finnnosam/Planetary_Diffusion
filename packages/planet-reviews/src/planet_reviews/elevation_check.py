@@ -51,7 +51,10 @@ def snapshot_tests(path, g, p):
     cs = np.where(cont, sed, 0.) if p.get('continental_sediment') else 0.
     cm = np.where(cont, s_dry, 0.) if p.get('continental_sediment') else 0.
     dry = p['cont_ref_elev_m']+(T-p['cont_ref_thick_m'])*(rm-rc)/rm+cs-cm/rm
-    own_cont = np.where(dry+dyn-sl < 0, (dry+dyn-sl)*rm/(rm-rw), dry+dyn-sl)
+    # dyn_rule 'slabs' (D) water-loads its flow field in the model: the column's own level water-loads the air-loaded
+    # field (snapshots carry it); the random field is not water-loaded in the model and is read as before
+    da = z['dynamic_topography_air_m'].astype(np.float64) if 'dynamic_topography_air_m' in z.files else dyn
+    own_cont = np.where(dry+da-sl < 0, (dry+da-sl)*rm/(rm-rw), dry+da-sl)
     thin = cont & (T+cs < 30e3)
     return {'young_ocean_area': float(a[yo].sum()/a.sum()),
             'young_ocean_above_sea': float(a[yo & (e > 0)].sum()/max(a[yo].sum(), 1e-9)),

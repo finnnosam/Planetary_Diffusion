@@ -19,6 +19,7 @@ class SurfaceMixin:
         is 0 (surface_step is closed)."""
         g, p, w = self.g, self.p, self.world
         z0 = self.elevation(thick, w['sed'])
+        self.z_last = z0                                 # dyn_rule 'slabs' water-loads the flow where this is < 0
         lp = {**gl.DEFAULTS, 'K': gl.DEFAULTS['K']*p['erosion_K_factor'], 'Sc': p['erosion_Sc'],
               'Kd': gl.DEFAULTS['Kd']*p['erosion_Kd_factor'], 'open_edges': False, 'theta': p['erosion_theta']}
         since = np.where(np.isnan(w['orog']), np.inf, self.t-w['orog'])

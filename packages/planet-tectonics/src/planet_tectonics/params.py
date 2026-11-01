@@ -187,6 +187,29 @@ PARAMS = {
     # residual topography on Earth is +-~1 km with power to degree ~30, Hoggard et al. 2016, the high end of estimates)
     # (sweep-20261018-144253, scored with arrangement and budget too, then preferred 500 m)
     'dyn_std_m': 500., 'dyn_lmax': 30, 'dyn_slope': 1., 'dt_knot_myr': 40.,
+    # D (journal 66; built in the forty-sixth pass): the dynamic topography's source. 'random' (as above: plate-blind
+    # knot fields, fitted). 'slabs': the instantaneous free-slip mantle flow driven by the planet's own slab record
+    # (planet_tectonics.mantle_flow): radial viscosity from data/mantle/visc.sh08 (Earth profile 'sh08'), parcels with
+    # the lithosphere's thermal mass excess (the planet's GDH1 subsidence) along the mean deep slab dip (Lallemand et al.
+    # 2005: 58 +- 14 deg below 125 km) at the closing rate to 660 km, then sinking at 12 mm/yr (van der Meer et al.
+    # 2010, 2018: 10-15 mm/yr in the lower mantle) to 2,850 km; only density below flow_z_cut_km drives the flow
+    # (below cratonic keels; Steinberger et al. 2019 cut at 220-350 km); degrees 1..flow_lmax (the Earth models'
+    # truncation). Applied x rho_m / (rho_m - rho_w) where the node was under the sea last step (GDH1's water
+    # loading). Hotspot swells and volcanism are unchanged. No fitted number
+    'dyn_rule': 'random',
+    'slab_dip_deg': 58., 'lm_sink_mm_yr': 12., 'flow_z_cut_km': 300., 'flow_lmax': 31,
+    'viscosity_file': None,        # None: data/mantle/visc.sh08
+    # the slab's density anomaly with depth: 'constant' keeps the surface expansivity of GDH1 (3.1e-5 /K) at all
+    # depths; 'depth' scales each load layer by alpha(z) / 3.1e-5 from mineral physics (mantle_flow.alpha_ratio:
+    # Steinberger & Calderwood 2006, 2.08e-5 at 660 km, 2.5e-5 below 670 km, 1.0e-5 at the CMB): the mass and the
+    # temperature deficit of a parcel are kept, its density anomaly falls with alpha. Added by the forty-sixth pass's
+    # rule (P-d high in the cloud pre-check with 'constant': 1,010 m rms against the proxy's 222; 'depth' 623 m).
+    # Earth's tomographic densities carry the decrease already, so 'depth' is the like-for-like counterpart
+    'slab_alpha': 'depth',
+    # basal traction (with force_law 'torque' and dyn_rule 'slabs'): basal drag acts on the plate's velocity relative
+    # to the free-slip flow, C_b (1 + (keel - 1) c)(v_flow - v_plate), so it uses the existing drag coefficients and
+    # adds none (journal 66, section 2). Swept only after its paired probe passes (P-h)
+    'basal_traction': False,
     # plate splitting (Poisson events). Rifting: rate per Myr for a 100 Mkm^2 plate, scaled by area and doubled for
     # mostly continental plates; the split line prefers old sutures; halves diverge at split_speed_cm_yr.
     'split_rate_per_myr': .006, 'split_min_area_mkm2': 12., 'split_speed_cm_yr': 2., 'suture_weakness': .6,

@@ -48,6 +48,22 @@ Node vectors on `CubeSphere(217)` (282,536 nodes), except the scalars.
 | `sea_level_m` | f4 scalar | m | sea level on the fixed datum (fixed ocean-water volume) |
 | `tectonic_thickening_m` | f4 | m | crust thickening by convergence and collision in the last step (before erosion) |
 
+With `dyn_rule` 'slabs' (D, the slab-driven mantle flow; from 31 Oct 2026) a snapshot also carries the following.
+Runs with the default random field do not; readers must not require them.
+
+| Field | dtype | Unit | Meaning |
+|---|---|---|---|
+| `dynamic_topography_air_m` | f4 | m | the flow's air-loaded field plus the hotspot swells (`dynamic_topography_m` is it with the flow part x rho_m / (rho_m - rho_w) where the node was under the sea) |
+| `flow_lmax` | i4 scalar | – | spherical-harmonic truncation of the two fields below |
+| `flow_topography_alm_m` | c8 | m | the flow's air-loaded dynamic topography: ducc0 alm (m-major, orthonormal harmonics), degrees 0..flow_lmax |
+| `flow_velocity_alm_m_yr` | c8 | m/yr | potential V of the free-slip surface velocity, v = grad_1 V (unit-sphere gradient), same layout |
+| `slab_mass_young_kg` | f4 | kg | slab-record mass below the flow cut from parcels younger than 100 Myr, summed onto the node under each parcel |
+| `slab_mass_by_layer_kg` | f8 | kg | slab-record mass below the cut per 50 km layer (from `flow_z_cut_km` down to 2,850 km) |
+| `slab_record_kg` | f8 (3) | kg | the record's ledger: deposited, held, passed 2,850 km |
+
+The fields themselves are coefficients rather than node vectors (a node vector of the velocity would add ~3 MB per
+snapshot); `planet_tectonics.mantle_flow.synthesis` and `.gradient` evaluate them anywhere.
+
 Runs made before 29 Oct 2026 also carry `extension_age_myr` and `thickening_age_myr` (from code since removed);
 readers must ignore fields they do not know and must not require these two.
 

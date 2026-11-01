@@ -31,6 +31,7 @@ class EventsMixin:
             na = getattr(new, name)
             na[lab] = arr[lab]
         pl.mask[lab] = False; pl.cont[lab] = False
+        pl.slab[lab] = 0                                 # the slab count went with the crust (it lives on own crust only)
         c1 = (g.area[rest, None]*g.xyz[rest]).sum(0); c1 /= np.linalg.norm(c1)
         c2 = (g.area[part, None]*g.xyz[part]).sum(0); c2 /= np.linalg.norm(c2)
         d = np.cross(c1, c2)
@@ -239,6 +240,7 @@ class EventsMixin:
                 dst.under[nd] = 0
         src.mask[ro] = False
         src.cont[ro] = False
+        src.slab[ro] = 0                                 # as split: the count went with the crust
         self.ledger['pieces'] = self.ledger.get('pieces', 0.)+vol(src, ro, src.thick)+vol(dst, k, dst.thick)-v0
         self.sed_ledger['pieces'] = self.sed_ledger.get('pieces', 0.)+vol(src, ro, src.sed)+vol(dst, k, dst.sed)-s0
         self.owner = np.where(part, dst.id, self.owner)

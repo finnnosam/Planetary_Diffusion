@@ -44,6 +44,8 @@ class MotionMixin:
         elif si != 'instant':
             raise ValueError(f"subduction_initiation {si!r}: 'instant' or 'convergence'")
         self.btype, self.conv_rate, self.trench = bt, rate, trench
+        if self.mantle is not None and self.mantle.flow is not None:     # D: the slab's direction of descent
+            self.b_other, self.b_normal = boundary_frame_ring(self.owner, slot, omega, g.xyz, g.nbr, g.radius)
 
 
     def _spread_same_plate(self, v, rings):
@@ -235,6 +237,11 @@ class MotionMixin:
         cv = b & ((bt == COLLISION) | (bt == CONVERGENT))
         cv &= slot[np.where(other >= 0, other, 0)] >= 0
         add_drag(cv, Cc, True)
+        if p['basal_traction'] and self.mantle is not None and self.mantle.flow is not None:
+            # basal drag on the velocity relative to the free-slip flow (D): + C_b R sum a (1 + (keel-1) c) x x v_flow
+            tq = np.cross(x, self.mantle.flow.v_xyz/YR_S)*(p['basal_drag_pa_s_m']*R*w)[:, None]
+            for i in range(3):
+                rhs[:, i] += np.bincount(row[ok], tq[ok, i], K)
         M = A.transpose(0, 2, 1, 3).reshape(3*K, 3*K)
         try:
             w = np.linalg.solve(M, rhs.reshape(-1))

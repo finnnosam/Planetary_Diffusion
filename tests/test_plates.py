@@ -1215,3 +1215,19 @@ def test_torque_law_on_earths_plates():
     r = F.evaluate_params()
     sc = F.score(r['g'], r['pid'], r['names'], r['st'], r['w'], r['w_obs'])
     assert sc['pass']['T-a'] and sc['pass']['T-b'] and sc['pass']['T-d'], sc
+
+
+def test_split_and_weld_take_the_slab_count_with_the_crust():
+    # the slab count (subduction_initiation 'convergence') lives only on a plate's own crust; a split left it on the
+    # nodes the parent gave away (found on Windows by test_slab_initiation_keeps_the_ledgers, 31 Oct)
+    g = CubeSphere(48)
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'mantle': False, 'subduction_initiation': 'convergence'})
+    pl = max(sim.plates, key=lambda q: (sim.owner == q.id).sum())
+    pl.slab[pl.mask] = 50.
+    own = sim.owner == pl.id
+    part = own & (g.xyz@g.xyz[np.flatnonzero(own)[0]] > np.cos(.3))
+    new = sim.split(pl, part, 2., 'rift')
+    assert new is not None
+    for q in (pl, new):
+        assert not q.slab[~q.mask].any()
+    assert (new.slab[new.mask] == 50.).all()
