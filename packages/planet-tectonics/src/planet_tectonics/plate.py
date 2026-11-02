@@ -14,6 +14,7 @@ class Plate:
         self.thick = np.zeros(size, np.float32)
         self.born = np.zeros(size, np.float32)    # crust formation time, Myr
         self.orog = np.full(size, np.nan, np.float32)  # last orogeny (collision) time, Myr
+        self.therm = np.full(size, np.nan, np.float32)  # last thermal event of the continental lithosphere, Myr (C)
         self.under = np.zeros(size, np.int16)           # consecutive steps hidden under another plate
         self.sed = np.zeros(size, np.float32)            # sediment, m (on continental crust too with continental_sediment)
         self.slab = np.zeros(size, np.float32)           # underthrust convergence beside this plate's overriding edge, km

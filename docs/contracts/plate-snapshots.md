@@ -49,6 +49,7 @@ Node vectors on `CubeSphere(217)` (282,536 nodes), except the scalars.
 | `crust_age_myr` | f4 | Myr | time since the crust formed |
 | `ocean_age_myr` | f4 | Myr | ocean-floor age; NaN on continental crust |
 | `orogeny_age_myr` | f4 | Myr | time since the last orogeny at the node |
+| `lithosphere_age_myr` | f4 | Myr | tectonothermal age of the continental lithosphere (C; time since its last thermal event: start age from Earth's CRUST1.0 types, reset by collision contacts, continental arcs and new continental crust, thinned by stretching); NaN on oceanic crust. Written since 1 Nov (fifty-sixth pass); it moves `elevation_m` only with PARAMS `lithosphere` 'thermal_age' |
 | `boundary_type` | i1 | – | 0 none, 1 ridge, 2 subduction, 3 collision, 4 transform (`planet_tectonics.params`) |
 | `convergence_mm_yr` | f4 | mm/yr | convergence rate across the boundary (0 off boundaries) |
 | `elevation_m` | f4 | m | surface elevation relative to sea level (flexural isostasy, sediment, dynamic topography) |

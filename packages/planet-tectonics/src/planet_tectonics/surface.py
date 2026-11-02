@@ -5,6 +5,7 @@ from planet_landscape import graph_landscape as gl
 from planet_tectonics import shelf as shelf_mod
 
 from planet_tectonics.isostasy import gdh1_depth, sea_level_for_volume, sediment_column
+from planet_tectonics.lithosphere import elevation_term
 
 
 class SurfaceMixin:
@@ -123,6 +124,11 @@ class SurfaceMixin:
         defl = self.flex_dry.deflection(dry)+self.flex_wet.deflection(wet)
         z = np.where(cont, p['cont_ref_elev_m']+load+thin*(rm-rc)/rm+cs, -gdh1_depth(ocean_age)+anomaly+sh)-defl
         z = z+np.where(cont & (own_airy < 0), own_airy*rw/(rm-rw), 0.)
+        if p['lithosphere'] == 'thermal_age':            # C: the mantle lithosphere's thermal state, locally compensated
+            dl = np.where(cont, elevation_term(self.t-w['therm'], p), 0.)
+            z = z+np.where(z+dl+self.dyn < s0, dl*rm/(rm-rw), dl)   # water-loaded where the surface is under the sea
+        elif p['lithosphere'] != 'none':
+            raise ValueError(f"lithosphere {p['lithosphere']!r}: 'none' or 'thermal_age'")
         z = z+self.dyn                                    # dynamic topography: non-load surface motion
         if p['water_volume_km3'] is None:
             return z

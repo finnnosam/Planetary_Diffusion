@@ -6,7 +6,7 @@ from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import margin_shortening, rift_pure_shear, spread_to_band, trench_flux_consumed
 from planet_tectonics.graphops import nearest_label
-from planet_tectonics.params import SUBDUCTION
+from planet_tectonics.params import COLLISION, SUBDUCTION
 
 
 class CrustMixin:
@@ -52,6 +52,8 @@ class CrustMixin:
         w['cont'][r] = True
         w['thick'][r] = Tr
         w['born'][r] = np.where(cr, w['born'][nbs[rift]], np.inf).min(1)   # stretched old crust keeps its age
+        w['therm'][r] = self.t                           # C: new rift crust, new lithosphere
+        self.therm_changed[r] = True
         self.erosion_totals['rift_nodes'] = self.erosion_totals.get('rift_nodes', 0)+int(r.size)
         return out
 
@@ -80,6 +82,8 @@ class CrustMixin:
         w['cont'][r] = True
         w['thick'][r] = Tg[rift]
         w['born'][r] = np.where(cr, w['born'][nbs[cand][rift]], np.inf).min(1)   # stretched old crust keeps its age
+        w['therm'][r] = self.t                           # C: new rift crust, new lithosphere
+        self.therm_changed[r] = True
         self.erosion_totals['rift_nodes'] = self.erosion_totals.get('rift_nodes', 0)+int(r.size)
         self.erosion_totals['rift_stretched_m3'] = self.erosion_totals.get('rift_stretched_m3', 0.)+float((Tg[rift]*g.area[r]).sum())
         return dT
@@ -106,6 +110,8 @@ class CrustMixin:
         a = g.area
         self.erosion_totals['basin_to_continent_m3'] = self.erosion_totals.get('basin_to_continent_m3', 0.)+float((w['sed'][conv]*a[conv]).sum())
         w['cont'] = w['cont'] | conv
+        w['therm'][conv] = w['born'][conv]               # C: the floor's lithosphere keeps the floor's age
+        self.therm_changed |= conv
         w['thick'] = w['thick']+dT
         w['sed'] = w['sed']+dS
         self.new_continent = self.new_continent | conv
@@ -178,6 +184,18 @@ class CrustMixin:
             self.erosion_totals['margin_shortening_moved_m3'] = self.erosion_totals.get('margin_shortening_moved_m3', 0.)+float(
                 (np.maximum(moved, 0)*g.area).sum())
         return out
+
+
+    def _thermal_resets(self, collided):
+        """C: continental world nodes whose lithosphere is reset to thermal age 0 this step: collision contacts (crust
+        consumed under continental crust, or a collision boundary closing faster than boundary_min_mm_yr; not the belt
+        clock, which resets on thickness alone) and the continental arc belt over a converging trench."""
+        g, p, w = self.g, self.p, self.world
+        cont = w['cont']
+        out = cont & collided
+        if hasattr(self, 'btype') and hasattr(self, 'conv_rate'):
+            out |= cont & (self.btype == COLLISION) & (self.conv_rate*1e3 > p['boundary_min_mm_yr'])
+        return out | (cont & getattr(self, 'belt', np.zeros(g.size, bool)))
 
 
     def _orogen_marks(self):

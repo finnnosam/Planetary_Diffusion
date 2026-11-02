@@ -108,8 +108,10 @@ class CompositionMixin:
         wborn = np.where(gap, self.t, np.stack([pl.born[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         worog = np.where(gap, np.nan, np.stack([pl.orog[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         wsed = np.where(gap, 0., np.stack([pl.sed[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
+        wtherm = np.where(gap, np.nan, np.stack([pl.therm[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         self.new_crust = gap
-        self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed}
+        self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed, 'therm': wtherm}
+        self.therm_changed = np.zeros(g.size, bool)      # C: world nodes whose thermal age changed this step
 
 
     def _update_rasters(self, dthick, idx, dsed=None):
@@ -186,6 +188,9 @@ class CompositionMixin:
         marked = collided | self._orogen_marks()
         self.orogen_marked = marked
         w['orog'] = np.where(marked, self.t, w['orog'])
+        reset = self._thermal_resets(collided)           # C: collision contacts and continental arcs
+        w['therm'][reset] = self.t
+        tchg = self.therm_changed | reset
         for k, pl in enumerate(self.plates):            # pass 2: ownership, new crust, thickness changes
             wn, own, gone = wns[k], owns[k], consumed[k]
             # a plate node switches on for genuinely new crust (a ridge gap), or for oceanic crust the plate already
@@ -217,10 +222,13 @@ class CompositionMixin:
                 self.sed_ledger['arc_continent'] += self._plate_cont_sed(pl)-vs1
             hit = np.zeros(g.size, bool); hit[js[marked[ws]]] = True
             pl.orog[hit] = self.t
+            sel = tchg[ws]                               # C: thermal ages changed at world nodes this plate feeds
+            pl.therm[js[sel]] = w['therm'][ws[sel]]
             pl.cont[new] = w['cont'][wn[new]]
             pl.thick[new] = w['thick'][wn[new]]
             pl.born[new] = w['born'][wn[new]]
             pl.orog[new] = w['orog'][wn[new]]
+            pl.therm[new] = w['therm'][wn[new]]
             pl.sed[new] = w['sed'][wn[new]]
             pl.under[new] = 0
             pl.slab[new] = 0
@@ -245,7 +253,7 @@ class CompositionMixin:
             if hole.any():
                 hs = src[hole]
                 pl.mask[hole] = True
-                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed, pl.slab):
+                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed, pl.slab, pl.therm):
                     arr[hole] = arr[hs]
                 self.ledger['holes'] += float((pl.thick[hole]*a[hole]*pl.cont[hole]).sum())
                 self.area_ledger['holes'] = self.area_ledger.get('holes', 0.)+float(a[hole & pl.cont].sum())

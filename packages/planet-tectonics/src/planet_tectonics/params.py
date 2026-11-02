@@ -329,6 +329,17 @@ PARAMS = {
     # tests on 2 of 3 with young-ocean offsets -356 / -307 m); 'node' reproduces the runs before it step by step
     'boundary_normal': 'ring',
     'hidden_steps': 3,             # overlapped crust is consumed only after this many steps under another plate
+    # C, the continental lithosphere's thermal state (fifty-sixth pass, journal 78; planet_tectonics.lithosphere).
+    # 'none' (as before): continents stand on the Airy line of their crust and sediment. 'thermal_age': each continental
+    # node's tectonothermal age (carried with the plates; start ages from Earth's CRUST1.0 types, reset by collision
+    # contacts, continental arcs over converging trenches and new continental crust, thinned with the crust by
+    # stretching) sets L = lith_L0_km + lith_rate_km_myr t (Artemieva 2006, TC1), and the mantle lithosphere's density
+    # excess lith_drho_kg_m3 (Lamb et al. 2020: 20-40 kg/m^3) moves the surface by -(drho / rho_mantle)(L - lith_ref_km)
+    # (locally compensated; water-loaded under the sea). lith_ref_km: Earth's continental area mean of L from the same
+    # age map (lithosphere.EARTH_LITH_REF_KM). Earth's coast-to-interior fall below the Airy line is 773 m (journal 77);
+    # no fitted number
+    'lithosphere': 'none',
+    'lith_L0_km': 93.6, 'lith_rate_km_myr': .04, 'lith_drho_kg_m3': 30., 'lith_ref_km': 130.67,
 }
 
 

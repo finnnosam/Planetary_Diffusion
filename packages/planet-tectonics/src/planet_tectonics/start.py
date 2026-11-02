@@ -5,6 +5,7 @@ from planet_grid import fields
 from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import quantile_map
+from planet_tectonics.lithosphere import start_ages
 from planet_tectonics.graphops import components, nearest_label
 from planet_tectonics.params import EARTH_STABLE_CRUST_KM, RIDGE
 from planet_tectonics.plate import Plate
@@ -59,6 +60,11 @@ class StartMixin:
         # old orogen age: from the two cratons it welds (nearest other-craton label across the suture)
         other = self._other_label(cont, clab)
         orog_c = np.where(d_suture < 250e3, self.t-pair_age[np.clip(clab, 0, None), np.clip(other, 0, None)], np.nan)
+        # C: tectonothermal ages joined to Earth's continent by distance from the continent's edge, within a distance
+        # bin by the craton's own age rank (lithosphere.start_ages; no random draw, so the run is unchanged with
+        # lithosphere 'none')
+        therm_c = np.full(g.size, np.nan)
+        therm_c[cont] = self.t-start_ages(d_coast[cont], (craton_age[np.clip(clab, 0, None)][cont]-1500.)/2000.)
 
         # plates: Voronoi with wiggled distances; n_cont_plates seeds inside the continent
         oids = np.flatnonzero(~cont)
@@ -104,6 +110,7 @@ class StartMixin:
             pl.thick[:] = np.where(cont, thick, p['ocean_thick_m'])
             pl.born[:] = np.where(cont, born_c, self.t-age_o)
             pl.orog[:] = np.where(cont, orog_c, np.nan)
+            pl.therm[:] = np.where(cont, therm_c, np.nan)
 
 
     def _start_poles_from_forces(self):

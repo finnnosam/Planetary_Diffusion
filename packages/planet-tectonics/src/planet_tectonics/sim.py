@@ -32,6 +32,7 @@ from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import edge_spread
 from planet_tectonics.isostasy import sediment_column
+from planet_tectonics.lithosphere import stretched_age
 from planet_tectonics.mantle import Mantle
 from planet_tectonics.params import PARAMS
 from planet_tectonics.start import StartMixin
@@ -131,6 +132,11 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
                 th = th1
             T -= h
         dthick = th-before+rift_dthick
+        thin = w['cont'] & (rift_dthick < 0) & (before > 0)
+        if thin.any():                                   # C: uniform stretching thins the lithosphere with the crust
+            ratio = np.clip((before[thin]+rift_dthick[thin])/before[thin], 0., 1.)
+            w['therm'][thin] = self.t-stretched_age(self.t-w['therm'][thin], ratio, p)
+            self.therm_changed |= thin
         th = th+rift_dthick
         dsed = np.zeros(g.size)
         sub = self._subduction_thickening()
@@ -145,6 +151,8 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         if arc.any():                                    # island arcs grown thick enough are continental crust
             self.area_ledger['arc'] += float(g.area[arc].sum())
             w['cont'] = w['cont'] | arc
+            w['therm'][arc] = self.t                     # C: new continental crust, new lithosphere
+            self.therm_changed |= arc
             self.new_continent = arc
         else:
             self.new_continent = np.zeros(g.size, bool)
@@ -209,6 +217,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         out = {'time_myr': self.t, 'plate_id': self.owner.astype(np.int32), 'continental': w['cont'],
                 'crust_thickness_m': w['thick'].astype(np.float32), 'crust_age_myr': (self.t-w['born']).astype(np.float32),
                 'ocean_age_myr': ocean_age.astype(np.float32), 'orogeny_age_myr': (self.t-w['orog']).astype(np.float32),
+                'lithosphere_age_myr': np.where(w['cont'], self.t-w['therm'], np.nan).astype(np.float32),
                 'boundary_type': self.btype if hasattr(self, 'btype') else np.zeros(self.g.size, np.int8),
                 'convergence_mm_yr': (self.conv_rate*1e3).astype(np.float32) if hasattr(self, 'conv_rate') else np.zeros(self.g.size, np.float32),
                 'elevation_m': elev.astype(np.float32), 'sediment_m': w['sed'].astype(np.float32),

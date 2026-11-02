@@ -26,7 +26,7 @@ class EventsMixin:
         lab = part[wn] & pl.mask
         new = self._new_plate(pl.axis, pl.speed)
         new.Q = pl.Q.copy()
-        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed', 'slab'):
+        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed', 'slab', 'therm'):
             arr = getattr(pl, name)
             na = getattr(new, name)
             na[lab] = arr[lab]
@@ -91,7 +91,7 @@ class EventsMixin:
         ok = small.mask[j]
         k, j = k[ok], j[ok]
         free = ~big.mask[k]
-        for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab'):
+        for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm'):
             getattr(big, name)[k[free]] = getattr(small, name)[j[free]]
         big.under[k[free]] = 0
         big.mask[k[free]] = True
@@ -103,7 +103,7 @@ class EventsMixin:
             near, _ = nearest_label(src_lab, g.nbr, g.dist)
             src = near[need]
             big.mask[need] = True
-            for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab'):
+            for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm'):
                 arr = getattr(big, name); arr[need] = arr[src]
         both = ~free & small.cont[j] & big.cont[k]
         self.area_ledger['merge'] = self.area_ledger.get('merge', 0.)-float(g.area[k[both]].sum())
@@ -204,7 +204,7 @@ class EventsMixin:
 
         def vol(pl, r, f):
             return float((f[r].astype(np.float64)*a[r]*(pl.mask[r] & pl.cont[r])).sum())
-        names = ('cont', 'thick', 'born', 'orog', 'sed', 'slab')
+        names = ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm')
         v0 = vol(src, ro, src.thick)+vol(dst, k, dst.thick)
         s0 = vol(src, ro, src.sed)+vol(dst, k, dst.sed)
         if k.size:
