@@ -24,6 +24,28 @@ def random_field(xyz, lmax, slope, rng):
     return (f-f.mean())/f.std()
 
 
+def spectrum_field(xyz, power, rng):
+    """Gaussian isotropic random field with a given expected power per degree, at the given points, not rescaled.
+
+    power[l] (l = 0 .. lmax; power[0] is ignored, so the field has no degree-0 part) is the expected sum over m of
+    the squared coefficients on orthonormal real harmonics (integral of Y^2 over the sphere = 1), in the field's
+    units squared: each of the 2l + 1 coefficients has variance power[l] / (2l + 1), and the expected mean square
+    over the sphere is sum(power[1:]) / (4 pi). One realization's power scatters around that (chi-square with 2l + 1
+    degrees of freedom per degree)."""
+    import ducc0
+    power = np.asarray(power, np.float64)
+    lmax = power.size-1
+    alm = np.zeros((lmax+1)*(lmax+2)//2, np.complex128)
+    for m in range(lmax+1):
+        for l in range(max(m, 1), lmax+1):
+            i = m*(2*lmax+1-m)//2+l
+            s = np.sqrt(power[l]/(2*l+1))
+            # ducc0's real-field convention: f = sum_l a_l0 Y_l0 + 2 Re sum_{m>0} a_lm Y_lm, so a real orthonormal
+            # coefficient of variance s^2 is a_lm = (x + i y) / sqrt(2) with x, y ~ N(0, s^2)
+            alm[i] = rng.normal()*s if m == 0 else (rng.normal()+1j*rng.normal())*s/np.sqrt(2)
+    return ducc0.sht.experimental.synthesis_general(alm=alm[None], spin=0, lmax=lmax, loc=node_loc(xyz), epsilon=1e-8)[0]
+
+
 def rotation(axis, angle):
     """Rotation matrix about a unit axis (right-handed, radians)."""
     a = np.asarray(axis, np.float64); a = a/np.linalg.norm(a)

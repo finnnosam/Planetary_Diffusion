@@ -62,6 +62,14 @@ DATASETS = [
      'source': 'https://github.com/thwbecker/seatree (python3/data/hc/, commit 940df70); data/mantle/SOURCE.txt',
      'used_by': "dyn_rule 'slabs' (planet_tectonics.mantle_flow: the viscosity) and D's Earth reference "
                 '(planet_reviews.mantle_flow_earth, planet_reviews.dynamic_topography; the geoid: pass 50)'},
+    {'key': 'vd2020', 'name': "Residual topography to degree 30: the spherical-harmonic coefficients of Valentine & "
+                              "Davies (2020)'s posterior model of the high-accuracy oceanic spot data (mean and standard "
+                              'error per coefficient, km, orthonormal real harmonics, water-loaded)',
+     'files': ['mantle/vd2020_sph_coeff_high_accuracy_spot.dat'],
+     'source': 'https://github.com/valentineap/DynamicTopographyGP (paper_supplementary_data/'
+               'sph_coeff_high_accuracy_spot.dat, commit 6ebf7a4); data/mantle/SOURCE.txt', 'doi': '10.1029/2020GC009240',
+     'used_by': "dyn_rule 'measured' (planet_tectonics.mantle.VD2020_POWER_KM2, tabulated from this file; "
+                'tests/test_dyn_measured.py recomputes the table)'},
     {'key': 'riveratlas', 'name': 'HydroATLAS RiverATLAS v1.0 (Linke et al. 2019); optional, not used yet',
      'files': [], 'optional': True, 'folder': 'RiverATLAS_Data_v10_shp',
      'source': 'https://www.hydrosheds.org/hydroatlas', 'doi': '10.6084/m9.figshare.9890531',

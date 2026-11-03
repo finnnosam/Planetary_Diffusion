@@ -96,3 +96,21 @@ def test_coast_budget_reads_a_fall_below_the_airy_line():
     z2 = np.where(land, on-np.clip(d, 0, 900)*.8, -4000.)              # falls 0.8 m per km inland below it
     b2 = cb.budget(g, z2, Tc, S, land, p)
     assert -800. < b2['c1_m'] < -500.
+
+
+def test_coast_budget_keep_and_term():
+    """keep restricts the nodes read (distances still from the whole land mask); term gives the band means' change."""
+    from planet_reviews import coast_budget as cb
+    g = CubeSphere(217)
+    ang = np.arccos(np.clip(g.xyz @ np.array([0., 0., 1.]), -1, 1))
+    land = ang < np.radians(25.)
+    d = (np.radians(25.)-ang)*g.radius/1e3
+    p = P.PARAMS
+    Tc = np.where(land, 38e3, 7e3); S = np.zeros(g.size)
+    z = np.where(land, cb.airy_m(Tc, S, p)+np.where(d < 50, 300., 0.), -4000.)    # the coast band stands 300 m high
+    term = np.where(land, -.2*np.clip(d, 0, 1200), 0.)
+    b = cb.budget(g, z, Tc, S, land, p, term=term)
+    assert abs(b['c1_m']+300.) < 1e-6 and -250. < b['term_fall_m'] < -150.
+    keep = d >= 25.                                                    # drop the outer half of the coast band
+    bk = cb.budget(g, z, Tc, S, land, p, keep=keep)
+    assert bk['bins'][0]['area_share'] < b['bins'][0]['area_share'] and abs(bk['c1_m']+300.) < 1e-6

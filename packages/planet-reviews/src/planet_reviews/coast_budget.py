@@ -8,16 +8,23 @@ z - Airy. Distance bins do not depend on CRUST1.0's thickness errors, so band me
 dilution that biases bins by thickness (pass 34). Earth: CRUST1.0 crsthk and sedthk (nearest 1-degree cell), ice
 sheets excluded.
 
-C1 (fixed 1 Nov, journal 77 section 6): the fall of z - Airy from the coast band (0-50 km) to the interior band
-(600-1200 km). Earth -773 m on n = 217: margins stand ~400 m above the Airy line and old interiors ~370 m below it
-(old, cold mantle lithosphere). Band: between 0.5 and 1.5 x Earth's (-390 ... -1,160 m). The planet's lithosphere age
-(lithosphere_age_myr, C) is printed by band where the snapshot has it; Earth's from CRUST1.0's types
-(planet_tectonics.lithosphere.CLASS_AGE_MA).
+C1 (fixed 1 Nov, journal 77 section 6; Earth reference corrected 1 Nov, journal 79 section 4): the fall of z - Airy
+from the coast band (0-50 km) to the interior band (600-1200 km). Band: between 0.5 and 1.5 x Earth's. Earth is read
+only on land nodes whose 1-degree CRUST1.0 cell is >= 90% land (FULL_LAND; the cell's land share from the n = 217
+nodes): a coastal node reads a cell partly at sea, whose thinner crust lowers the Airy line, so on all land nodes the
+coast band stands +407 m above it, on full-land cells +158 m. Earth's C1: -524 m on full-land cells (band -262 ...
+-786), -773 m on all land nodes (printed beside it). The planet side is node-native and reads every land node.
+The planet's lithosphere age (lithosphere_age_myr, C) is printed by band where the snapshot has it; Earth's from
+CRUST1.0's types (planet_tectonics.lithosphere.CLASS_AGE_MA).
+
+C's own guard (journal 79 section 4; with lithosphere 'thermal_age'): the applied term (lithosphere.elevation_term of
+the node's age, continental nodes, 0 elsewhere), coast-to-interior change of its area mean over land, within 0.5-1.5 x
+Earth's same-law term from CRUST1.0's type ages on all land nodes (-238 m: -119 ... -357 m). It verifies the mechanism;
+it is not an adoption test of the surface.
 
 Reported beside C1, not scored: the planet's z - Airy without its dynamic topography (z - dynamic_topography_m), C1
-read on it ('c1_nodyn_m'). The planet's random field (fitted dyn_std_m 500, power to degree 30) puts interior land on
-its highs (+150-240 m at 300-1200 km inland on the pass-56 pre-check, ~0 at the coast), where Earth's field has 86% of
-its power at degrees 1-3 (Valentine & Davies 2020) and cannot make a coast-to-interior contrast of ~600 km.
+read on it ('c1_nodyn_m'). With the random field (fitted dyn_std_m 500, flat power to degree 30) interior land sits on
+its highs (+128 ... +197 m against the coast, six seeds, journal 79): continents emerge where the field lifts them.
 """
 import argparse
 import json
@@ -31,6 +38,8 @@ from planet_reviews.coast_profile import BINS_KM, RISE_BINS, distance_to_ocean_k
 from planet_reviews.crust_review import run_params, sediment_bulk_m
 
 C1_FACTORS = (.5, 1.5)             # the band: 0.5 ... 1.5 x Earth's fall
+TERM_FACTORS = (.5, 1.5)           # C's guard: 0.5 ... 1.5 x Earth's same-law term
+FULL_LAND = .9                     # Earth: land nodes whose 1-degree CRUST1.0 cell is at least this share land
 
 
 def wmed(v, w):
@@ -48,29 +57,34 @@ def airy_m(Tc, S, p):
     return p['cont_ref_elev_m']+(Tc-p['cont_ref_thick_m'])*(1-p['rho_crust']/rm)+S*(1-p['rho_sediment']/rm)
 
 
-def budget(g, z, Tc, S, land, p, age=None, dyn=None):
+def budget(g, z, Tc, S, land, p, age=None, dyn=None, term=None, keep=None):
     """Band medians by distance inland: z, crystalline km, sediment, Airy, z - Airy (m), lithosphere age (Myr), and
     the coast-to-interior changes (rise of z, of the Airy line, and C1, the fall of z - Airy; with dyn, also z - dyn -
-    Airy and its C1)."""
+    Airy and its C1; with term, the area mean of C's term by band and its change, 'term_fall_m'). Distances are from
+    the whole land mask; keep (optional) restricts the nodes read in each band (Earth: full-land cells)."""
     a = g.area
     d = distance_to_ocean_km(g, land)
     ai = airy_m(Tc, S, p)
     rows = []
     for lo, hi in zip(BINS_KM[:-1], BINS_KM[1:]):
-        m = land & (d >= lo) & (d < hi)
+        m = land & (d >= lo) & (d < hi) & (True if keep is None else keep)
         rows.append({'bin_km': [lo, hi], 'area_share': float(a[m].sum()/max(a[land].sum(), 1.)),
                      'z': wmed(z[m], a[m]), 'crystalline_km': wmed(Tc[m], a[m])/1e3, 'sediment': wmed(S[m], a[m]),
                      'airy': wmed(ai[m], a[m]), 'resid': wmed((z-ai)[m], a[m]),
                      'age_myr': wmed(age[m], a[m]) if age is not None else np.nan,
-                     'resid_nodyn': wmed((z-dyn-ai)[m], a[m]) if dyn is not None else np.nan})
+                     'resid_nodyn': wmed((z-dyn-ai)[m], a[m]) if dyn is not None else np.nan,
+                     'term_mean': float((a[m]*term[m]).sum()/a[m].sum()) if term is not None and a[m].sum() > 0 else np.nan})
     i, j = RISE_BINS
     return {'bins': rows, 'rise_m': rows[j]['z']-rows[i]['z'], 'airy_rise_m': rows[j]['airy']-rows[i]['airy'],
-            'c1_m': rows[j]['resid']-rows[i]['resid'], 'c1_nodyn_m': rows[j]['resid_nodyn']-rows[i]['resid_nodyn']}
+            'c1_m': rows[j]['resid']-rows[i]['resid'], 'c1_nodyn_m': rows[j]['resid_nodyn']-rows[i]['resid_nodyn'],
+            'term_fall_m': rows[j]['term_mean']-rows[i]['term_mean']}
 
 
-def earth(g, p):
+def earth(g, p, full_land=FULL_LAND):
+    """Earth's budget on full-land cells (the C1 reference), with 'all_land' (every land node: C1 -773 m) and
+    'term_fall_m' (C's law on CRUST1.0's ages, all land nodes, area means: the guard's reference) beside it."""
     from planet_earth.reference import ice_mask
-    from planet_tectonics.lithosphere import CLASS_AGE_MA
+    from planet_tectonics.lithosphere import CLASS_AGE_MA, elevation_term
     lat = np.degrees(np.arcsin(np.clip(g.xyz[:, 2], -1, 1))); lon = np.degrees(np.arctan2(g.xyz[:, 1], g.xyz[:, 0]))
     ii, jj = np.clip((90-lat).astype(int), 0, 179), np.clip((lon+180).astype(int), 0, 359)
     T = np.loadtxt(DATA/'crust1'/'crsthk.xyz')[:, 2].reshape(180, 360)[ii, jj]*1e3
@@ -79,7 +93,14 @@ def earth(g, p):
     age = np.array([CLASS_AGE_MA.get(t, np.nan) for t in tn[np.clip((89.5-lat+.5).astype(int), 0, 179), jj]])
     z = np.load(OUTPUTS/'planet-reference'/f'earth-n{g.n}.npz')['elevation_m'].astype(float)
     land = (z > 0) & ~ice_mask(g)
-    return budget(g, z, T-S, S, land, p, age)
+    cell = ii*360+jj
+    lf = np.bincount(cell, weights=(z > 0)*g.area, minlength=64800)/np.maximum(np.bincount(cell, weights=g.area, minlength=64800), 1e-9)
+    term = elevation_term(age, p)
+    out = budget(g, z, T-S, S, land, p, age, keep=lf[cell] >= full_land)
+    every = budget(g, z, T-S, S, land, p, age, term=term)
+    out['all_land'] = {k: every[k] for k in ('rise_m', 'airy_rise_m', 'c1_m')}
+    out['term_fall_m'] = every['term_fall_m']
+    return out
 
 
 def planet(g, seed_dir, t='t+0000.0'):
@@ -90,11 +111,16 @@ def planet(g, seed_dir, t='t+0000.0'):
     S = np.where(c, sediment_bulk_m(z), 0.)
     age = z['lithosphere_age_myr'].astype(float) if 'lithosphere_age_myr' in z.files else None
     dyn = z['dynamic_topography_m'].astype(float) if 'dynamic_topography_m' in z.files else None
-    return budget(g, e+float(z['sea_level_m']), z['crust_thickness_m'].astype(float), S, e > 0, p, age, dyn)
+    term = None
+    if age is not None and p.get('lithosphere') == 'thermal_age':
+        from planet_tectonics.lithosphere import elevation_term
+        term = np.where(c, elevation_term(age, p), 0.)
+    return budget(g, e+float(z['sea_level_m']), z['crust_thickness_m'].astype(float), S, e > 0, p, age, dyn, term)
 
 
 def mean_budget(bs):
-    out = {k: float(np.nanmean([b[k] for b in bs])) for k in ('rise_m', 'airy_rise_m', 'c1_m', 'c1_nodyn_m')}
+    out = {k: float(np.nanmean([b[k] for b in bs])) if np.isfinite([b[k] for b in bs]).any() else float('nan')
+           for k in ('rise_m', 'airy_rise_m', 'c1_m', 'c1_nodyn_m', 'term_fall_m')}
     out['bins'] = [{key: (bs[0]['bins'][k][key] if key == 'bin_km' else float(np.nanmean([b['bins'][k][key] for b in bs])))
                     for key in bs[0]['bins'][k]} for k in range(len(BINS_KM)-1)]
     return out
@@ -104,12 +130,20 @@ def c1_band(e):
     return sorted((C1_FACTORS[0]*e['c1_m'], C1_FACTORS[1]*e['c1_m']))
 
 
+def term_band(e):
+    return sorted((TERM_FACTORS[0]*e['term_fall_m'], TERM_FACTORS[1]*e['term_fall_m']))
+
+
 def show(name, b, e=None):
     lo, hi = c1_band(e) if e else (np.nan, np.nan)
     verdict = ('pass' if lo <= b['c1_m'] <= hi else 'fail') if e else ''
     print(f"{name}: rise z {b['rise_m']:.0f} m, Airy {b['airy_rise_m']:.0f} m, C1 (z - Airy, interior minus coast) "
           f"{b['c1_m']:.0f} m" + (f"  [band {lo:.0f} ... {hi:.0f}: {verdict}]" if e else '')
           + (f"; without the dynamic topography {b['c1_nodyn_m']:.0f} m (reported)" if np.isfinite(b.get('c1_nodyn_m', np.nan)) else ''))
+    if e is not None and np.isfinite(b.get('term_fall_m', np.nan)):
+        tlo, thi = term_band(e)
+        print(f"    C's term, coast to interior (area means): {b['term_fall_m']:.0f} m  [guard {tlo:.0f} ... {thi:.0f}: "
+              f"{'pass' if tlo <= b['term_fall_m'] <= thi else 'fail'}]")
     for r in b['bins']:
         lo_, hi_ = r['bin_km']
         print(f"    {lo_:5.0f}-{hi_ if hi_ < 1e8 else float('inf'):<6.0f} km: z {r['z']:6.0f}  crystalline "
@@ -130,7 +164,9 @@ def main(argv=None):
         print('sweep', a.dirs[0])
     g = CubeSphere(217)
     e = earth(g, PARAMS)
-    show('Earth (ETOPO, no ice sheets; CRUST1.0; the planet\'s Airy line)', e)
+    show(f'Earth (ETOPO, no ice sheets; CRUST1.0; the planet\'s Airy line; land nodes in 1-degree cells >= {FULL_LAND:.0%} land)', e)
+    print(f"    Earth on all land nodes: C1 {e['all_land']['c1_m']:.0f} m, rise {e['all_land']['rise_m']:.0f} m; C's law on "
+          f"CRUST1.0's ages, coast to interior (area means) {e['term_fall_m']:.0f} m")
     combos = []
     for d in map(Path, a.dirs):
         if (d/'snapshots').is_dir():
@@ -139,7 +175,7 @@ def main(argv=None):
             combos.append((d.parent.name+'/'+d.name, sorted(d.glob('seed*'))))
         else:
             combos += [(c.name, sorted(c.glob('seed*'))) for c in sorted(d.iterdir()) if c.is_dir() and any(c.glob('seed*/snapshots'))]
-    out = {'earth': e, 'c1_band_m': c1_band(e)}
+    out = {'earth': e, 'c1_band_m': c1_band(e), 'term_band_m': term_band(e)}
     for name, seeds in combos:
         bs = [planet(g, s) for s in seeds]
         m = mean_budget(bs)
@@ -147,6 +183,9 @@ def main(argv=None):
                       for s, b in zip(seeds, bs)}
         lo, hi = out['c1_band_m']
         m['c1_passes'] = bool(lo <= m['c1_m'] <= hi)
+        if np.isfinite(m['term_fall_m']):
+            tlo, thi = out['term_band_m']
+            m['term_guard_passes'] = bool(tlo <= m['term_fall_m'] <= thi)
         out[name] = m
         show(f'{name} ({len(bs)} seeds, means of band medians)', m, e)
         print('    by seed: C1 ' + ', '.join(f"{k} {v['c1_m']:.0f}" for k, v in m['seeds'].items())

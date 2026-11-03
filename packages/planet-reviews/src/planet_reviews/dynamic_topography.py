@@ -15,6 +15,15 @@ Bands (fixed 31 Oct, before the runs):
 Runs with dyn_rule 'slabs' are scored on the flow's own coefficients (air-loaded, no swells: the proxy's
 counterpart); the applied field (water-loaded, with swells) is reported beside them. Runs with the random field (the
 control) are read from dynamic_topography_m by quadrature and are not scored for P-b / P-e.
+
+Runs with dyn_rule 'measured' (journal 80) are checked against Earth's observed spectrum itself (OBSERVED: Valentine &
+Davies 2020's coefficients, expected posterior power to l 30, converted to air loading), on dynamic_topography_air_m
+(air-loaded, with the swells) by quadrature. Bands (fixed 1 Nov, before the runs; they verify the build):
+  M-a  share of the power at l 1-3 within 0.5-1.5 x Earth's 0.287 (0.14-0.43)
+  M-b  rms within 0.8-1.25 x Earth's 405 m (324-507 m)
+  M-c  P30 / P2 <= 0.1 (Earth 0.035), as the ratio of the pooled mean powers (P2 has 5 degrees of freedom per field)
+  M-d  its 10-Myr rms series has no step > 20%
+  M-e  rate at fixed points, median |dh/dt| <= 20 m/Myr (Rubey et al. 2017), from snapshots <= 5 Myr apart
 """
 import argparse
 import json
@@ -29,6 +38,9 @@ from planet_tectonics import mantle_flow as mf
 
 YR_S = 3.15576e7
 EARTH = {'rms_m': 222., 'share_l1_3': .84, 'p30_p2': 6e-4, 'flow_rms_cm_yr': 1.35}   # SMEAN2 slab proxy (E1)
+OBSERVED = {'rms_m': 405., 'share_l1_3': .287, 'p30_p2': .035}    # Valentine & Davies 2020, air-loaded (journal 80)
+M_BANDS = {'M-a share l1-3': (.14, .43), 'M-b rms m': (324., 507.), 'M-c P30/P2': (None, .1),
+           'M-d max 10-Myr step': (None, .2), 'M-e rate p50 m/Myr': (None, 20.)}
 BANDS = {'P-a share l1-3': (.6, None), 'P-a P30/P2': (None, .1), 'P-b corr(h, distance)': (0., None),
          'P-c rate p50 m/Myr': (None, 20.), 'P-d rms m': (110., 460.), 'P-d max 10-Myr step': (None, .2),
          'P-e flow rms cm/yr': (.7, 2.7)}
@@ -62,13 +74,16 @@ def seed_metrics(seed, g, coarse):
         return None
     z0 = _load(seed, ts[-1])
     slabs = 'flow_topography_alm_m' in z0.files
+    measured = not slabs and 'dynamic_topography_air_m' in z0.files
     tens = [t for t in ts if abs(t/10-round(t/10)) < 1e-6]
-    rms, share, p30, flow, corr, rms_app, share_app = [], [], [], [], [], [], []
+    rms, share, p30, flow, corr, rms_app, share_app, pw2, pw30 = [], [], [], [], [], [], [], [], []
     for t in tens:
         z = _load(seed, t)
         A = quadrature_alm(z['dynamic_topography_m'].astype(np.float64), g)
         P = mf.spectrum(A, LMAX)
         rms_app.append(np.sqrt(P[1:].sum())); share_app.append(P[1:4].sum()/P[1:].sum())
+        if measured:
+            P = mf.spectrum(quadrature_alm(z['dynamic_topography_air_m'].astype(np.float64), g), LMAX)
         if slabs:
             H = z['flow_topography_alm_m'].astype(np.complex128); lm = int(z['flow_lmax'])
             V = z['flow_velocity_alm_m_yr'].astype(np.complex128)
@@ -87,14 +102,15 @@ def seed_metrics(seed, g, coarse):
         tot = P[1:].sum()
         rms.append(np.sqrt(tot))
         share.append(P[1:4].sum()/tot if tot > 0 else np.nan); p30.append(P[30]/P[2] if P[2] > 0 else np.nan)
+        pw2.append(P[2]); pw30.append(P[30])
     # P-c: consecutive 1-Myr snapshots (mantle frame: the same nodes)
     rates, rates_air = [], []
     for a, b in zip(ts[:-1], ts[1:]):
-        if abs(b-a-1) > 1e-6:
+        if abs(b-a-1) > 1e-6 and not (measured and b-a <= 5+1e-6):
             continue
         za, zb = _load(seed, a), _load(seed, b)
         rates.append(np.abs(zb['dynamic_topography_m'].astype(np.float64)-za['dynamic_topography_m'])/(b-a))
-        if slabs:
+        if slabs or measured:
             rates_air.append(np.abs(zb['dynamic_topography_air_m'].astype(np.float64)-za['dynamic_topography_air_m'])/(b-a))
     w = np.tile(g.area, len(rates)) if rates else None
     def wmed(r):
@@ -104,13 +120,17 @@ def seed_metrics(seed, g, coarse):
     r = np.array(rms)
     steps = np.abs(np.diff(r))[r[:-1] > 0]/r[:-1][r[:-1] > 0] if len(r) > 1 else np.zeros(1)
     steps = steps if steps.size else np.zeros(1)
-    m = {'slabs': slabs, 'times': tens, 'rms_series_m': [float(x) for x in rms],
+    m = {'slabs': slabs, 'measured': measured, 'times': tens, 'rms_series_m': [float(x) for x in rms],
          'P-a share l1-3': float(np.nanmean(share)), 'P-a P30/P2': float(np.nanmean(p30)),
          'P-b corr(h, distance)': float(np.mean(corr)) if corr else float('nan'),
          'P-c rate p50 m/Myr': wmed(rates), 'rate_air_p50_m_myr': wmed(rates_air),
          'P-d rms m': float(np.mean(rms)), 'P-d max 10-Myr step': float(steps.max()),
          'P-e flow rms cm/yr': float(np.mean(flow)) if flow else float('nan'),
          'applied_rms_m': float(np.mean(rms_app)), 'applied_share_l1_3': float(np.mean(share_app))}
+    if measured:
+        m.update({'M-a share l1-3': m['P-a share l1-3'], 'M-b rms m': m['P-d rms m'], 'p2_mean': float(np.mean(pw2)),
+                  'p30_mean': float(np.mean(pw30)), 'M-c P30/P2': float(np.mean(pw30)/np.mean(pw2)),
+                  'M-d max 10-Myr step': m['P-d max 10-Myr step'], 'M-e rate p50 m/Myr': m['rate_air_p50_m_myr']})
     if slabs:
         zl = _load(seed, tens[-1])
         m['record_kg'] = [float(x) for x in zl['slab_record_kg']]
@@ -137,13 +157,17 @@ def main(argv=None):
     ap.add_argument('--json')
     a = ap.parse_args(argv)
     g, coarse = CubeSphere(217), CubeSphere(48)
-    ep = earth_profile()
     edges = [300, 660, 1000, 1500, 2000, 2500, 2850]
-    print(f"EARTH slab proxy (SMEAN2 fast part > 300 km): rms {EARTH['rms_m']:.0f} m, share l1-3 {EARTH['share_l1_3']:.2f}, "
-          f"P30/P2 {EARTH['p30_p2']:.0e}, flow {EARTH['flow_rms_cm_yr']:.2f} cm/yr; excess mass {sum(m for _, m in ep)/1e21:.2f}e21 kg; "
-          'by depth (km: 1e21 kg) ' + ' '.join(f'{lo}-{hi}: {sum(m for z, m in ep if lo <= z < hi)/1e21:.2f}' for lo, hi in zip(edges[:-1], edges[1:])))
+    try:
+        ep = earth_profile()
+        print(f"EARTH slab proxy (SMEAN2 fast part > 300 km): rms {EARTH['rms_m']:.0f} m, share l1-3 {EARTH['share_l1_3']:.2f}, "
+              f"P30/P2 {EARTH['p30_p2']:.0e}, flow {EARTH['flow_rms_cm_yr']:.2f} cm/yr; excess mass {sum(m for _, m in ep)/1e21:.2f}e21 kg; "
+              'by depth (km: 1e21 kg) ' + ' '.join(f'{lo}-{hi}: {sum(m for z, m in ep if lo <= z < hi)/1e21:.2f}' for lo, hi in zip(edges[:-1], edges[1:])))
+    except FileNotFoundError:                        # data/mantle's tomography is needed for D's proxy profile only
+        print('EARTH slab proxy: data/mantle tomography missing (profile not printed)')
     out = {}
     for name, seeds in seed_dirs(a.dirs):
+        name = f'{Path(seeds[0]).parent.parent.name}/{name}' if seeds else name     # sweeps share combo names
         rows = {}
         for sd in seeds:
             m = seed_metrics(sd, g, coarse)
@@ -152,7 +176,10 @@ def main(argv=None):
         if not rows:
             continue
         slabs = any(r['slabs'] for r in rows.values())
-        print(f"\n{name}: {len(rows)} seeds, {'dyn_rule slabs (scored on the flow, air-loaded)' if slabs else 'random field (applied field; P-b, P-e not applicable)'}")
+        measured = all(r.get('measured') for r in rows.values())
+        print(f"\n{name}: {len(rows)} seeds, " + ('dyn_rule slabs (scored on the flow, air-loaded)' if slabs else
+              "dyn_rule measured (air-loaded field with swells; scored on M-a ... M-e against Earth's observed spectrum)"
+              if measured else 'random field (applied field; P-b, P-e not applicable)'))
         for s, r in rows.items():
             print(f"  {s}: share {r['P-a share l1-3']:.2f}, P30/P2 {r['P-a P30/P2']:.1e}, corr {r['P-b corr(h, distance)']:+.2f}, "
                   f"rate {r['P-c rate p50 m/Myr']:.1f} m/Myr (air {r['rate_air_p50_m_myr']:.1f}), rms {r['P-d rms m']:.0f} m "
@@ -164,6 +191,17 @@ def main(argv=None):
                       f"(closes to {abs(rk[0]-rk[1]-rk[2])/max(rk[0], 1):.1e}); below the cut by depth (1e21 kg) "
                       + profile_text(r['mass_by_layer_kg']))
                 print('      rms series (10 Myr): ' + ' '.join(f'{x:.0f}' for x in r['rms_series_m']))
+        if measured:
+            mm = {k: float(np.nanmean([r[k] for r in rows.values()])) for k in M_BANDS}
+            mm['M-c P30/P2'] = float(np.sum([r['p30_mean'] for r in rows.values()])/np.sum([r['p2_mean'] for r in rows.values()]))
+            vm = {k: 'pass' if _ok(mm[k], band) else 'FAIL' for k, band in M_BANDS.items()}
+            print(f"  Earth observed (air-loaded): rms {OBSERVED['rms_m']:.0f} m, share l1-3 {OBSERVED['share_l1_3']:.3f}, "
+                  f"P30/P2 {OBSERVED['p30_p2']:.3f}")
+            print('  six-seed mean: ' + '; '.join(f"{k} {mm[k]:.3g} {vm[k]}" for k in M_BANDS)
+                  + f"; applied field rms {np.mean([r['applied_rms_m'] for r in rows.values()]):.0f} m")
+            print(f"  M-a ... M-e on the mean: {'all pass' if all(v == 'pass' for v in vm.values()) else 'not all pass'}")
+            out[name] = {'seeds': rows, 'mean': mm, 'verdict': vm}
+            continue
         mean = {k: float(np.nanmean([r[k] for r in rows.values()])) for k in BANDS}
         verdict = {}
         for k, band in BANDS.items():

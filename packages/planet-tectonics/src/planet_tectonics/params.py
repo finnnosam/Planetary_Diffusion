@@ -195,7 +195,12 @@ PARAMS = {
     # 2010, 2018: 10-15 mm/yr in the lower mantle) to 2,850 km; only density below flow_z_cut_km drives the flow
     # (below cratonic keels; Steinberger et al. 2019 cut at 220-350 km); degrees 1..flow_lmax (the Earth models'
     # truncation). Applied x rho_m / (rho_m - rho_w) where the node was under the sea last step (GDH1's water
-    # loading). Hotspot swells and volcanism are unchanged. No fitted number
+    # loading). Hotspot swells and volcanism are unchanged. No fitted number.
+    # 'measured' (fifty-eighth pass, journal 80): plate-blind knot fields like 'random', but with Earth's measured
+    # residual-topography spectrum per degree to l 30 as published (mantle.VD2020_POWER_KM2: Valentine & Davies 2020,
+    # expected posterior power of their model of the high-accuracy oceanic data; rms 0.58 km water-loaded, 0.29 of it
+    # at l 1-3), held air-loaded and water-loaded under the sea as 'slabs' is, blended between knots at constant
+    # variance (no pulse). dyn_std_m, dyn_lmax and dyn_slope do not apply. No fitted number
     'dyn_rule': 'random',
     'slab_dip_deg': 58., 'lm_sink_mm_yr': 12., 'flow_z_cut_km': 300., 'flow_lmax': 31,
     'viscosity_file': None,        # None: data/mantle/visc.sh08

@@ -11,10 +11,36 @@ passes over them; a new plume starts with a large igneous province (a burst of c
 
 With dyn_rule 'slabs' (D, journal 66) the knot field is replaced by the free-slip flow of the planet's own slab record
 (planet_tectonics.mantle_flow); the knots are still drawn, so the hotspots take the same random numbers in both rules.
+
+With dyn_rule 'measured' (fifty-eighth pass, journal 80) the knots are random fields with Earth's measured residual-
+topography spectrum per degree (VD2020_POWER_KM2: Valentine & Davies 2020), drawn from their own stream (field_rng)
+so the hotspots again take the same random numbers. Nothing is fitted: no amplitude and no slope. The measurement is
+water-loaded; the field is held air-loaded (x 2,300 / 3,300, the measurement's own load densities) and water-loaded
+on the nodes under the sea as D's flow is (x rho_m / (rho_m - rho_w)). Between knots the fields blend at constant
+variance (cos / sin of an angle that runs smoothly from 0 to pi/2), so the amplitude does not pulse.
 """
 import numpy as np
 
 from planet_grid import fields
+
+# Earth's residual topography, expected power per degree l = 1 .. 30 (km^2; orthonormal real harmonics, sum over m;
+# water-loaded with Delta rho 2,300 kg/m^3): Valentine & Davies (2020), G-cubed 21, e2020GC009240, the posterior of their
+# Gaussian-process model of the high-accuracy oceanic spot data of Hoggard et al. (2017), from the coefficients they
+# publish (github.com/valentineap/DynamicTopographyGP, paper_supplementary_data/sph_coeff_high_accuracy_spot.dat, md5
+# f27d803b3fb627606525fd96f1fd1e0f): sum over m of (mean^2 + posterior variance). Mean square sum / 4 pi: rms 0.58 km
+# water-loaded, 0.41 km air-loaded; 0.29 of the power at l 1-3, 0.39 at 4-8, 0.33 at 9-30; P30 / P2 0.035. (The
+# paper's "~85% in degrees 1-3" is the share of degrees 1-15: its script sums the first 15 per-degree powers; journal 80.)
+VD2020_POWER_KM2 = (0.2091, 0.6188, 0.3940, 0.3111, 0.4783, 0.2652, 0.3287, 0.2576, 0.1478, 0.1486,
+                    0.1389, 0.1106, 0.0881, 0.0866, 0.0725, 0.0653, 0.0615, 0.0543, 0.0501, 0.0488,
+                    0.0427, 0.0408, 0.0382, 0.0343, 0.0321, 0.0289, 0.0275, 0.0257, 0.0245, 0.0218)
+VD2020_LOAD_KG_M3 = (2300., 3300.)      # the measurement's water-load and air-load density contrasts (Hoggard et al.)
+
+
+def measured_power_air_m2():
+    """VD2020_POWER_KM2 as an air-loaded power array indexed by degree (m^2; [0] = 0), for fields.spectrum_field."""
+    w, a = VD2020_LOAD_KG_M3
+    return np.concatenate(([0.], np.asarray(VD2020_POWER_KM2)*1e6*(w/a)**2))
+
 
 PARAMS = {
     'dyn_std_m': 400., 'dyn_lmax': 12, 'dyn_slope': 2.5, 'dt_knot_myr': 40.,
@@ -30,20 +56,29 @@ PARAMS = {
 
 
 class Mantle:
-    def __init__(self, graph, rng, t0, t_end=0., params=None):
+    def __init__(self, graph, rng, t0, t_end=0., params=None, field_rng=None):
         self.g, self.rng = graph, rng
         self.p = {**PARAMS, **(params or {})}
         p = self.p
         self.knots_t = np.arange(t0-p['dt_knot_myr'], t_end+2*p['dt_knot_myr'], p['dt_knot_myr'])
         self.knots = [p['dyn_std_m']*fields.random_field(graph.xyz, p['dyn_lmax'], p['dyn_slope'], rng)
                       for _ in self.knots_t]
+        self.measured = None
         if p['dyn_rule'] == 'slabs':
             from planet_tectonics.mantle_flow import MantleFlow
             self.flow = MantleFlow(graph, p)
-        elif p['dyn_rule'] == 'random':
+        elif p['dyn_rule'] in ('random', 'measured'):
             self.flow = None
+            if p['dyn_rule'] == 'measured':
+                if field_rng is None:
+                    raise ValueError("dyn_rule 'measured' needs its own field_rng (the hotspots keep rng)")
+                pw = measured_power_air_m2()
+                self.measured = [fields.spectrum_field(graph.xyz, pw, field_rng) for _ in self.knots_t]
         else:
-            raise ValueError(f"dyn_rule {p['dyn_rule']!r}: 'random' or 'slabs'")
+            raise ValueError(f"dyn_rule {p['dyn_rule']!r}: 'random', 'measured' or 'slabs'")
+        # the field is held air-loaded and water-loaded under the sea (sim passes wet) with the slab flow and the
+        # measured field
+        self.wet_loaded = p['dyn_rule'] in ('slabs', 'measured')
         self.hotspots = []
         for _ in range(p['hotspots_initial']):
             self._new_hotspot(t0, lip=False, age=rng.uniform(0, p['hotspot_life_myr'][0]))
@@ -84,12 +119,13 @@ class Mantle:
         return out
 
     def topography(self, t, wet=None):
-        """Dynamic topography (m) at time t: blended random fields (dyn_rule 'random') or the slab flow's air-loaded
-        field, x rho_m / (rho_m - rho_w) on the nodes in wet (dyn_rule 'slabs'), plus hotspot swells."""
-        if self.flow is not None:
+        """Dynamic topography (m) at time t: blended random fields (dyn_rule 'random'), or the slab flow's air-loaded
+        field (dyn_rule 'slabs') or the measured-spectrum fields blended at constant variance (dyn_rule 'measured'),
+        x rho_m / (rho_m - rho_w) on the nodes in wet; plus hotspot swells."""
+        if self.wet_loaded:
             p = self.p
-            f = 1. if wet is None else np.where(wet, p['rho_mantle']/(p['rho_mantle']-p['rho_water']), 1.)
-            return self.flow.h_air*f+self.swells(t)
+            fw = 1. if wet is None else np.where(wet, p['rho_mantle']/(p['rho_mantle']-p['rho_water']), 1.)
+            return self.air(t)*fw+self.swells(t)
         k = np.clip(np.searchsorted(self.knots_t, t)-1, 0, len(self.knots_t)-2)
         f = np.clip((t-self.knots_t[k])/(self.knots_t[k+1]-self.knots_t[k]), 0, 1)
         f = f*f*(3-2*f)
@@ -98,6 +134,15 @@ class Mantle:
             if h['start'] <= t < h['end']:
                 out = out+self.p['hotspot_swell_m']*self._disc(h['pos'], self.p['hotspot_swell_radius_km']*1e3)
         return out
+
+    def air(self, t):
+        """The air-loaded field without swells (dyn_rule 'slabs' or 'measured')."""
+        if self.flow is not None:
+            return self.flow.h_air
+        k = np.clip(np.searchsorted(self.knots_t, t)-1, 0, len(self.knots_t)-2)
+        f = np.clip((t-self.knots_t[k])/(self.knots_t[k+1]-self.knots_t[k]), 0, 1)
+        a = .5*np.pi*f*f*(3-2*f)                          # constant variance: cos^2 + sin^2 = 1, smooth at the knots
+        return np.cos(a)*self.measured[k]+np.sin(a)*self.measured[k+1]
 
     def volcanic(self, t, dt):
         """Volcanic crust added over (t - dt, t] (m of crust per node): steady plume output and LIP bursts."""

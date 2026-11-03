@@ -62,11 +62,13 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self.flex_wet = SphereFlexure.for_graph(graph, self.p['te_m'], rho_load=1.,
                                                 rho_mantle=self.p['rho_mantle']-self.p['rho_water'], nthreads=self.p['threads'])
         mp = {k: self.p[k] for k in ('dyn_std_m', 'dyn_lmax', 'dyn_slope', 'dt_knot_myr')}
-        if self.p['dyn_rule'] != 'random':           # D: the slab flow (planet_tectonics.mantle_flow)
+        if self.p['dyn_rule'] != 'random':           # D: the slab flow (planet_tectonics.mantle_flow); or 'measured'
             mp.update({k: self.p[k] for k in ('dyn_rule', 'rho_mantle', 'rho_water', 'threads', 'slab_dip_deg',
                                               'lm_sink_mm_yr', 'flow_z_cut_km', 'flow_lmax', 'viscosity_file',
                                               'slab_alpha')})
-        self.mantle = Mantle(graph, np.random.default_rng([seed, 7]), t0, params=mp) if self.p['mantle'] else None
+        # 'measured' draws its fields from their own stream, so the hotspots take the same numbers in every rule
+        frng = np.random.default_rng([seed, 8]) if self.p['dyn_rule'] == 'measured' else None
+        self.mantle = Mantle(graph, np.random.default_rng([seed, 7]), t0, params=mp, field_rng=frng) if self.p['mantle'] else None
         self.dyn = self.mantle.topography(t0) if self.mantle else np.zeros(graph.size)
         self.next_id = 0
         self.plates = []
@@ -100,8 +102,9 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self.t += dt
         if self.mantle is not None:
             self.mantle.advance(self.t, dt)
-            if self.mantle.flow is not None:
-                self._feed_slab_record(dt)
+            if self.mantle.wet_loaded:                # the slab flow or the measured field: water-loaded under the sea
+                if self.mantle.flow is not None:
+                    self._feed_slab_record(dt)
                 wet = self.z_last < 0 if hasattr(self, 'z_last') else None
                 self.dyn = self.mantle.topography(self.t, wet)
             else:
@@ -226,6 +229,8 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
                 'sea_level_m': np.float32(getattr(self, 'sea_level', 0.)),
                 'tectonic_thickening_m': getattr(self, 'tectonic', np.zeros(self.g.size)).astype(np.float32)}
         fl = self.mantle.flow if self.mantle is not None else None
+        if fl is None and self.mantle is not None and self.mantle.wet_loaded:     # 'measured'
+            out['dynamic_topography_air_m'] = self.mantle.topography(self.t).astype(np.float32)   # no water factor
         if fl is not None:                           # D: the flow's coefficients and the record's profile
             rec = fl.record
             young = (rec.z >= fl.z_cut) & (self.t-rec.born < 100.)
