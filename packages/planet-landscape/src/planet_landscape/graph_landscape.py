@@ -230,10 +230,22 @@ def marine_sediment(z, ocean, sea_in, nbr, dist, cell_area, shelf_depth, shelf_g
                                 shelf_width)[0]
 
 
-@njit(cache=True)
-def marine_sediment_kept(z, ocean, sea_in, nbr, dist, cell_area, shelf_depth, shelf_gradient, dist_to_land, shelf_width):
+def marine_sediment_kept(z, ocean, sea_in, nbr, dist, cell_area, shelf_depth, shelf_gradient, dist_to_land, shelf_width,
+                         wedge_top=None):
     """marine_sediment, also returning the volume (m^3) that found no room, at the node where its path ended (a
-    local low of the sea floor beyond the shelf)."""
+    local low of the sea floor beyond the shelf).
+    wedge_top (m, per node; None = nowhere): beyond the graded shelf, the sediment on its way down is also deposited
+    up to this surface (the margin wedge, S: slope and rise built in front of the source); -1e9 = no room (as
+    without it)."""
+    if wedge_top is None:
+        wedge_top = np.full(z.shape[0], -1e9)
+    return _marine_kept(z, ocean, sea_in, nbr, dist, cell_area, shelf_depth, shelf_gradient, dist_to_land, shelf_width,
+                        np.asarray(wedge_top, np.float64))
+
+
+@njit(cache=True)
+def _marine_kept(z, ocean, sea_in, nbr, dist, cell_area, shelf_depth, shelf_gradient, dist_to_land, shelf_width,
+                 wedge_top):
     n = z.shape[0]
     flux = sea_in.copy()
     dep = np.zeros(n)
@@ -252,7 +264,7 @@ def marine_sediment_kept(z, ocean, sea_in, nbr, dist, cell_area, shelf_depth, sh
         elif dist_to_land[i] <= shelf_width:
             top = -(shelf_depth+shelf_gradient*dist_to_land[i])
         else:
-            top = -1e9
+            top = wedge_top[i]                       # -1e9 unless the margin wedge is on here
         cap = max(0., top-z[i]-dep[i])*cell_area[i]
         d = min(flux[i], cap)
         dep[i] += d/cell_area[i]; flux[i] -= d
@@ -276,15 +288,26 @@ def marine_sediment_kept(z, ocean, sea_in, nbr, dist, cell_area, shelf_depth, sh
     return dep, left
 
 
-@njit(cache=True)
-def fill_and_spill(z, vol, nbr, cell_area):
+def fill_and_spill(z, vol, nbr, cell_area, ceil=None, return_wedge=False):
     """Place volumes vol (m^3, at sea-floor lows: marine_sediment_kept's leftover) by filling depressions from the
     bottom up: the deposit ponds at the lowest open level (a priority flood from the node), raising the pond to the
     next lowest neighbour until the volume is used; where the pond reaches a lower neighbour it spills, and the rest
     runs down the steepest path from there and ponds again. Turbidites fill abyssal plains and basins this way; the
-    surface stays continuous and every m^3 is placed. Returns the new surface."""
+    surface stays continuous and every m^3 is placed. Returns the new surface.
+    ceil (m, per node; None = nowhere): the margin wedge (S): on its way down the steepest path (from the start node
+    and from every spill point) the flow deposits up to this surface before it moves on; -1e9 = no deposit (the rule
+    without it). return_wedge: also return the volume (m^3, per node) so deposited."""
+    if ceil is None:
+        ceil = np.full(z.shape[0], -1e9)
+    zn, wedge = _fill_and_spill(z, vol, nbr, cell_area, np.asarray(ceil, np.float64))
+    return (zn, wedge) if return_wedge else zn
+
+
+@njit(cache=True)
+def _fill_and_spill(z, vol, nbr, cell_area, ceil):
     n = z.shape[0]
     z = z.copy()
+    wedge = np.zeros(n)
     stamp = np.zeros(n, np.int64)
     lake = np.empty(n, np.int64)
     run = 0
@@ -297,10 +320,15 @@ def fill_and_spill(z, vol, nbr, cell_area):
         guard = 0
         while V > 0. and guard < 10000:
             guard += 1
-            # walk down to a local low
+            # walk down to a local low (depositing up to the wedge's ceiling on the way)
             moved = True
-            while moved:
+            while moved and V > 0.:
                 moved = False
+                if ceil[p] > z[p]:
+                    d = min(V, (ceil[p]-z[p])*cell_area[p])
+                    z[p] += d/cell_area[p]; wedge[p] += d; V -= d
+                    if V <= 0.:
+                        break
                 best = p
                 for m in range(nbr.shape[1]):
                     j = nbr[p, m]
@@ -350,7 +378,7 @@ def fill_and_spill(z, vol, nbr, cell_area):
                 z[lake[i]] = level
             if spill >= 0:
                 p = spill
-    return z
+    return z, wedge
 
 
 @njit(cache=True)
@@ -401,12 +429,15 @@ def diffuse_variable(z, domain, kappa, dt, nbr, dist, axis, cell_area):
     return out
 
 
-def surface_step(g, z, sea_seed, edge_outlets, fallback, K, p, dt, h_min, bound, tick=None, start=None, keep_deep=False):
+def surface_step(g, z, sea_seed, edge_outlets, fallback, K, p, dt, h_min, bound, tick=None, start=None, keep_deep=False,
+                 wedge_top=None):
     """One step of the surface processes on a graph, without tectonic forcing or flexure: open sea, priority flood,
     D8 routing, Yuan erosion-deposition with lakes, marine sediment (deltas, graded shelves), hillslope and marine
     diffusion. Returns the new surface and the routing state. Used by GraphLandscape and the plate layer.
     keep_deep: also return 'deep_m3', the sediment that found no room on the shelves, at the sea-floor low where its
-    path ended (the regional model drops it; a closed planet must place it: the plate layer spreads it as fans)."""
+    path ended (the regional model drops it; a closed planet must place it: the plate layer spreads it as fans).
+    wedge_top: the margin wedge's ceiling beyond the shelf (marine_sediment_kept; None = off). With keep_deep, also
+    returns 'wedge_m3', the volume deposited beyond the shelf on the wedge, per node."""
     c = time.perf_counter() if start is None else start
     tick = tick or (lambda key, c0: time.perf_counter())
     ocean = connected_ocean(z, sea_seed, g.nbr)
@@ -418,8 +449,9 @@ def surface_step(g, z, sea_seed, edge_outlets, fallback, K, p, dt, h_min, bound,
     zn, eroded, deposited, sea_in = erode_and_deposit(z, zf, ocean, rec, dist, stack, area, K, p['m'], p['G'], p['Sc'], dt,
                                                       g.area, p['lake_tolerance'], 6, p.get('theta', 0.))
     c = tick('erosion', c)
+    d_land = distance_to(~ocean, g.nbr, g.dist, p['shelf_width'])
     marine, deep = marine_sediment_kept(zn, ocean, sea_in, g.nbr, g.dist, g.area, p['shelf_depth'], p['shelf_gradient'],
-                                        distance_to(~ocean, g.nbr, g.dist, p['shelf_width']), p['shelf_width'])
+                                        d_land, p['shelf_width'], wedge_top)
     zn = zn+marine; deposited = deposited+marine
     c = tick('marine', c)
     land = ~ocean
@@ -438,6 +470,8 @@ def surface_step(g, z, sea_seed, edge_outlets, fallback, K, p, dt, h_min, bound,
            'dist': dist, 'stack': stack, 'area': area, 'clock': c}
     if keep_deep:
         out['deep_m3'] = deep
+        out['wedge_m3'] = (np.where((d_land > p['shelf_width']) & (sea_in <= 0.), marine, 0.)*g.area
+                           if wedge_top is not None else np.zeros(g.size))
     return out
 
 

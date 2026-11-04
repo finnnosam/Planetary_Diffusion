@@ -33,12 +33,23 @@ class SurfaceMixin:
         shelf_on = p['shelf_kappa_m2_yr'] > 0
         keep = p['keep_deep_sediment']
         deep = np.zeros(g.size)
+        wedge_top = self._wedge_top(thick) if p['margin_wedge'] else None
         for _ in range(p['erosion_substeps']):
-            r = gl.surface_step(g, z, seed, None, fallback, K, lp, dt, self.h_min, self.bound, keep_deep=keep)
+            r = gl.surface_step(g, z, seed, None, fallback, K, lp, dt, self.h_min, self.bound, keep_deep=keep,
+                                wedge_top=wedge_top)
             z = r['z']
+            if wedge_top is not None:
+                self.erosion_totals['margin_wedge_m3'] = self.erosion_totals.get('margin_wedge_m3', 0.)+float(
+                    r['wedge_m3'].sum())
             if keep and r['deep_m3'].any():          # turbidites: fill the sea-floor lows from the bottom up
                 deep += r['deep_m3']
-                z = gl.fill_and_spill(z, r['deep_m3'], g.nbr, g.area)
+                if wedge_top is None:
+                    z = gl.fill_and_spill(z, r['deep_m3'], g.nbr, g.area)
+                else:                                # S: the turbidite path builds the wedge on its way down too
+                    z, wv = gl.fill_and_spill(z, r['deep_m3'], g.nbr, g.area, wedge_top, return_wedge=True)
+                    self.erosion_totals['margin_wedge_m3'] += float(wv.sum())
+                    self.erosion_totals['margin_wedge_spill_m3'] = self.erosion_totals.get(
+                        'margin_wedge_spill_m3', 0.)+float(wv.sum())
             if shelf_on:                             # wave planation and coastal retreat (planet_tectonics.shelf)
                 ocean = gl.connected_ocean(z, seed, g.nbr)
                 avail = np.where(w['cont'], 1e9, np.clip(w['sed']+z-z0, 0, None))
@@ -80,6 +91,32 @@ class SurfaceMixin:
                 'ocean_crust_eroded_subaerial_normal_m3', 0.)+float((e_oc*a)[normal].sum())
             e_cont = e_cont+e_oc
         return e_cont, dsed
+
+
+    def _wedge_top(self, thick):
+        """S, the margin wedge (sixty-first pass, journal 83): the ceiling (m, relative to sea level) up to which the
+        sediment that overflows the graded shelf is deposited on its way down (marine_sediment_kept's path, and the
+        steepest path from every pit and spill point in fill_and_spill: the overflow's paths at 46 km mostly end in
+        shallow pits on drowned margins first), before any rest fills the sea-floor lows. It is Earth's measured profile seaward of passive continental edges on this grid (margin_wedge_profile:
+        ETOPO p50 depth by distance from the label-free continent, CRUST1.0 crust + sediment >= 20 km, on ocean nodes
+        > 300 km from any Bird boundary; journal 82 section 4), linear between the bins' centres and flat outside them,
+        to margin_wedge_max_km. It applies where it was measured: off the continent (column < margin_wedge_edge_m)
+        and farther than margin_wedge_boundary_km from any plate boundary (last classification). Elsewhere -1e9 (no
+        room beyond the shelf, as without it)."""
+        g, p, w = self.g, self.p, self.world
+        sh = sediment_column(w['sed'], w['cont'], p)[0]
+        col = thick+np.where(w['cont'] & (not p['continental_sediment']), 0., sh)
+        edge = col >= p['margin_wedge_edge_m']
+        dmax = p['margin_wedge_max_km']*1e3
+        dc = gl.distance_to(edge, g.nbr, g.dist, dmax)
+        bt = getattr(self, 'btype', None)
+        if bt is not None and (bt != 0).any():
+            far = gl.distance_to(bt != 0, g.nbr, g.dist, p['margin_wedge_boundary_km']*1e3) > p['margin_wedge_boundary_km']*1e3
+        else:
+            far = np.ones(g.size, bool)
+        km, depth = np.array(p['margin_wedge_profile'], np.float64).T
+        top = np.interp(dc/1e3, km, depth)
+        return np.where(~edge & far & (dc <= dmax), top, -1e9)
 
 
     def elevation(self, thick=None, sed=None):

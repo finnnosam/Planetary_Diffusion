@@ -181,6 +181,19 @@ PARAMS = {
     # ocean floor to the trenches like any other sediment. (A first version spread it by diffusion over the connected
     # open sea; enclosed pockets could not pass it on and grew 20-250 km towers.) False = the old sink
     'keep_deep_sediment': True,
+    # S, the margin wedge (sixty-first pass, journal 83; off until a sweep adopts it): what overflows the graded shelf
+    # is deposited in front of its source, up to Earth's measured profile seaward of passive continental edges, on its
+    # way down (the marine path and fill_and_spill's turbidite paths), before any rest fills the sea-floor lows (turbidites and contourites build the slope and rise beside their source).
+    # Without it the planet has no continental rise (floor 0.25-0.85 km deeper than Earth's within 200 km of passive
+    # edges) and spreads its detritus to far basins and trenches (journal 82). The profile is measured on this grid
+    # (n = 217): ETOPO p50 depth (m, ice out) by distance (km, bin centres) from the label-free continent (CRUST1.0
+    # crust + sediment >= 20 km), ocean nodes > 300 km from any Bird PB2002 boundary (pass 60, margin_bathymetry);
+    # applied where it was measured (column < margin_wedge_edge_m, > margin_wedge_boundary_km from the planet's
+    # boundaries), to margin_wedge_max_km. No fitted number
+    'margin_wedge': False,
+    'margin_wedge_profile': ((25., -2083.), (75., -2827.), (125., -3302.), (175., -3582.), (250., -3948.),
+                             (400., -4412.), (600., -4633.), (850., -4761.)),
+    'margin_wedge_max_km': 1000., 'margin_wedge_boundary_km': 300., 'margin_wedge_edge_m': 20e3,
     'mantle': True,                # dynamic topography and hotspots (planet_tectonics.mantle)
     # dynamic topography (planet_tectonics.mantle): std 800 m to spherical-harmonic degree 30 with a flat (slope 1) spectrum,
     # chosen by the step 8 sweep (sweep-20261017-223508: texture 0.23 vs 0.77 for the old 400 m / degree 12 / slope 2.5;
