@@ -239,3 +239,24 @@ def trench_flux_consumed(A, near, d, ok, terms, area, min_len, own, nbr, dist):
         norm = np.maximum(norm, min_len)
         out = out+np.where(mask & ok, As[kk]*H*shape/norm[kk], 0.)
     return out, routed, unrouted
+
+
+
+# collision_spread 'earth' (journal 86): Earth's crustal thickening rate per unit continental area by distance from a
+# continental collision (Bird 2003 CCB steps), relative to 0-100 km; GSRM v2.1 (Kreemer et al. 2014) areal shortening
+# x CRUST1.0 thickness on continental crust (total >= 20 km) more than 300 km from SUB steps, on n = 217
+# (outputs/planet-calibration/precheck-p64-bundle/collision_kernel.py). Zero beyond the last edge.
+COLLISION_KERNEL_KM = np.array([0., 100., 200., 300., 400., 500., 600., 800., 1000., 1250., 1500., 2000., 3000.])
+COLLISION_KERNEL = np.array([1., .450, .303, .190, .133, .145, .114, .101, .072, .034, .031, .005])
+
+
+def collision_kernel(d_m):
+    """COLLISION_KERNEL at distances d (m); zero beyond COLLISION_KERNEL_KM[-1]."""
+    i = np.searchsorted(COLLISION_KERNEL_KM, np.asarray(d_m)/1e3, side='right')-1
+    return np.where((i >= 0) & (i < COLLISION_KERNEL.size), COLLISION_KERNEL[np.clip(i, 0, COLLISION_KERNEL.size-1)], 0.)
+
+
+def eclogite_loss(th, cont, thick_m, tau_myr, dt_myr):
+    """R (eclogite_rule 'foundering', see PARAMS): thickness change (m, <= 0) of continental crust thicker than
+    thick_m over dt_myr; the excess decays with time constant tau_myr."""
+    return -np.where(cont, np.clip(th-thick_m, 0, None), 0.)*(-np.expm1(-dt_myr/tau_myr))

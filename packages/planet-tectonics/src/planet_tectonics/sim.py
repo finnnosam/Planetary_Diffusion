@@ -30,7 +30,7 @@ from planet_grid import fields
 from planet_grid.sphere_flexure import SphereFlexure
 from planet_landscape import graph_landscape as gl
 
-from planet_tectonics.crust_kernels import edge_spread
+from planet_tectonics.crust_kernels import eclogite_loss, edge_spread
 from planet_tectonics.isostasy import sediment_column
 from planet_tectonics.lithosphere import stretched_age
 from planet_tectonics.mantle import Mantle
@@ -149,6 +149,13 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
             sub = sub+vol
         dthick = dthick+sub
         th = th+sub
+        if p['eclogite_rule'] == 'foundering':       # R: the root below the eclogite depth sinks (see PARAMS)
+            ecl = eclogite_loss(th, w['cont'], p['eclogite_thick_m'], p['eclogite_tau_myr'], dt)
+            dthick = dthick+ecl
+            th = th+ecl
+            self.erosion_totals['eclogite_foundered_m3'] = self.erosion_totals.get('eclogite_foundered_m3', 0.)-float((ecl*g.area).sum())
+        elif p['eclogite_rule'] != 'none':
+            raise ValueError(f"eclogite_rule {p['eclogite_rule']!r}: 'none' or 'foundering'")
         self.tectonic = dthick.copy()                    # tectonic thickening this step, m (no erosion); + collisions below
         arc = (~w['cont']) & (th >= p['arc_to_continent_thick_m'])
         if arc.any():                                    # island arcs grown thick enough are continental crust

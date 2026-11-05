@@ -4,6 +4,7 @@ import numpy as np
 
 from planet_grid import fields
 
+from planet_tectonics.crust_kernels import collision_kernel
 from planet_tectonics.graphops import nearest_label, plate_holes
 
 
@@ -114,6 +115,32 @@ class CompositionMixin:
         self.therm_changed = np.zeros(g.size, bool)      # C: world nodes whose thermal age changed this step
 
 
+    def _spread_collision(self, dVc):
+        """collision_spread 'earth' (see PARAMS): each receiving world node's collision volume (m^3) goes to the
+        continental nodes of its own plate whose nearest receiving node it is, weighted by area x Earth's thickening
+        kernel at their distance from it (graph distance through that plate's continental crust). Volume conserved;
+        a receiving node with no such node keeps its volume."""
+        g, w = self.g, self.world
+        src = dVc > 0
+        recv = w['cont'] | src
+        ok = g.nbr >= 0
+        nb = np.where(ok, g.nbr, 0)
+        same = ok & recv[:, None] & recv[nb] & (self.owner[:, None] == self.owner[nb])
+        cost = np.where(same, g.dist, 1e30)
+        lab, d = nearest_label(np.where(src, np.arange(g.size), -1).astype(np.int64), g.nbr, cost)
+        wt = np.where(recv & (lab >= 0) & (d < 1e29), g.area*collision_kernel(d), 0.)
+        use = wt > 0
+        W = np.bincount(lab[use], weights=wt[use], minlength=g.size)
+        out = np.zeros(g.size)
+        has = src & (W > 0)
+        sel = use & has[np.where(lab >= 0, lab, 0)]
+        np.add.at(out, np.flatnonzero(sel), dVc[lab[sel]]*wt[sel]/W[lab[sel]])
+        out[src & ~has] += dVc[src & ~has]
+        self.erosion_totals['collision_spread_m3'] = self.erosion_totals.get('collision_spread_m3', 0.)+float(
+            np.abs(out-dVc).sum()/2)
+        return out
+
+
     def _update_rasters(self, dthick, idx, dsed=None):
         """Update every plate raster after a step.
 
@@ -183,6 +210,10 @@ class CompositionMixin:
             g1 = gone & pl.cont                          # booked above at their values now (pass 2 may still change them)
             booked.append((cc, np.where(g1, pl.thick, 0.).astype(np.float64), np.where(g1, pl.sed, 0.).astype(np.float64)))
         self.collided, self.subducted = collided, subducted
+        if p['collision_spread'] == 'earth' and dVc.any():
+            dVc = self._spread_collision(dVc)
+        elif p['collision_spread'] not in ('node', 'earth'):
+            raise ValueError(f"collision_spread {p['collision_spread']!r}: 'node' or 'earth'")
         if hasattr(self, 'tectonic'):
             self.tectonic = self.tectonic+dVc/a          # collision volume, as thickness at the receiving world node
         marked = collided | self._orogen_marks()

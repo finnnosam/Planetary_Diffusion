@@ -270,6 +270,21 @@ PARAMS = {
     # (stable continental lower crust; 1000 is ~4e19, hot crust), and Earth's 180 Myr Atlantic margins survive,
     # which needs kappa << 125. At 1000 the flow thickened old passive margins by 5-10 km per 100 Myr
     'crust_kappa_normal_m2_yr': 30.,
+    # R (journal 86): loss of the eclogitised lower crust. 'foundering': continental crust thicker than eclogite_thick_m
+    # loses its excess with time constant eclogite_tau_myr (the root below the eclogite depth sinks into the mantle;
+    # volume removed, booked as eclogite_foundered_m3). 65 km: mafic crust crosses the mantle's density at ~60-70 km,
+    # ~2 GPa (Chapman et al. 2019; neutral buoyancy ~65 km); 10 Myr: an eclogitised root founders within ~3-15 Myr
+    # of forming (Krystopowicz & Currie 2013). Earth's delamination flux ~1.1 km^3/yr (Clift et al. 2009) is a check,
+    # not a target. 'none' reproduces earlier runs (no sink for thick crust: without the collapse flow, columns reach
+    # 90-115 km and peaks 12-20 km on every seed of combo-01 of sweep-20261101-191306)
+    'eclogite_rule': 'none', 'eclogite_thick_m': 65000., 'eclogite_tau_myr': 10.,
+    # where a collision's volume goes (journal 86). 'node' (as built): all of it onto the receiving world node, so
+    # collided crust piles on one node (+10-40 km of crust per Myr at 46 km cells); only the collapse flow spread it,
+    # and without that flow columns reach 90-115 km and peaks 12-20 km. 'earth': spread over the receiving plate's
+    # continental crust by distance from the receiving node with Earth's measured kernel, the volume rate of crustal
+    # thickening by distance from Bird's (2003) CCB steps today (GSRM v2.1 areal shortening on continental crust, > 300
+    # km from subduction zones; crust_kernels.COLLISION_KERNEL): half within ~290 km, 90% within ~1,200 km
+    'collision_spread': 'node',
     'crust_kappa_m2_yr': 1000.,
     'collapse_thick_m': 45000.,
     'collapse_scale_m': 6000.,
