@@ -21,12 +21,17 @@ def quantile_map(values, weights, q=EARTH_STABLE_CRUST_Q, target=EARTH_STABLE_CR
 
 
 
-def margin_shortening(near, d, dom, s, thick, area, dt, d_belt, sg_belt, d_fore, sg_fore, cap=.3):
+def margin_shortening(near, d, dom, s, thick, area, dt, d_belt, sg_belt, d_fore, sg_fore, cap=.3, match=False):
     """Volume-conserving upper-plate shortening (m of crust per node over dt). For every trench segment (the nodes
     whose nearest overriding trench node is the same, `near`), crust is taken from the foreland band (Gaussian in
     trench distance d at d_fore +- sg_fore) at s * thick per unit trench length, at most `cap` of a column, and the
     same volume is added to the belt (Gaussian at d_belt +- sg_belt) of that segment. dom: continental nodes of the
-    overriding plate within reach. Segments without belt nodes move nothing."""
+    overriding plate within reach. Segments without belt nodes move nothing.
+    match (shortening_match, journal 87): the belt is not renormalised to the nodes it has. Each belt node receives the
+    trench flux at its own Gaussian weight, s * T_f * dt * g_belt (T_f the segment's gf-weighted foreland thickness),
+    as the foreland gives s * T * dt * g_fore; the segment moves the smaller of the two volumes (both sides scaled to
+    it). A segment whose belt is missing (an oceanic forearc, or a few continental nodes in the Gaussian's tail) then
+    moves little, instead of putting its whole foreland's volume on those nodes (+20-120 km in one Myr)."""
     gf = np.exp(-.5*((d-d_fore)/sg_fore)**2)/(sg_fore*np.sqrt(2*np.pi))
     gb = np.exp(-.5*((d-d_belt)/sg_belt)**2)/(sg_belt*np.sqrt(2*np.pi))
     seg = np.where(dom, near, -1)
@@ -35,13 +40,25 @@ def margin_shortening(near, d, dom, s, thick, area, dt, d_belt, sg_belt, d_fore,
     out = np.zeros(d.shape[0])
     if nseg == 0:
         return out
+    sg = np.maximum(seg, 0)
     bw = np.where(m, gb*area, 0.)
     B = np.bincount(seg[m], weights=bw[m], minlength=nseg)
     sink = np.where(m, -np.minimum(s*dt*thick*gf, cap*thick), 0.)
-    sink = np.where(m & (B[np.maximum(seg, 0)] > 0), sink, 0.)
-    Rv = np.bincount(seg[m], weights=(sink*area)[m], minlength=nseg)            # m^3 removed per segment (<= 0)
-    add = np.where(m, -Rv[np.maximum(seg, 0)]*bw/np.maximum(B[np.maximum(seg, 0)], 1e-300)/area, 0.)
-    return sink+add
+    if not match:
+        sink = np.where(m & (B[sg] > 0), sink, 0.)
+        Rv = np.bincount(seg[m], weights=(sink*area)[m], minlength=nseg)            # m^3 removed per segment (<= 0)
+        add = np.where(m, -Rv[sg]*bw/np.maximum(B[sg], 1e-300)/area, 0.)
+        return sink+add
+    fw = np.where(m, gf*area, 0.)
+    Tf = np.bincount(seg[m], weights=(thick*fw)[m], minlength=nseg)/np.maximum(
+        np.bincount(seg[m], weights=fw[m], minlength=nseg), 1e-300)
+    a = np.where(m, s*dt*Tf[sg]*gb, 0.)                                          # belt at the trench flux (m)
+    R = -np.bincount(seg[m], weights=(sink*area)[m], minlength=nseg)             # m^3 the foreland gives (>= 0)
+    Acap = np.bincount(seg[m], weights=(a*area)[m], minlength=nseg)              # m^3 the belt takes at that flux
+    M = np.minimum(R, Acap)
+    fs = np.where(R > 0, M/np.maximum(R, 1e-300), 0.)
+    fa = np.where(Acap > 0, M/np.maximum(Acap, 1e-300), 0.)
+    return np.where(m, sink*fs[sg]+a*fa[sg], 0.)
 
 
 

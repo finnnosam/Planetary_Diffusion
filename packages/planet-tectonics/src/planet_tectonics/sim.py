@@ -52,6 +52,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self.g = graph
         self.p = {**PARAMS, **(params or {})}
         self.t = float(t0)
+        self.t_start = float(t0)                         # K: split_rule 'earth' maps the time since the start onto Earth's
         self.rng = np.random.default_rng(seed)
         self.bound = graph.diffusion_bound()
         self.h_min = graph.spacing_min()

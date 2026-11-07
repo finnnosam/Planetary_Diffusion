@@ -94,6 +94,14 @@ PARAMS = {
     # (before: False, with subduction_H_cont_m as new crust)
     'margin_shortening': True, 'rollback_mm_yr': 17., 'arc_H_cont_m': 750.,
     'foreland_d0_km': 350., 'foreland_sigma_km': 100.,
+    # shortening_match (sixty-fifth pass, journal 87): the belt was renormalised to the continental nodes a segment has,
+    # so a segment whose belt is missing (an oceanic forearc, or a few continental nodes in the Gaussian's tail) put its
+    # whole foreland's volume on them: +20-120 km of crust in one Myr at one node in a third of all steps (Earth's
+    # Andes ~2 km/Myr), held up by the plate (Te 30 km) as towers (pass 65 probes). True: every belt node receives the
+    # trench flux at its own Gaussian weight (s x the foreland's thickness x g_belt), as the foreland gives s x T x
+    # g_fore, and the segment moves the smaller of the two volumes. No new number
+    # Adopted 6 Nov (Breakup History Sweep sweep-20261105-211423, combo-05; journal 88)
+    'shortening_match': True,
     'arc_H_ocean_m': 300., 'arc_d0_km': 150., 'arc_sigma_km': 50.,
     'arc_to_continent_thick_m': 20000.,
     # B-d (thirty-ninth pass): arc crust docks instead of subducting. With arc_accretion, oceanic crust thicker than
@@ -213,8 +221,9 @@ PARAMS = {
     # residual-topography spectrum per degree to l 30 as published (mantle.VD2020_POWER_KM2: Valentine & Davies 2020,
     # expected posterior power of their model of the high-accuracy oceanic data; rms 0.58 km water-loaded, 0.29 of it
     # at l 1-3), held air-loaded and water-loaded under the sea as 'slabs' is, blended between knots at constant
-    # variance (no pulse). dyn_std_m, dyn_lmax and dyn_slope do not apply. No fitted number
-    'dyn_rule': 'random',
+    # variance (no pulse). dyn_std_m, dyn_lmax and dyn_slope do not apply. No fitted number. Default 'measured' since
+    # 6 Nov (combo-05 of sweep-20261105-211423, journal 88; it replaces the fitted 'random' field)
+    'dyn_rule': 'measured',
     'slab_dip_deg': 58., 'lm_sink_mm_yr': 12., 'flow_z_cut_km': 300., 'flow_lmax': 31,
     'viscosity_file': None,        # None: data/mantle/visc.sh08
     # the slab's density anomaly with depth: 'constant' keeps the surface expansivity of GDH1 (3.1e-5 /K) at all
@@ -234,8 +243,29 @@ PARAMS = {
     # plate splitting (Poisson events). Rifting: rate per Myr for a 100 Mkm^2 plate, scaled by area and doubled for
     # mostly continental plates; the split line prefers old sutures; halves diverge at split_speed_cm_yr.
     'split_rate_per_myr': .006, 'split_min_area_mkm2': 12., 'split_speed_cm_yr': 2., 'suture_weakness': .6,
+    # K (sixty-fifth pass, journal 87): split_rule 'poisson' (above; split_rate_per_myr assumed) or 'earth': a plate's
+    # splits that cross its continent happen at Earth's rifted-margin production since its supercontinent
+    # (breakup.EARTH_RIFT_PRODUCTION: Mueller et al. 2019 age grids, continental edge beside floor <= 10 Myr old,
+    # > 300 km from subduction zones; km of conjugate margin per Myr per Mkm^2 of continent, by time since the start
+    # mapped onto Earth's 250 Ma ... 0): rate = production x the plate's continental area / the candidate split's
+    # continental margin length (both sides), so the expected margin made per Myr is Earth's. Splits that cross only
+    # ocean keep split_rate_per_myr. The run's start is a supercontinent like Pangea at 250 Ma. Default 'earth' since
+    # 6 Nov (combo-05 of sweep-20261105-211423, journal 88)
+    'split_rule': 'earth',
     # subduction initiation: ocean older than init_age_myr on a plate breaks away and converges on the rest
     'init_age_myr': 170., 'init_rate_per_myr': .004, 'init_speed_cm_yr': 3.,
+    # where spontaneous initiation breaks a plate that carries continent (sixty-seventh pass, journal 89). 'margin' (as
+    # built): the plate's whole ocean component holding the old floor breaks away, so the break follows the coast and a
+    # trench is cut along an old passive margin (the oldest floor of a margin plate lies at the margin). Of the
+    # Start Breakup Sweep's adopted arm's continental edge with margin age >= 50 Myr, 0.53 is within 300 km of a
+    # boundary (Earth 0.21), the nearest boundary a trench at 0.56 of it. 'ocean': old floor welded to its plate's
+    # continent (touching it) does not initiate; old floor apart from the continent breaks off where it meets the
+    # plate's younger floor (as Izu-Bonin-Mariana's at a fracture zone). Earth: no unambiguous passive margin turned
+    # convergent in the Cenozoic (Stern 2004, EPSL 226; Stern & Gerya 2018, Tectonophysics 746); old passive margins
+    # are too strong to fail without outside forcing (Mueller & Phillips 1991, JGR 96). Plates without continent as
+    # built in both. The draws are the same, so arms pair until the first skipped initiation. No new number.
+    # 'ocean' adopted 7 Nov (pass 68, journal 90: the Initiation Site Sweep, sweep-20261107-094624, passes every veto)
+    'init_site': 'ocean',
     'init_area_ref_mkm2': 2.,      # initiation rate scales with old-ocean area / this (capped at 5x)
     # suturing: two plates in continental collision along more than merge_contact_km for merge_after_myr in a row
     # become one plate (as India is joining Eurasia); the smaller plate's crust moves into the larger plate's frame
@@ -276,15 +306,17 @@ PARAMS = {
     # ~2 GPa (Chapman et al. 2019; neutral buoyancy ~65 km); 10 Myr: an eclogitised root founders within ~3-15 Myr
     # of forming (Krystopowicz & Currie 2013). Earth's delamination flux ~1.1 km^3/yr (Clift et al. 2009) is a check,
     # not a target. 'none' reproduces earlier runs (no sink for thick crust: without the collapse flow, columns reach
-    # 90-115 km and peaks 12-20 km on every seed of combo-01 of sweep-20261101-191306)
-    'eclogite_rule': 'none', 'eclogite_thick_m': 65000., 'eclogite_tau_myr': 10.,
+    # 90-115 km and peaks 12-20 km on every seed of combo-01 of sweep-20261101-191306). Default 'foundering' since 6 Nov
+    # (combo-05 of sweep-20261105-211423, journal 88)
+    'eclogite_rule': 'foundering', 'eclogite_thick_m': 65000., 'eclogite_tau_myr': 10.,
     # where a collision's volume goes (journal 86). 'node' (as built): all of it onto the receiving world node, so
     # collided crust piles on one node (+10-40 km of crust per Myr at 46 km cells); only the collapse flow spread it,
     # and without that flow columns reach 90-115 km and peaks 12-20 km. 'earth': spread over the receiving plate's
     # continental crust by distance from the receiving node with Earth's measured kernel, the volume rate of crustal
     # thickening by distance from Bird's (2003) CCB steps today (GSRM v2.1 areal shortening on continental crust, > 300
-    # km from subduction zones; crust_kernels.COLLISION_KERNEL): half within ~290 km, 90% within ~1,200 km
-    'collision_spread': 'node',
+    # km from subduction zones; crust_kernels.COLLISION_KERNEL): half within ~290 km, 90% within ~1,200 km. Default
+    # 'earth' since 6 Nov (combo-05 of sweep-20261105-211423, journal 88)
+    'collision_spread': 'earth',
     'crust_kappa_m2_yr': 1000.,
     'collapse_thick_m': 45000.,
     'collapse_scale_m': 6000.,
@@ -316,13 +348,24 @@ PARAMS = {
     # Australis orogen, ~18,000 km, Cawood 2005; the circum-Pangea subduction girdle, Collins 2003), with passive
     # margins mainly on the opening Tethys side. An ocean (or continent) component without a seed gets its own plate.
     # No new number
-    'start_plates': 'voronoi',
+    'start_plates': 'coast',
     # the oceanic start plates' motion (thirty-eighth pass). 'random' (as built): random poles, 3-7 cm/yr; the force
     # law turns them over tau_axis_myr. 'forces': each oceanic start plate gets the speed and pole the plate layer's own
     # force law (_driving, fully relaxed) gives on the start's geometry, with the slabs Pangea had: ocean nodes on the
     # coast are trench (the subduction ring; meaningful with start_plates 'coast') and ocean-ocean boundaries ridges
     # (as the start's age field has them). Continental plates keep their dispersal motion. No new number
-    'start_poles': 'random',
+    'start_poles': 'forces',
+    # the start's breakup (sixty-sixth pass, journal 88). 'dispersal' (as built): the supercontinent lies on
+    # n_cont_plates continental plates, each moving away from its centre (2-4 cm/yr), so it rifts apart from the first
+    # step: 2,300-4,200 km/Myr of rifted margin over -240 ... -200 Myr on every arm of sweep-20261105-211423, where
+    # Earth made 0-1,000 (Pangea whole, 250-170 Ma; breakup.EARTH_RIFT_PRODUCTION); and 10-12% of the supercontinent
+    # lies on oceanic plates whose Voronoi cells reach past its coast. 'whole': the whole supercontinent and the
+    # continental plates' cells are one plate (Pangea moved as one; its internal boundaries were sutures, not plate
+    # boundaries), drawn from the same seeds and numbers, with a random pole at the continental plates' 2-4 cm/yr; it
+    # breaks only where the split rule splits it (with split_rule 'earth', at Earth's breakup history). No new number.
+    # Defaults 'whole', start_plates 'coast', start_poles 'forces' since 6 Nov (combo-04 of sweep-20261106-211658,
+    # journal 89: S1 198 km/Myr over -240 ... -200 Myr, volume -0.8%, label-free area 0.357)
+    'start_breakup': 'whole',
     'v_min_cm_yr': 1.5, 'v_slab_cm_yr': 9.,  # plate speed without / with a full slab
     'slab_ref_km': 6000.,          # trench length giving the full slab-pull speed
     'v_ridge_cm_yr': 1.5,          # extra speed from ridge push with ridge_ref_km of ridge

@@ -24,6 +24,10 @@ from planet_grid.sphere_graph import CubeSphere
 from planet_tectonics.plates import PlateSim, RIDGE, SUBDUCTION, COLLISION, TRANSFORM, CONVERGENT
 from planet_grid.paths import OUTPUTS
 
+# scripts.sweep_plates sets this in its workers: called with the run's time (Myr) after every recorded step, for its
+# progress line (sixty-eighth pass; output only)
+PROGRESS = None
+
 EARTH = {'land_fraction': .29, 'land_mean_elevation_m': 840., 'ocean_age_mean_myr': 64., 'ocean_age_max_myr': 180., 'ridge_km': 65000.,
          'subduction_km': 55000., 'plates_bird2003': 52, 'largest_plate_mkm2': 104.}
 
@@ -131,11 +135,14 @@ def draw(out, maps, present, eq):
 
 def run_seed(seed, a, out):
     from planet_reviews.crust_budget import trench_arrivals
+    from planet_reviews.passive_survival import PassiveRecorder, RiftRecorder
     g = CubeSphere(a.n)
     t0 = time.perf_counter()
     sim = PlateSim(g, seed=seed, t0=-a.years, params=a.params)
     eq = fields.equirect_nodes(g, 360)
     series, maps = [], []
+    passive = PassiveRecorder(g)                      # output only (sixty-sixth pass): passive margins' survival
+    rifted = RiftRecorder(g)                          # output only (sixty-seventh pass): young rifted margin's fate
     sdir = out/f'seed{seed}'
     sdir.mkdir(parents=True, exist_ok=True)
 
@@ -143,6 +150,10 @@ def run_seed(seed, a, out):
         st = s.state()
         series.append(summary(s, st))
         series[-1]['trench_arrivals'] = trench_arrivals(st, g, s.p)   # output only (forty-eighth pass)
+        passive.update(s, st)
+        rifted.update(s, st, passive.last)
+        if PROGRESS is not None:
+            PROGRESS(float(s.t))
         late = s.t > -a.save_last-1e-6
         if (late and round(s.t) % a.save_every == 0) or round(s.t) % 10 == 0:
             save_snapshot(sdir/'snapshots', s, st)
@@ -167,6 +178,8 @@ def run_seed(seed, a, out):
               'seconds': time.perf_counter()-t0, 'present': series[-1],
               'continental_volume_change': vt[-1]/vt[0]-1, 'continental_crust_volume_change': v[-1]/v[0]-1, 'max_pinholes': max(r['pinholes'] for r in series), 'earth': EARTH,
               'series': series,
+              'passive_record': passive.summary(),
+              'rift_record': rifted.summary(),
               # every plate event with its time (thirty-ninth pass; output only): what cuts and joins plates when
               'event_list': [{k: (float(e[k]) if isinstance(e[k], (float, np.floating)) else e[k])
                               for k in ('t', 'kind', 'plate', 'new_plate', 'merged', 'area_mkm2') if k in e}

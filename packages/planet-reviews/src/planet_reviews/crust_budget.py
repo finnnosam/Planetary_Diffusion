@@ -205,7 +205,9 @@ def budget(seed, g, t0, t1, p, stats):
                    'collision_sediment_to_crust': E('collision_sediment_to_crust_m3'),
                    'volcanic_all_nodes': E('volcanic_added_m3'),
                    'arcs_turned_continental': arc_conv,
-                   'arcs_docked_on_continents': E('arc_accreted_on_continent_m3')}
+                   'arcs_docked_on_continents': E('arc_accreted_on_continent_m3'),
+                   # R (eclogite_rule 'foundering'): the root below the eclogite depth sinks (journal 88: it was the residual)
+                   'eclogite_foundered': -E('eclogite_foundered_m3')}
     za, zb = snap(seed, t0), snap(seed, t1)
     ca, cb = (z['continental'].astype(bool) for z in (za, zb))
     sa, sb = ((z['sediment_m'].astype(np.float64)*g.area)[~c].sum()/1e9 for z, c in ((za, ca), (zb, cb)))
@@ -324,7 +326,7 @@ def report(name, res, earth):
               f"(arc - subduction erosion, booked net) {f(c['trench_on_continents_net'])} + sediment accreted at trenches "
               f"{f(c['sediment_accreted_at_trenches'])} + collision sediment {f(c['collision_sediment_to_crust'])} + volcanic "
               f"(all nodes) {f(c['volcanic_all_nodes'])} + arcs turned continental {f(c['arcs_turned_continental'])} + arcs docked "
-              f"{f(c['arcs_docked_on_continents'])} + residual "
+              f"{f(c['arcs_docked_on_continents'])} + foundered roots {f(c['eclogite_foundered'])} + residual "
               f"{f(c['residual'])}")
         print(f"  continental surface: eroded {f(s['eroded_total'])}, deposited {f(s['deposited'])} (submerged "
               f"{f(s['deposited_submerged'])}), sediment on continents net {f(s['net'])}")

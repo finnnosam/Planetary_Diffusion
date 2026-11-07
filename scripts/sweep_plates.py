@@ -28,13 +28,21 @@ a single combination is combo-01, or defaults without parameters), or combo-01, 
 parameters shared by all combinations are in sweep.json, each combination's full set in <combo>/params.json and in
 results.json ('chosen_dir' names the winner's folder). Before 24 Oct the folder carried every swept parameter
 (paths over Windows' 260-character limit).
+
+Progress (sixty-eighth pass, journal 90): one progress line, redrawn in place (scripts.progress.Tracker: elapsed
+against predicted time, runs done and running, the step's share), and one line per finished run ('run 3 of 24 done:
+settings 1 of 4 (...), seed 1003 (3 of 6), 18.2 min'). Each run's own printout goes to <combo>/seed<s>/run.log; the
+score tables to <sweep>/summary.txt. Every run's time and the sweep's go to outputs/planet-calibration/timings.jsonl,
+from which the next sweep's prediction is made. scripts.run_sweep runs tests, sweep and reviews under one line.
 """
 import argparse
 import itertools
 import json
 import os
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from contextlib import redirect_stderr, redirect_stdout
+from multiprocessing import Manager
 from pathlib import Path
 
 import numpy as np
@@ -55,7 +63,10 @@ def combo_names(combos):
 
 
 def one(job):
-    params, seed, out, years, save_every = job
+    """One run in a worker. With a queue (job[5:7]) it reports (index, simulated Myr) every Myr and writes its
+    printout to <combo>/seed<s>/run.log instead of the console (output only: the run is the same)."""
+    params, seed, out, years, save_every = job[:5]
+    q, i = job[5:7] if len(job) > 5 else (None, None)
     os.environ.setdefault('NUMBA_NUM_THREADS', '2')
     from scripts import simulate_plates
     argv = ['--n', '217', '--seeds', str(seed), '--years', str(years), '--out', str(out), '--param', 'threads=2',
@@ -63,8 +74,63 @@ def one(job):
     for k, v in params.items():
         argv += ['--param', f'{k}={v}']
     t0 = time.time()
-    simulate_plates.main(argv)
+    if q is None:
+        simulate_plates.main(argv)
+    else:
+        sdir = Path(out)/f'seed{seed}'
+        sdir.mkdir(parents=True, exist_ok=True)
+        q.put((i, 'start', 0.))
+        simulate_plates.PROGRESS = lambda t: q.put((i, 'myr', t+years))
+        with open(sdir/'run.log', 'w', encoding='utf-8') as log, redirect_stdout(log), redirect_stderr(log):
+            simulate_plates.main(argv)
+        simulate_plates.PROGRESS = None
     return {'params': params, 'seed': seed, 'dir': str(Path(out)/f'seed{seed}'), 'seconds': time.time()-t0}
+
+
+def run_jobs(jobs, workers, years, tracker, label):
+    """Run the jobs on a process pool under `tracker`'s current step; yields (job index, result) as runs finish."""
+    from scripts import progress as pg
+    n = len(jobs)
+    per_run = pg.predict_run(workers, years)
+    started, myr = {}, {}
+    finished = []
+    with Manager() as m:
+        q = m.Queue()
+        with ProcessPoolExecutor(workers) as ex:
+            futs = {ex.submit(one, j+(q, i)): i for i, j in enumerate(jobs)}
+            pending = set(futs)
+            while pending:
+                done, pending = wait(pending, timeout=1., return_when=FIRST_COMPLETED)
+                while True:
+                    try:
+                        i, what, v = q.get_nowait()
+                    except Exception:
+                        break
+                    if what == 'start':
+                        started[i] = time.time()
+                    else:
+                        myr[i] = v
+                for fu in done:
+                    i = futs[fu]
+                    r = fu.result()                  # a failed run raises here and stops the sweep
+                    finished.append(r['seconds'])
+                    started.pop(i, None); myr.pop(i, None)
+                    yield i, r
+                # remaining: running runs at their own pace (or the prediction early on), then the queue
+                d = statistics_median(finished) if finished else per_run
+                left = []
+                for i, t0 in started.items():
+                    f = myr.get(i, 0.)/years
+                    spent = time.time()-t0
+                    left.append(spent*(1-f)/f if f > .1 else max(d-spent, d*(1-f)))
+                queued = n-len(finished)-len(started)
+                frac = (len(finished)+sum(myr.get(i, 0.)/years for i in started))/n
+                tracker.update(frac, f"{len(finished)} of {n} {label} done, {len(started)} running",
+                               left=pg.schedule_left(left, queued, d, workers))
+
+
+def statistics_median(xs):
+    return float(np.median(xs))
 
 
 def score(seed_dir, earth_tex, earth_hyp, g):
@@ -113,7 +179,9 @@ def shelf_pass(m):
 ARRANGEMENT_KEYS = ('high_share', 'flanked_low_fraction', 'slope_p90_m_per_km')
 
 
-def main(argv=None):
+def main(argv=None, tracker=None):
+    """Runs the sweep and returns its folder. With a scripts.progress.Tracker (scripts.run_sweep) its current step
+    is the sweep; without one it draws its own progress line."""
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--grid', action='append', default=[], metavar='KEY=V1,V2', help='a parameter and its values')
     p.add_argument('--seeds', default='1001,1002')
@@ -151,21 +219,30 @@ def main(argv=None):
     for c in combos:
         (out/name(c)).mkdir(parents=True, exist_ok=True)
         (out/name(c)/'params.json').write_text(json.dumps(c, indent=1))
-    if fixed:
-        print('shared by all combinations: '+', '.join(f'{k}={v}' for k, v in fixed.items()), flush=True)
+    from scripts import progress as pg
     jobs = [(c, s, out/name(c), a.years, a.save_every) for c in combos for s in seeds]
-    print(f'{len(jobs)} runs on {a.workers} workers -> {out}', flush=True)
+    own = tracker is None
+    if own:
+        per = pg.predict_run(a.workers, a.years)
+        tracker = pg.Tracker([('sweep', pg.schedule_left([], len(jobs), per, a.workers))])
+        tracker.start_step()
+    tracker.log(f'Sweep: {len(combos)} settings x {len(seeds)} seeds = {len(jobs)} runs on {a.workers} workers -> {out}')
+    for k, c in enumerate(combos):
+        tracker.log(f'  settings {k+1}: {name(c)}')
     g = CubeSphere(217)
     earth_tex, earth_hyp = pt.earth_texture(g), load(217)['no_ice_sheets']
     runs = []
-    with ProcessPoolExecutor(a.workers) as ex:
-        for r in ex.map(one, jobs):
-            r.update(score(r['dir'], earth_tex, earth_hyp, g))
-            runs.append(r)
-            print(f"{name(r['params'])} seed {r['seed']}: texture {r['texture_score']:.2f}, hypsometry {r['hypsometry_score']:.2f}, "
-                  f"arrangement {r['arrangement_score']:.2f}, volume {r['continental_volume_change']:+.0%}, export {r['export_km3_yr']:.1f} km3/yr, "
-                  f"land {r['hypsometry']['land_fraction']:.1%}, {r['seconds']/60:.1f} min", flush=True)
-            (out/'results.json').write_text(json.dumps({'runs': runs}, indent=1, default=float))
+    t_sweep = time.time()
+    for i, r in run_jobs(jobs, a.workers, a.years, tracker, 'runs'):
+        r.update(score(r['dir'], earth_tex, earth_hyp, g))
+        runs.append(r)
+        k = combos.index(r['params'])
+        tracker.log(f"run {len(runs)} of {len(jobs)} done: settings {k+1} of {len(combos)} ({name(r['params'])}), "
+                    f"seed {r['seed']} ({seeds.index(r['seed'])+1} of {len(seeds)}), {r['seconds']/60:.1f} min")
+        pg.record('run', name(r['params']), r['seconds'], workers=a.workers, years=a.years, n=217, seed=r['seed'],
+                  sweep=out.name)
+        (out/'results.json').write_text(json.dumps({'runs': runs}, indent=1, default=float))
+    pg.record('sweep', out.name, time.time()-t_sweep, runs=len(jobs), workers=a.workers, years=a.years)
     table = []
     for c in combos:
         rs = [r for r in runs if r['params'] == c]
@@ -186,7 +263,7 @@ def main(argv=None):
         table[-1]['shelf_pass'] = shelf_pass(table[-1]['shelf'])
     pool = [t for t in table if t['shelf_pass']] if a.rule == 'shelf' else table
     if not pool:
-        print('rule shelf: no combination passes the shelf bands (seed means); nothing chosen')
+        pass                                             # rule shelf: none passes the shelf bands; nothing chosen
         pool = table
     best = min(t['score'] for t in pool)
     chosen = next(t for t in pool if t['score'] <= best+.03)
@@ -195,19 +272,26 @@ def main(argv=None):
                                                 'table': table, 'chosen': chosen['params'],
                                                 'chosen_dir': None if chosen['params'] is None else name(chosen['params'])},
                                     indent=1, default=float))
-    print('\nparams | score | texture | hypsometry | arrangement | budget (volume change) | flux (export km3/yr) | land | relief p25/50/75 | power 92-147/147-245/245-368/368-736')
+    lines = []
+    lines.append('params | score | texture | hypsometry | arrangement | budget (volume change) | flux (export km3/yr) | land | relief p25/50/75 | power 92-147/147-245/245-368/368-736')
     for t in table:
-        print(f"{name(t['params'])} | {t['score']:.2f} | {t['texture_score']:.2f} | {t['hypsometry_score']:.2f} | {t['arrangement_score']:.2f} | "
+        lines.append(f"{name(t['params'])} | {t['score']:.2f} | {t['texture_score']:.2f} | {t['hypsometry_score']:.2f} | {t['arrangement_score']:.2f} | "
               f"{t['budget_score']:.2f} ({t['continental_volume_change']:+.0%}) | {t['flux_score']:.2f} ({t['export_km3_yr']:.1f}) | {t['land_fraction']:.1%} | "
               + '/'.join(f"{v:.0f}" for v in t['relief_368km_m'].values()) + ' | ' + '/'.join(f'{v:.2f}' for v in t['band_power_ratio'].values()))
-    print('\nshelves: params | p70 (m) | continental crust under water | land p25 (m) | sea above -200 m | continental area | pass')
+    lines.append('')
+    lines.append('shelves: params | p70 (m) | continental crust under water | land p25 (m) | sea above -200 m | continental area | pass')
     for t in table:
         sh = t['shelf']
-        print(f"{name(t['params'])} | {sh['whole_p70_m']:.0f} | {sh['continental_submerged']:.0%} | {sh['land_p25_m']:.0f} | "
+        lines.append(f"{name(t['params'])} | {sh['whole_p70_m']:.0f} | {sh['continental_submerged']:.0%} | {sh['land_p25_m']:.0f} | "
               f"{sh['shallow_sea_share']:.1%} | {sh['continental_fraction']:.0%} | {'yes' if t['shelf_pass'] else 'no'}")
-    print('Earth (46 km, no ice) | -43 | ~29% | 166 | 5.0% | ~40% | bands p70 -150..0, under water 20-35%, p25 < 250')
-    print(f"Earth | | | | {earth_hyp['land_fraction']:.1%} | " + '/'.join(f"{earth_tex['relief_368km_m'][q]:.0f}" for q in ('25', '50', '75')))
-    print(f"chosen: {name(chosen['params']) if chosen['params'] is not None else 'none'}; written {out}")
+    lines.append('Earth (46 km, no ice) | -43 | ~29% | 166 | 5.0% | ~40% | bands p70 -150..0, under water 20-35%, p25 < 250')
+    lines.append(f"Earth | | | | {earth_hyp['land_fraction']:.1%} | " + '/'.join(f"{earth_tex['relief_368km_m'][q]:.0f}" for q in ('25', '50', '75')))
+    (out/'summary.txt').write_text('\n'.join(lines)+'\n', encoding='utf-8')
+    tracker.log(f"Sweep done: {len(jobs)} runs in {pg.fmt(time.time()-t_sweep)}; score tables in {out/'summary.txt'}")
+    if own:
+        tracker.end_step()
+        tracker.finish()
+    return out
 
 
 if __name__ == '__main__':

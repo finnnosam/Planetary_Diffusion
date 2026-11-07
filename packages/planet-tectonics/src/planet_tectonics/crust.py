@@ -179,7 +179,8 @@ class CrustMixin:
             s_rate = self._shortening_rate(src)                     # m/yr per overriding trench node
             moved = margin_shortening(near, d, ok & cont, s_rate[np.clip(near, 0, None)], w['thick']+out, g.area, dt,
                                       p['subduction_d0_cont_km']*1e3, p['subduction_sigma_cont_km']*1e3,
-                                      p['foreland_d0_km']*1e3, p['foreland_sigma_km']*1e3)
+                                      p['foreland_d0_km']*1e3, p['foreland_sigma_km']*1e3,
+                                      match=p['shortening_match'])
             out = out+moved
             self.erosion_totals['margin_shortening_moved_m3'] = self.erosion_totals.get('margin_shortening_moved_m3', 0.)+float(
                 (np.maximum(moved, 0)*g.area).sum())

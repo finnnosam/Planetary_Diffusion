@@ -7,9 +7,9 @@ from planet_tectonics import plates as P
 from planet_tectonics.crust_kernels import COLLISION_KERNEL, COLLISION_KERNEL_KM, collision_kernel
 
 
-def test_new_rules_are_off_by_default():
-    assert P.PARAMS['collision_spread'] == 'node'
-    assert P.PARAMS['eclogite_rule'] == 'none'
+def test_new_rules_are_the_defaults_since_6_nov():
+    assert P.PARAMS['collision_spread'] == 'earth'     # adopted 6 Nov (journal 88)
+    assert P.PARAMS['eclogite_rule'] == 'foundering'
     assert P.PARAMS['eclogite_thick_m'] == 65000. and P.PARAMS['eclogite_tau_myr'] == 10.
 
 

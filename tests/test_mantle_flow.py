@@ -100,12 +100,12 @@ def test_u4_layer_loads_sum_to_the_mass():
     assert abs(rec.mass_by_layer(300e3, len(radii)).sum()-m)/m < 1e-9
 
 
-def test_u5_random_is_the_default_and_slabs_keeps_the_hotspots():
-    assert P.PARAMS['dyn_rule'] == 'random' and P.PARAMS['basal_traction'] is False and P.PARAMS['slab_alpha'] == 'thermo'
+def test_u5_measured_is_the_default_and_slabs_keeps_the_hotspots():
+    assert P.PARAMS['dyn_rule'] == 'measured' and P.PARAMS['basal_traction'] is False and P.PARAMS['slab_alpha'] == 'thermo'
     if not (DATA/'mantle'/'visc.sh08').exists():
         pytest.skip('data/mantle/visc.sh08 missing')
     g = CubeSphere(24)
-    a = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1})
+    a = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1, 'dyn_rule': 'random'})
     b = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1, 'dyn_rule': 'slabs'})
     assert a.mantle.flow is None and b.mantle.flow is not None
     assert [h['pos'].tolist() for h in a.mantle.hotspots] == [h['pos'].tolist() for h in b.mantle.hotspots]

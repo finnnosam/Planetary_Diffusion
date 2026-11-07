@@ -59,10 +59,10 @@ def test_m3_constant_variance_blend_and_water_loading():
         M.Mantle(g, np.random.default_rng(1), -100., params={'dyn_rule': 'measured'})
 
 
-def test_m4_plate_sim_runs_with_the_measured_field_and_random_stays_the_default():
-    assert P.PARAMS['dyn_rule'] == 'random'
+def test_m4_plate_sim_runs_with_the_measured_field_now_the_default():
+    assert P.PARAMS['dyn_rule'] == 'measured'           # adopted 6 Nov (journal 88)
     g = CubeSphere(24)
-    a = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1})
+    a = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1, 'dyn_rule': 'random'})
     b = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'threads': 1, 'dyn_rule': 'measured'})
     assert a.mantle.measured is None and b.mantle.measured is not None and b.mantle.flow is None
     assert [h['pos'].tolist() for h in a.mantle.hotspots] == [h['pos'].tolist() for h in b.mantle.hotspots]

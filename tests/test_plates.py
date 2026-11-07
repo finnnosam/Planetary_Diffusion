@@ -6,6 +6,9 @@ from planet_grid import fields
 from planet_tectonics import plates as P
 from planet_grid.sphere_graph import CubeSphere
 
+# the start before the sixty-seventh pass (journal 89), for tests whose numbers were set on it
+OLD_START = {'start_plates': 'voronoi', 'start_poles': 'random', 'start_breakup': 'dispersal'}
+
 
 def test_nearest_nodes_match_cube_coordinates():
     g = CubeSphere(20)
@@ -26,7 +29,9 @@ def test_isostatic_elevation():
 
 def test_short_run_invariants():
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'erosion': False})
+    # the as-built start (journal 89: with start_poles 'forces' ocean plates start near their slab-pull speed and a
+    # split adds up to init_speed_cm_yr on top, so the speed bound below is the old start's)
+    sim = P.PlateSim(g, seed=3, params={'erosion': False, **OLD_START})
     cont0 = g.area[sim.world['cont']].sum()/g.area.sum()
     assert .33 < cont0 < .43
     lab = P.components(sim.world['cont'], g.nbr)
@@ -224,7 +229,7 @@ def test_edge_spread_moves_only_collapse_excess_across_the_coast():
 
 def test_edge_collapse_run_keeps_the_ledger():
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'collapse_edge': True, 'collapse_thick_m': 38000.})
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'collapse_edge': True, 'collapse_thick_m': 38000., **OLD_START})
     v0 = sim.continental_volume()
     for _ in range(15):
         sim.step()
@@ -820,12 +825,12 @@ def _rim(sim):
     return rim, on_boundary
 
 
-def test_start_plates_voronoi_is_the_default():
-    # 'voronoi' is the start before the thirty-eighth pass (same random draws, same labels)
-    assert P.PARAMS['start_plates'] == 'voronoi'
+def test_start_plates_coast_is_the_default():
+    # 'voronoi' is the start before the thirty-eighth pass; 'coast' the default since the sixty-seventh (journal 89)
+    assert P.PARAMS['start_plates'] == 'coast'
     g = CubeSphere(48)
     a = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'mantle': False})
-    b = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'mantle': False, 'start_plates': 'voronoi'})
+    b = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'mantle': False, 'start_plates': 'coast'})
     assert np.array_equal(a.owner, b.owner) and np.array_equal(a.world['born'], b.world['born'])
 
 
@@ -834,7 +839,8 @@ def test_coast_start_plates_end_at_the_coast():
     from planet_tectonics.plates import components
     g = CubeSphere(48)
     for seed in (3, 4):
-        sim = P.PlateSim(g, seed=seed, params={'water_volume_km3': None, 'mantle': False, 'start_plates': 'coast'})
+        sim = P.PlateSim(g, seed=seed, params={'water_volume_km3': None, 'mantle': False, 'start_plates': 'coast',
+                                               'start_breakup': 'dispersal', 'start_poles': 'random'})
         assert (sim.owner >= 0).all()
         ncont = 0
         for pl in sim.plates:
@@ -854,7 +860,8 @@ def test_coast_start_rim_subducts_and_keeps_the_ledgers():
     g = CubeSphere(48)
     share = {}
     for mode in ('voronoi', 'coast'):
-        sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'mantle': False, 'start_plates': mode})
+        sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'mantle': False, 'start_plates': mode,
+                                            'start_breakup': 'dispersal', 'start_poles': 'random'})
         v0 = sim.continental_volume()
         for _ in range(5):
             sim.step()
@@ -882,10 +889,11 @@ def test_ledgers_close_over_a_long_run():
 def test_start_poles_forces_moves_ocean_plates_toward_the_ring():
     # 'random' is the default; 'forces' sets each oceanic start plate's speed and pole from the force law fully relaxed
     # on the start's geometry (coast = trench, ocean-ocean = ridge), leaves the continental plates' motion, draws no
-    # random numbers, and makes more of the rim subduct than random poles do (n = 48, seed 3: 0.83 vs 0.53 after a step)
-    assert P.PARAMS['start_poles'] == 'random'
+    # random numbers, and makes more of the rim subduct than random poles do (n = 48, seed 3: 0.83 vs 0.53 after a step).
+    # 'forces' is the default since the sixty-seventh pass (journal 89); the reference here keeps the dispersal start
+    assert P.PARAMS['start_poles'] == 'forces'
     g = CubeSphere(48)
-    base = {'water_volume_km3': None, 'mantle': False, 'start_plates': 'coast'}
+    base = {'water_volume_km3': None, 'mantle': False, 'start_plates': 'coast', 'start_breakup': 'dispersal'}
     a = P.PlateSim(g, seed=3, params={**base, 'start_poles': 'random'})
     b = P.PlateSim(g, seed=3, params={**base, 'start_poles': 'forces'})
     assert not hasattr(b, 'trench') and not hasattr(b, 'btype')

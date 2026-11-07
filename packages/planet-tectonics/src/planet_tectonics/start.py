@@ -89,6 +89,11 @@ class StartMixin:
                 plab, _ = nearest_label(lab0, g.nbr, dw)
         else:
             raise ValueError(f"start_plates {p['start_plates']!r}: 'voronoi' or 'coast'")
+        whole = p['start_breakup'] == 'whole'           # the supercontinent's plates as one plate (see PARAMS)
+        if whole:
+            plab = np.where(cont | ((plab >= 0) & (plab < n_cont_plates)), 0, plab)   # all of it: no slivers on oceanic plates
+        elif p['start_breakup'] != 'dispersal':
+            raise ValueError(f"start_breakup {p['start_breakup']!r}: 'dispersal' or 'whole'")
 
         # ocean ages: distance from initial ridges (ocean-ocean plate boundaries), half rate 3 cm/yr, cap 180 Myr
         ridge = (~cont) & self._label_boundary(~cont, plab)
@@ -97,9 +102,13 @@ class StartMixin:
 
         for k in range(n_plates):
             own = plab == k
+            if whole and 0 < k < n_cont_plates:          # merged into plate 0: draw its numbers, make no plate
+                rng.normal(size=3); rng.uniform(2., 4.)
+                continue
             c = (g.area[own, None]*xyz[own]).sum(0); c /= np.linalg.norm(c)
             if k < n_cont_plates:
-                axis = np.cross(s, c)+.3*rng.normal(size=3)*np.linalg.norm(np.cross(s, c))
+                nrm = rng.normal(size=3)
+                axis = nrm if whole else np.cross(s, c)+.3*nrm*np.linalg.norm(np.cross(s, c))
                 speed = rng.uniform(2., 4.)
             else:
                 axis = rng.normal(size=3)

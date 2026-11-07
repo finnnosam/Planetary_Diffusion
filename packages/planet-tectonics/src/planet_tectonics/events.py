@@ -7,6 +7,8 @@ from planet_grid import fields
 from planet_tectonics.graphops import components, nearest_label
 from planet_tectonics.params import COLLISION
 
+SPLIT_L_MIN_KM = 200.   # split_rule 'earth': margins shorter than this (~2 nodes a side) count as this long
+
 
 class EventsMixin:
     """PlateSim, plate events: splitting, merging, detached pieces and welds (B-b), rifting of plates and subduction
@@ -250,6 +252,10 @@ class EventsMixin:
         g, p, rng, w = self.g, self.p, self.rng, self.world
         dt = p['dt_myr']
         A = g.area
+        if p['split_rule'] == 'earth':
+            return self._split_events_earth()
+        elif p['split_rule'] != 'poisson':
+            raise ValueError(f"split_rule {p['split_rule']!r}: 'poisson' or 'earth'")
         for pl in list(self.plates):
             own = self.owner == pl.id
             area = A[own].sum()/1e12
@@ -267,8 +273,67 @@ class EventsMixin:
                 self._initiate_subduction(pl, own, old)
 
 
+    def _split_events_earth(self):
+        """split_rule 'earth' (K, journal 87): a plate's splits across its continent at Earth's rifted-margin production
+        (breakup.production_per_mkm2, by time since the start) x its continental area, per km of the candidate split's
+        continental margin (both sides): the expected margin made per Myr is Earth's per Mkm^2 while the rate per step
+        is small (one split per plate per step at most: at Earth's peak a plate with 60 Mkm^2 of continent and a
+        2,000 km margin makes 0.47 of it instead of 0.63). A candidate line is drawn every step for every plate with
+        continent (margins shorter than SPLIT_L_MIN_KM count as that long). Splits that cross only ocean keep
+        split_rate_per_myr; subduction initiation as 'poisson'."""
+        from planet_tectonics.breakup import production_per_mkm2
+        g, p, rng, w = self.g, self.p, self.rng, self.world
+        dt = p['dt_myr']
+        A = g.area
+        prod = production_per_mkm2(self.t-self.t_start)
+        for pl in list(self.plates):
+            own = self.owner == pl.id
+            area = A[own].sum()/1e12
+            if area < p['split_min_area_mkm2']:
+                continue
+            Ac = A[own & w['cont']].sum()/1e12
+            done = False
+            if prod*Ac > 0:
+                lab = self._rift_line(pl, own)
+                L = self._split_margin_km(own, lab)
+                if L > 0 and rng.uniform() < 1-np.exp(-prod*Ac/max(L, SPLIT_L_MIN_KM)*dt):
+                    if self.split(pl, lab == 1, p['split_speed_cm_yr'], 'rift') is not None:
+                        self.rift_margin_km = getattr(self, 'rift_margin_km', 0.)+L
+                    done = True
+            if not done:
+                rate = p['split_rate_per_myr']*area/100.
+                if rng.uniform() < 1-np.exp(-rate*dt):
+                    lab = self._rift_line(pl, own)
+                    if self._split_margin_km(own, lab) == 0:
+                        self.split(pl, lab == 1, p['split_speed_cm_yr'], 'rift')
+                        done = True
+            if done:
+                continue
+            old = own & ~w['cont'] & (self.t-w['born'] > p['init_age_myr'])
+            old_area = A[old].sum()/1e12
+            irate = p['init_rate_per_myr']*min(5., old_area/p['init_area_ref_mkm2'])
+            if old.sum() >= 4 and rng.uniform() < 1-np.exp(-irate*dt):
+                self._initiate_subduction(pl, own, old)
+
+
+    def _split_margin_km(self, own, lab):
+        """Continental margin a split would make (km, both sides): continental nodes of the plate with a neighbour of
+        the plate on the other side of the line, x the graph spacing (the instrument of planet_reviews.rift_production)."""
+        g, w = self.g, self.world
+        nb = g.nbr; ok = (nb >= 0) & own[np.maximum(nb, 0)]
+        other = ok & (lab[np.maximum(nb, 0)] != lab[:, None])
+        return float((own & w['cont'] & other.any(1)).sum())*float(np.sqrt(g.area.mean()))/1e3
+
+
     def _rift_plate(self, pl, own):
         """Two seeds far apart inside the plate; the split follows a wiggled Voronoi line that prefers old sutures."""
+        lab = self._rift_line(pl, own)
+        self.split(pl, lab == 1, self.p['split_speed_cm_yr'], 'rift')
+
+
+    def _rift_line(self, pl, own):
+        """The split labels of _rift_plate's line (nearest of the two seeds through the plate; nodes outside it carry
+        labels too, as split() always received them), drawn with the run's rng."""
         g, p, rng, w = self.g, self.p, self.rng, self.world
         ids = np.flatnonzero(own)
         a = ids[rng.integers(ids.size)]
@@ -280,16 +345,35 @@ class EventsMixin:
         cost = np.where(own[:, None] & own[np.clip(g.nbr, 0, None)], g.dist*cost, 1e30)
         lab0 = np.full(g.size, -1, np.int64); lab0[a] = 0; lab0[b] = 1
         lab, _ = nearest_label(lab0, g.nbr, cost)
-        self.split(pl, lab == 1, p['split_speed_cm_yr'], 'rift')
+        return lab
 
 
     def _initiate_subduction(self, pl, own, old):
-        """Old ocean breaks away from the rest of its plate and converges on it."""
+        """Old ocean breaks away from the rest of its plate and converges on it. init_site 'margin' (as built): on a
+        plate with continent, the ocean component holding most of the old floor (it breaks along the coast). 'ocean':
+        on a plate with continent, only old floor not touching the continent, along its edge with younger floor."""
         g, p, w = self.g, self.p, self.world
+        site = p.get('init_site', 'margin')
+        if site not in ('margin', 'ocean'):
+            raise ValueError(f"init_site {site!r}: 'margin' or 'ocean'")
         ocean = own & ~w['cont']
-        lab = components(ocean, g.nbr)
-        target = np.bincount(lab[old & (lab >= 0)]).argmax()
-        part = lab == target
+        cont = own & w['cont']
+        if site == 'ocean' and cont.any():
+            lab = components(old, g.nbr)
+            nb = g.nbr; okn = nb >= 0
+            touch = old & np.any(okn & cont[np.maximum(nb, 0)], 1)
+            welded = np.unique(lab[touch])
+            free = old & (lab >= 0) & ~np.isin(lab, welded)
+            if free.sum() < 4:                          # the old floor is welded to the margin: no initiation
+                self.events.append({'t': self.t, 'kind': 'initiation at margin skipped', 'plate': int(pl.id),
+                                    'area_mkm2': float(g.area[old].sum()/1e12)})
+                return
+            target = np.bincount(lab[free], weights=g.area[free]).argmax()
+            part = lab == target
+        else:
+            lab = components(ocean, g.nbr)
+            target = np.bincount(lab[old & (lab >= 0)]).argmax()
+            part = lab == target
         if (own & ~part).sum() == 0:                     # all-ocean plate: split through the old region instead
             c = (g.area[old, None]*g.xyz[old]).sum(0); c /= np.linalg.norm(c)
             n = np.cross(c, self.rng.normal(size=3)); n /= np.linalg.norm(n)
