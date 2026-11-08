@@ -1,5 +1,6 @@
 """Pass 70 (journal 93): `rift_speed_cm_yr`, the opening of a split that crosses a continent (Earth's fast rift
-phase, Brune et al. 2016). Off (0) by default: such splits open at `split_speed_cm_yr` as built."""
+phase, Brune et al. 2016). 0 opens such splits at `split_speed_cm_yr` as built; the default is 3.5 since pass 71
+(journal 94)."""
 import numpy as np
 
 from planet_grid.sphere_graph import CubeSphere
@@ -32,9 +33,9 @@ def _speeds(params):
     return sim, got
 
 
-def test_rift_speed_is_off_by_default():
-    assert P.PARAMS['rift_speed_cm_yr'] == 0.
-    sim, got = _speeds({})
+def test_rift_speed_off_opens_at_split_speed():
+    assert P.PARAMS['rift_speed_cm_yr'] == 3.5                       # adopted in pass 71 (journal 94)
+    sim, got = _speeds({'rift_speed_cm_yr': 0.})
     assert got and all(s == P.PARAMS['split_speed_cm_yr'] for _, s, _ in got)
     assert sim._rift_speed(500.) == sim._rift_speed(0.) == P.PARAMS['split_speed_cm_yr']
 

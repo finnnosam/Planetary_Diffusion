@@ -241,7 +241,8 @@ PARAMS = {
     # adds none (journal 66, section 2). Swept only after its paired probe passes (P-h)
     'basal_traction': False,
     # plate splitting (Poisson events). Rifting: rate per Myr for a 100 Mkm^2 plate, scaled by area and doubled for
-    # mostly continental plates; the split line prefers old sutures; halves diverge at split_speed_cm_yr.
+    # mostly continental plates; halves diverge at split_speed_cm_yr. suture_weakness: see rift_line (as built, 'voronoi',
+    # the line's cost is lowered on belts, which moves the two fronts' meeting line off them, not onto them: journal 94)
     'split_rate_per_myr': .006, 'split_min_area_mkm2': 12., 'split_speed_cm_yr': 2., 'suture_weakness': .6,
     # the opening of a split that crosses a continent (seventieth pass, journal 93): 0 (as built) opens it at
     # split_speed_cm_yr (2, assumed) like an ocean-only split. Earth's rifts open slowly (< 10 mm/yr full rate) and then
@@ -249,8 +250,20 @@ PARAMS = {
     # later (Brune et al. 2016, Nature 536, 201; a rift-intrinsic strength-velocity feedback); split_rule 'earth' times
     # its splits by Earth's floor production beside continent (floor <= 10 Myr old), i.e. the fast phase, so a value
     # here is that phase's full rate. The halves then relax to the force law (tau_speed_myr, tau_axis_myr). Ocean-only
-    # splits keep split_speed_cm_yr
-    'rift_speed_cm_yr': 0.,
+    # splits keep split_speed_cm_yr. Default 3.5 since 7 Nov (Rift Speed Sweep, sweep-20261107-191259, journal 94)
+    'rift_speed_cm_yr': 3.5,
+    # where a split's line runs (seventy-first pass, journal 94). 'voronoi' (as built): the boundary between the
+    # cost-distance regions of two random seeds far apart in the plate, each edge's cost its length x a random wiggle x
+    # (1 - (w_a + w_b)/2) with w = suture_weakness on belts (orog set): cheap belts let a front through fast, so the
+    # line falls off them. 'weak': continents deform and break where their lithosphere is weak (Audet & Buergmann
+    # 2011, Nature Geoscience 4, 184, doi:10.1038/ngeo1080: elastic thickness > 100 km in cratons, < 40 km in
+    # Phanerozoic belts and along most margins, tracking the mantle's velocity at 100 km; > 70% of shallow seismicity
+    # and volcanism where it is < 40 km; Atlantic rifts along old belts, Buiter & Torsvik 2014): each edge's cost
+    # is its length x the wiggle / its strength, the strength C's thermal lithosphere thickness over Earth's continental
+    # mean (lithosphere.thickness_km / lith_ref_km, the mean of the edge's ends; 1 on oceanic nodes and without C) x the
+    # same belt factor (1 - (w_a + w_b)/2): weak lithosphere is slow for both fronts, so they meet in it. Strength in
+    # proportion to L is assumed (audit)
+    'rift_line': 'voronoi',
     # K (sixty-fifth pass, journal 87): split_rule 'poisson' (above; split_rate_per_myr assumed) or 'earth': a plate's
     # splits that cross its continent happen at Earth's rifted-margin production since its supercontinent
     # (breakup.EARTH_RIFT_PRODUCTION: Mueller et al. 2019 age grids, continental edge beside floor <= 10 Myr old,

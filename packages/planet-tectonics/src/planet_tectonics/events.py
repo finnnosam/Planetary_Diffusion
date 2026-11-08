@@ -349,11 +349,31 @@ class EventsMixin:
         b = ids[rng.choice(np.argsort(dist_a)[-max(1, ids.size//10):])]
         weak = np.where(np.isnan(w['orog']), 0., p['suture_weakness'])
         wig = 1+.3*rng.standard_normal(g.size)
-        cost = np.clip(.5*(wig[:, None]+wig[np.clip(g.nbr, 0, None)]), .3, None)*(1-.5*(weak[:, None]+weak[np.clip(g.nbr, 0, None)]))
+        nbc = np.clip(g.nbr, 0, None)
+        belt = 1-.5*(weak[:, None]+weak[nbc])
+        if p['rift_line'] == 'voronoi':
+            cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)*belt
+        elif p['rift_line'] == 'weak':
+            st = self._line_strength()
+            cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)/(belt*.5*(st[:, None]+st[nbc]))
+        else:
+            raise ValueError(f"rift_line {p['rift_line']!r}: 'voronoi' or 'weak'")
         cost = np.where(own[:, None] & own[np.clip(g.nbr, 0, None)], g.dist*cost, 1e30)
         lab0 = np.full(g.size, -1, np.int64); lab0[a] = 0; lab0[b] = 1
         lab, _ = nearest_label(lab0, g.nbr, cost)
         return lab
+
+
+    def _line_strength(self):
+        """rift_line 'weak': a node's lithospheric strength relative to Earth's continental mean, C's thermal
+        thickness L(t) / lith_ref_km on continental nodes with a thermal age (lithosphere 'thermal_age'), else 1."""
+        p, w = self.p, self.world
+        if p['lithosphere'] != 'thermal_age':
+            return np.ones(self.g.size)
+        from planet_tectonics.lithosphere import thickness_km
+        age = self.t-w['therm']
+        ok = w['cont'] & np.isfinite(age)
+        return np.where(ok, thickness_km(np.where(ok, age, 0.), p)/p['lith_ref_km'], 1.)
 
 
     def _initiate_subduction(self, pl, own, old):
