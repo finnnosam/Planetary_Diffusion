@@ -174,8 +174,13 @@ PARAMS = {
     # pure_shear since 24 Oct (sweep-20261024-173200, 3 seeds: passes the elevation tests; thin crust per km of passive
     # edge 130-144 km at 1 degree vs 58-83 with 'node', Earth 140). 'node' reproduces earlier runs
     'rift_rule': 'pure_shear',
-    # pelagic (biogenic and wind-blown) sediment on the ocean floor, m/Myr (Earth's deep sea ~1-10; GlobSed mean
-    # thickness ~0.5 km); without it the planet's ocean floor carried ~0.1 km of sediment and stood 150-300 m too deep
+    # pelagic (biogenic and wind-blown) sediment on the ocean floor, m/Myr of grain thickness (sed, with
+    # sediment_compaction) on every oceanic node. Earth (seventy-fourth pass, journal 97; precheck-p74-pelagic/
+    # earth_pelagic.py): GlobSed v3 (Straume et al. 2019) on Seton et al. 2020 floor ages, n = 217, far from land and
+    # trenches, as grain by the ocean's Athy column: sum(a S) / sum(a age) = 1.41 / 1.12 / 1.01 m/Myr at >= 800 / 1,200 /
+    # 1,600 km from the continent (trench >= 500 / 500 / 800 km); the planet holds 11 m there at 54 Myr (Earth 150 m bulk),
+    # so the 1,200 km class is pelagic: 1.1 (2.7 m/Myr bulk). Uniform: the carbonate compensation depth's control is left
+    # out (assumed). 0 (as built) until the Pelagic Sweep reads it
     'pelagic_m_myr': 0.,
     # continental shelves (planet_tectonics.shelf): wave transport in shallow water, kappa_wave * exp(-depth / wave_base),
     # and coastal retreat at cliff_retreat_m_yr damped by the water in front of the coast; run after every coarse
@@ -275,8 +280,9 @@ PARAMS = {
     # must transmit over its strength, not the weakest alone (a cut that trims a corner carries almost no force). The
     # force: the plate moving as one under its boundary forces and drag, as force_law 'torque' books them (slab pull,
     # suction, ridge push, basal and keel drag, slab resistance: the coefficients of its fit to Earth's plates), the
-    # torque the cut must carry, about the pole that opens it. Neighbours' coupling (collisions) is left out (assumed)
-    'rift_line': 'chord',
+    # torque the cut must carry, about the pole that opens it. Neighbours' coupling (collisions) is left out (assumed).
+    # Default 'force' since 8 Nov (Force Line Sweep, sweep-20261108-124109, journal 97)
+    'rift_line': 'force',
     # K (sixty-fifth pass, journal 87): split_rule 'poisson' (above; split_rate_per_myr assumed) or 'earth': a plate's
     # splits that cross its continent happen at Earth's rifted-margin production since its supercontinent
     # (breakup.EARTH_RIFT_PRODUCTION: Mueller et al. 2019 age grids, continental edge beside floor <= 10 Myr old,

@@ -28,8 +28,8 @@ def _draws(sim, n=40):
     return own, [_line_nodes(sim, own, sim._rift_line(pl, own)) for _ in range(n)]
 
 
-def test_default_is_chord_and_unknown_raises():
-    assert P.PARAMS['rift_line'] == 'chord'
+def test_default_is_force_and_unknown_raises():
+    assert P.PARAMS['rift_line'] == 'force'
     with pytest.raises(ValueError):
         _sim({'rift_line': 'nope'})
 

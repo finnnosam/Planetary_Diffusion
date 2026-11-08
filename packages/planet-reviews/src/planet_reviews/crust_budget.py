@@ -223,6 +223,7 @@ def budget(seed, g, t0, t1, p, stats):
                                       'deposited_submerged': E('continental_deposited_submerged_m3'),
                                       'shelf_off_land': E('shelf_off_land_m3')},
            'ocean_floor_sediment': {'from_continents': E('ocean_sediment_m3'), 'of_it_deep_sea_fill': E('deep_sea_sediment_m3'),
+                                    'pelagic': E('pelagic_m3'),
                                     'subducted': E('sediment_subducted_m3'), 'accreted': E('sediment_accreted_m3'),
                                     'stock_change': (sb-sa)/((t1-t0)*YR), 'stock_end_km3': sb},
            'arcs': {'growth_net_of_forearc_erosion': growth, 'stock_change': d_stock, 'turned_continental': arc_conv,
@@ -234,7 +235,7 @@ def budget(seed, g, t0, t1, p, stats):
                     'stock_start': arc_a, 'stock_end': arc_b},
            'area_ledger_per_myr': {k.split('.', 1)[1]: v*YR for k, v in r.items() if k.startswith('area_ledger_frac.')}}
     os_ = out['ocean_floor_sediment']
-    os_['residual'] = os_['stock_change']-(os_['from_continents']-os_['subducted']-os_['accreted'])
+    os_['residual'] = os_['stock_change']-(os_['from_continents']+os_['pelagic']-os_['subducted']-os_['accreted'])
     return out
 
 
@@ -331,6 +332,7 @@ def report(name, res, earth):
         print(f"  continental surface: eroded {f(s['eroded_total'])}, deposited {f(s['deposited'])} (submerged "
               f"{f(s['deposited_submerged'])}), sediment on continents net {f(s['net'])}")
         print(f"  ocean-floor sediment: from continents {f(o['from_continents'])} (deep-sea fill {f(o['of_it_deep_sea_fill'])}), "
+              f"pelagic {f(o['pelagic'])}, "
               f"subducted {f(-o['subducted'])}, accreted {f(-o['accreted'])}, stock change {f(o['stock_change'])}, residual "
               f"{f(o['residual'])}; stock {o['stock_end_km3']/1e6:.0f} Mkm^3")
         print(f"  island arcs: growth (net of forearc erosion) {f(a['growth_net_of_forearc_erosion'])}, stock change "
