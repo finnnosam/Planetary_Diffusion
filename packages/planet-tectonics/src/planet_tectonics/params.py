@@ -269,8 +269,14 @@ PARAMS = {
     # act at its edges, so the cut through the nucleus that needs the least force (the cheapest by 'weak''s cost)
     # breaks first: a neck, a margin's young strip or an arc's rim can come off (most microcontinents and fragments
     # are rifted from margins, many beside subduction: van den Broek & Gaina 2020, Tectonics 39, e2020TC006063). The
-    # nucleus is a random continental node; see events._chord_line. Ocean-only splits keep the 'weak' bisector
-    'rift_line': 'weak',
+    # nucleus is a random continental node; see events._chord_line. Ocean-only splits keep the 'weak' bisector. Default
+    # 'chord' since 8 Nov (Chord Line Sweep, sweep-20261108-092844, journal 96). 'force' (seventy-third pass, journal
+    # 96): the same nucleus and candidate cuts; the one that breaks is the one closest to failure, the opening force it
+    # must transmit over its strength, not the weakest alone (a cut that trims a corner carries almost no force). The
+    # force: the plate moving as one under its boundary forces and drag, as force_law 'torque' books them (slab pull,
+    # suction, ridge push, basal and keel drag, slab resistance: the coefficients of its fit to Earth's plates), the
+    # torque the cut must carry, about the pole that opens it. Neighbours' coupling (collisions) is left out (assumed)
+    'rift_line': 'chord',
     # K (sixty-fifth pass, journal 87): split_rule 'poisson' (above; split_rate_per_myr assumed) or 'earth': a plate's
     # splits that cross its continent happen at Earth's rifted-margin production since its supercontinent
     # (breakup.EARTH_RIFT_PRODUCTION: Mueller et al. 2019 age grids, continental edge beside floor <= 10 Myr old,

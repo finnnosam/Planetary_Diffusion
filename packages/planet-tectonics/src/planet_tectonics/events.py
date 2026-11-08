@@ -5,7 +5,7 @@ import numpy as np
 from planet_grid import fields
 
 from planet_tectonics.graphops import components, nearest_label, shortest_paths, trace_cut
-from planet_tectonics.params import COLLISION
+from planet_tectonics.params import COLLISION, RIDGE, SUBDUCTION
 
 SPLIT_L_MIN_KM = 200.   # split_rule 'earth': margins shorter than this (~2 nodes a side) count as this long
 CHORD_SECTORS = 72      # rift_line 'chord': directions from the nucleus binned at 5 degrees (a discretisation)
@@ -300,7 +300,7 @@ class EventsMixin:
                 if L > 0 and rng.uniform() < 1-np.exp(-prod*Ac/max(L, SPLIT_L_MIN_KM)*dt):
                     if self.split(pl, lab == 1, self._rift_speed(L), 'rift') is not None:
                         self.rift_margin_km = getattr(self, 'rift_margin_km', 0.)+L
-                        if p['rift_line'] == 'chord':
+                        if p['rift_line'] in ('chord', 'force'):
                             self.events[-1]['line'] = self._line_kind
                     done = True
             if not done:
@@ -347,11 +347,11 @@ class EventsMixin:
         labels too, as split() always received them), drawn with the run's rng. rift_line 'chord' (and chord True): the
         cut through a continental nucleus (_chord_line); where it finds none, the 'weak' bisector."""
         g, p, rng, w = self.g, self.p, self.rng, self.world
-        if p['rift_line'] == 'chord' and chord:
+        if p['rift_line'] in ('chord', 'force') and chord:
             lab = self._chord_line(own)
-            self._line_kind = 'bisector' if lab is None else 'chord'
+            self._line_kind = 'bisector' if lab is None else getattr(self, '_chord_kind', 'chord')
             st = self.chord_stats = getattr(self, 'chord_stats', {'chord': 0, 'bisector': 0})
-            st[self._line_kind] += 1
+            st[self._line_kind] = st.get(self._line_kind, 0)+1
             if lab is not None:
                 return lab
         ids = np.flatnonzero(own)
@@ -364,11 +364,11 @@ class EventsMixin:
         belt = 1-.5*(weak[:, None]+weak[nbc])
         if p['rift_line'] == 'voronoi':
             cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)*belt
-        elif p['rift_line'] in ('weak', 'chord'):
+        elif p['rift_line'] in ('weak', 'chord', 'force'):
             st = self._line_strength()
             cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)/(belt*.5*(st[:, None]+st[nbc]))
         else:
-            raise ValueError(f"rift_line {p['rift_line']!r}: 'voronoi', 'weak' or 'chord'")
+            raise ValueError(f"rift_line {p['rift_line']!r}: 'voronoi', 'weak', 'chord' or 'force'")
         cost = np.where(own[:, None] & own[np.clip(g.nbr, 0, None)], g.dist*cost, 1e30)
         lab0 = np.full(g.size, -1, np.int64); lab0[a] = 0; lab0[b] = 1
         lab, _ = nearest_label(lab0, g.nbr, cost)
@@ -384,7 +384,14 @@ class EventsMixin:
         as seen from the nucleus (two branches leaving opposite ways) and that leaves a plate on both sides (at least
         piece_min_area_mkm2, the model's smallest plate: cheaper cuts near the edge would only cut crumbs), diagonal
         steps filled to axis steps so the cut closes. The new plate is the second-largest piece the cut leaves (the
-        rest stays with the plate). Labels as _rift_line (1 = the new part), or None when no cut qualifies."""
+        rest stays with the plate). Labels as _rift_line (1 = the new part), or None when no cut qualifies.
+        rift_line 'force' (seventy-third pass, journal 96): the same nucleus and candidates, but the cut that breaks is
+        the one closest to failure, the opening force it must transmit over its strength (_cut_tension / the cut's
+        cost), not the weakest alone: a cut that only trims a corner carries almost no force. Candidates are ranked by
+        that ratio read on the plate's sectors as seen from the nucleus (prefix sums; _force_order) and checked exactly
+        in that order: the first that leaves a plate on both sides and is in tension (exact) breaks (its kind 'force');
+        when none is in tension (a plate without boundary forces pulling it apart: an overriding continent under the
+        fit's zero slab suction), the cheapest cut as 'chord' (kind 'chord')."""
         g, p, rng, w = self.g, self.p, self.rng, self.world
         nbc = np.clip(g.nbr, 0, None); okn = g.nbr >= 0
         inside = own & np.all(~okn | own[nbc], 1)
@@ -415,30 +422,131 @@ class EventsMixin:
         da = np.abs(ang[ks[ia]]-ang[ks[ib]]); da = np.minimum(da, 2*np.pi-da)
         keep = da > np.pi/2
         ia, ib = ia[keep], ib[keep]
-        order = np.argsort(d[ends[ks[ia]]]+d[ends[ks[ib]]], kind='stable')
-        floor = p['piece_min_area_mkm2']*1e12
         idx = np.flatnonzero(own)
+        cheap = np.argsort(d[ends[ks[ia]]]+d[ends[ks[ib]]], kind='stable')
+        if p['rift_line'] == 'force':
+            first = self._force_order(idx, s, u, v, ang[ks[ia]], ang[ks[ib]], d[ends[ks[ia]]]+d[ends[ks[ib]]])
+            passes = (('force', first), ('chord', cheap))
+        else:
+            passes = (('chord', cheap),)
+        floor = p['piece_min_area_mkm2']*1e12
         loc = np.full(g.size, -1, np.int64); loc[idx] = np.arange(idx.size)
         lnbr = np.where(okn[idx], loc[nbc[idx]], -1)          # the plate's own subgraph
         Al = g.area[idx]; Aown = Al.sum()
         cut = np.zeros(g.size, bool)
         self._chord_tries = 0
-        for t in order:
-            self._chord_tries += 1
-            cut[:] = False
-            trace_cut(cut, pred, int(s), int(ends[ks[ia[t]]]), g.nbr, g.axis)
-            trace_cut(cut, pred, int(s), int(ends[ks[ib[t]]]), g.nbr, g.axis)
-            comp = components(~cut[idx], lnbr)
-            n = comp.max()+1
-            if n < 2:
-                continue
-            area = np.bincount(comp[comp >= 0], weights=Al[comp >= 0], minlength=n)
-            b = int(np.argsort(area)[-2])
-            if area[b] < floor or Aown-area[b] < floor:
-                continue
-            lab = np.zeros(g.size, np.int64); lab[idx[comp == b]] = 1
-            return lab
+        for kind, order in passes:
+            self._chord_kind = kind
+            for t in order:
+                self._chord_tries += 1
+                cut[:] = False
+                trace_cut(cut, pred, int(s), int(ends[ks[ia[t]]]), g.nbr, g.axis)
+                trace_cut(cut, pred, int(s), int(ends[ks[ib[t]]]), g.nbr, g.axis)
+                comp = components(~cut[idx], lnbr)
+                n = comp.max()+1
+                if n < 2:
+                    continue
+                area = np.bincount(comp[comp >= 0], weights=Al[comp >= 0], minlength=n)
+                b = int(np.argsort(area)[-2])
+                if area[b] < floor or Aown-area[b] < floor:
+                    continue
+                lab = np.zeros(g.size, np.int64); lab[idx[comp == b]] = 1
+                if kind == 'force' and self._cut_tension(own, lab == 1) <= 0:
+                    continue
+                return lab
         return None
+
+
+    def _cut_forces(self):
+        """rift_line 'force' (seventy-third pass, journal 96): the boundary forces on every plate as force_law 'torque'
+        books them (Forsyth & Uyeda 1975; the coefficients of its fit to Earth's plates, planet_reviews.force_balance_
+        earth), read once per step from this step's boundary classification: per node its torque about the centre
+        (N m; slab pull on trench nodes toward the other plate, slab suction on overriding nodes, ridge push away from
+        oceanic ridges) and the two parts of its drag (basal under every node, keels under continent; slab resistance
+        on trench nodes). Returns (tau, weight, q_trench, Cb R^2, Cs Ln R^2)."""
+        if getattr(self, '_cut_forces_t', None) == self.t:
+            return self._cut_forces_v
+        from planet_tectonics.boundaries import boundary_frame_ring
+        from planet_tectonics.motion import BOUNDARY_NODE_H, YR_S
+        g, p = self.g, self.p
+        pid = np.array([pl.id for pl in self.plates])
+        full = np.full(max(pid.max(), int(self.owner.max()))+1, -1, np.int64); full[pid] = np.arange(pid.size)
+        omega = np.stack([pl.omega(g.radius) for pl in self.plates])
+        other, nrm = boundary_frame_ring(self.owner, np.maximum(full, 0), omega, g.xyz, g.nbr, g.radius)
+        R = g.radius
+        Ln = BOUNDARY_NODE_H*np.sqrt(g.area.mean())
+        q = np.cross(g.xyz, nrm)
+        b = other >= 0
+        tr = b & self.trench
+        su = b & (self.btype == SUBDUCTION) & ~self.trench
+        ri = b & (self.btype == RIDGE) & ~self.world['cont']
+        Fsp = p['slab_pull_n_m']
+        f = np.where(tr, Fsp, 0.)+np.where(su, p['slab_suction_frac']*Fsp, 0.)-np.where(ri, p['ridge_push_n_m'], 0.)
+        tau = (f*Ln*R)[:, None]*q
+        w = g.area*(1+(p['keel_drag_factor']-1)*self.world['cont'])
+        Cs = Fsp/(p['slab_terminal_cm_yr']*1e-2/YR_S)
+        self._cut_forces_v = (tau, w, np.where(tr[:, None], q, 0.), p['basal_drag_pa_s_m']*R**2, Cs*Ln*R**2)
+        self._cut_forces_t = self.t
+        return self._cut_forces_v
+
+
+    @staticmethod
+    def _force_feats(x, a, tau, w, qt, cb, cs):
+        """Per node: area, area x position (3), torque (3), the drag matrix's six entries (xx yy zz xy xz yz) (13)."""
+        M = [cb*w*((i == j)-x[:, i]*x[:, j])+cs*qt[:, i]*qt[:, j] for i, j in ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))]
+        return np.column_stack([a, a[:, None]*x, tau]+M)
+
+
+    @staticmethod
+    def _force_open(S, T, R):
+        """The opening force (N) across a cut from the summed features S of one side and T of the whole plate (rows):
+        the plate moving as one under its boundary forces and its drag (w = M^-1 tau), the cut carries the side's
+        torque left over, tau_side - M_side w; its part about the pole that opens the cut the way split() opens it
+        (rest centroid x side centroid) over R. Positive: tension. The same from either side."""
+        def mat(F):
+            m = np.empty(F.shape[:-1]+(3, 3))
+            m[..., 0, 0], m[..., 1, 1], m[..., 2, 2] = F[..., 7], F[..., 8], F[..., 9]
+            m[..., 0, 1] = m[..., 1, 0] = F[..., 10]; m[..., 0, 2] = m[..., 2, 0] = F[..., 11]
+            m[..., 1, 2] = m[..., 2, 1] = F[..., 12]
+            return m
+        Mt = mat(T)
+        try:
+            om = np.linalg.solve(Mt, T[4:7])
+        except np.linalg.LinAlgError:
+            om = np.linalg.lstsq(Mt, T[4:7], rcond=None)[0]
+        net = S[..., 4:7]-np.einsum('...ij,j->...i', mat(S), om)
+        c1 = T[1:4]-S[..., 1:4]; c2 = S[..., 1:4]
+        dd = np.cross(c1, c2)
+        n = np.linalg.norm(dd, axis=-1)
+        return np.where(n > 0, (net*dd).sum(-1)/np.where(n > 0, n, 1.), 0.)/R
+
+
+    def _cut_tension(self, own, part):
+        """rift_line 'force': the exact opening force (N) across the cut between part and the rest of the plate own."""
+        g = self.g
+        tau, w, qt, cb, cs = self._cut_forces()
+        idx = np.flatnonzero(own)
+        F = self._force_feats(g.xyz[idx], g.area[idx], tau[idx], w[idx], qt[idx], cb, cs)
+        return float(self._force_open(F[part[idx]].sum(0), F.sum(0), g.radius))
+
+
+    def _force_order(self, idx, s, u, v, ang_a, ang_b, cost):
+        """rift_line 'force': the candidate cuts in the order they are checked, most nearly failing first: their
+        opening force over their cost (the cut's strength), the force read on the plate's nodes between the two ends'
+        directions as seen from the nucleus (prefix sums over the nodes sorted by that direction: an approximation of
+        the cut's sides, used to rank only). Candidates not in tension by this reading are left out."""
+        g = self.g
+        tau, w, qt, cb, cs = self._cut_forces()
+        F = self._force_feats(g.xyz[idx], g.area[idx], tau[idx], w[idx], qt[idx], cb, cs)
+        an = np.arctan2(g.xyz[idx]@v, g.xyz[idx]@u)
+        o = np.argsort(an, kind='stable')
+        C = np.vstack([np.zeros(F.shape[1]), np.cumsum(F[o], 0)])
+        an = an[o]
+        lo = np.searchsorted(an, np.minimum(ang_a, ang_b)); hi = np.searchsorted(an, np.maximum(ang_a, ang_b))
+        Fo = self._force_open(C[hi]-C[lo], C[-1], g.radius)
+        r = Fo/np.maximum(cost, 1e-30)
+        k = np.flatnonzero(Fo > 0)
+        return k[np.argsort(-r[k], kind='stable')]
 
 
     def _line_strength(self):
