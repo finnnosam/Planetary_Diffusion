@@ -62,9 +62,9 @@ def test_plate_layer_carries_and_resets_thermal_ages():
     assert (la[c] > 1000.).any()                                       # old interiors kept theirs (aged by 25 Myr)
 
 
-def test_elevation_term_is_local_and_off_by_default():
-    g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'erosion': False, 'threads': 1})   # exact compare on one thread (pass 57:
+def test_elevation_term_is_local_and_off_with_none():
+    g = CubeSphere(48)                                                 # 'thermal_age' is PARAMS since pass 69
+    sim = P.PlateSim(g, seed=3, params={'erosion': False, 'threads': 1, 'lithosphere': 'none'})   # exact compare on one thread (pass 57:
     sim.elevation(); sp = sim.sea_level                    # all cores' flexure differs at ~1e-15 m between calls; the
                                                            # loads read the previous sea level)
     z0 = sim.elevation(); s0 = sim.sea_level
@@ -114,3 +114,25 @@ def test_coast_budget_keep_and_term():
     keep = d >= 25.                                                    # drop the outer half of the coast band
     bk = cb.budget(g, z, Tc, S, land, p, keep=keep)
     assert bk['bins'][0]['area_share'] < b['bins'][0]['area_share'] and abs(bk['c1_m']+300.) < 1e-6
+
+
+def test_elevation_gate_reads_c_in_the_columns_own_level(tmp_path):
+    """The thin-crust gate (elevation_check) checks the column against the model's own column, C's term included
+    (pass 69): a C run's state reads as the same state without C, and the old reading (C left out) does not."""
+    from planet_reviews import elevation_check as ec
+    g = CubeSphere(48)
+    sim = P.PlateSim(g, seed=3, params={'erosion': False, 'threads': 1, 'lithosphere': 'thermal_age'})
+    sim.state()
+    for _ in range(3):
+        sim.step(); sim.state()
+    np.savez(tmp_path/'c.npz', **sim.state())
+    pc = dict(sim.p)
+    sim.p['lithosphere'] = 'none'
+    np.savez(tmp_path/'n.npz', **sim.state())
+    pn = dict(sim.p)
+    c, n = ec.snapshot_tests(tmp_path/'c.npz', g, pc), ec.snapshot_tests(tmp_path/'n.npz', g, pn)
+    old = ec.snapshot_tests(tmp_path/'c.npz', g, pn)                   # C's state read without C's term
+    assert c['thin_crust_area'] > 0
+    assert abs(c['thin_crust_offset_m']-n['thin_crust_offset_m']) < 30.
+    assert old['thin_crust_offset_m']-n['thin_crust_offset_m'] > 100.
+    assert c['young_ocean_offset_m'] == old['young_ocean_offset_m']   # the ocean side does not read C

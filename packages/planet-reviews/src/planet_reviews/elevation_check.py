@@ -7,7 +7,10 @@ For every seed folder (or the seed folders of a combination / sweep folder):
   tests (fixed 24 Oct before the change), on every saved snapshot of the last 40 Myr:
     young ocean (< 20 Myr, crust anomaly < 1 km, sediment < 500 m) within 100 km of a coast: share above sea level
     <= 1%, median offset from its own depth (GDH1 + anomaly + sediment + dynamic topography) within +-300 m;
-    continental crust thinner than 30 km: median offset from its own Airy depth within +-300 m;
+    continental crust thinner than 30 km: median offset from its own Airy depth within +-300 m (with lithosphere
+    'thermal_age', C, its own level includes C's term as the model applies it: the gate checks the column against the
+    model's own column, so every term the model adds to it is in it, as the dynamic topography is; added 7 Nov, pass 69:
+    without it the gate read C's own +300 ... +500 m on young thin crust as an offset, journal 92);
     (the two offsets: one area-weighted median over the nodes of all the window's snapshots pooled, since 27 Oct;
     before, the mean of per-snapshot medians, which gives a snapshot with 0.06% of the surface the weight of one with
     0.4%: seed 1004 -313 m pooled -273, every other run within 6 m; the old reading is printed beside it)
@@ -24,6 +27,7 @@ import numpy as np
 from planet_landscape import graph_landscape as gl
 
 from planet_tectonics import plates as P
+from planet_tectonics.lithosphere import elevation_term
 from planet_grid.sphere_graph import CubeSphere
 from planet_reviews import crust_review as cr
 from planet_reviews.hypsometry import EARTH_EXPORT_KM3_YR, QS, shelf_metrics
@@ -55,6 +59,9 @@ def snapshot_tests(path, g, p):
     # field (snapshots carry it); the random field is not water-loaded in the model and is read as before
     da = z['dynamic_topography_air_m'].astype(np.float64) if 'dynamic_topography_air_m' in z.files else dyn
     own_cont = np.where(dry+da-sl < 0, (dry+da-sl)*rm/(rm-rw), dry+da-sl)
+    if p.get('lithosphere', 'none') == 'thermal_age':     # C: as surface.elevation adds it (water-loaded under the sea)
+        dl = np.where(cont, elevation_term(z['lithosphere_age_myr'].astype(np.float64), p), 0.)
+        own_cont = own_cont+np.where(own_cont+dl < 0, dl*rm/(rm-rw), dl)
     thin = cont & (T+cs < 30e3)
     return {'young_ocean_area': float(a[yo].sum()/a.sum()),
             'young_ocean_above_sea': float(a[yo & (e > 0)].sum()/max(a[yo].sum(), 1e-9)),

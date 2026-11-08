@@ -276,7 +276,10 @@ def _strip_setup(flag):
     thinned to 12 km along the whole coast, young ocean floor in front of it."""
     from planet_landscape import graph_landscape as gl
     g = CubeSphere(217)
-    sim = P.PlateSim(g, seed=1, params={'water_volume_km3': None, 'mantle': False, 'thinning_local_isostasy': flag})
+    # lithosphere 'none': the column under test is the crust's Airy column (C, PARAMS since pass 69, adds its own term,
+    # checked in test_lithosphere)
+    sim = P.PlateSim(g, seed=1, params={'water_volume_km3': None, 'mantle': False, 'thinning_local_isostasy': flag,
+                                        'lithosphere': 'none'})
     w, p = sim.world, sim.p
     d_ocean = gl.distance_to(~w['cont'], g.nbr, g.dist, 300e3)
     d_cont = gl.distance_to(w['cont'], g.nbr, g.dist, 300e3)

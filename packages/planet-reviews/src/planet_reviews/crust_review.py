@@ -46,6 +46,9 @@ def wpct(v, w, q):
 # (PARAMS since 29 Oct; sweeps passed the new values explicitly from 23 Oct, so their overrides win)
 LEGACY_DEFAULTS = {'sediment_compaction': False, 'piece_rule': 'shared', 'erosion_K_factor': .75, 'erosion_theta': 6.,
                    'erosion_Sc': .05, 'margin_shortening': False, 'sediment_accretion': .75}
+# parameters whose PARAMS default changed after runs that predate the key were saved: a run without the key ran the
+# old behaviour (lithosphere: added 1 Nov, pass 56, as 'none'; 'thermal_age' is PARAMS since pass 69)
+PREDATING = {'lithosphere': 'none'}
 
 
 def run_params(seed_dir):
@@ -55,8 +58,8 @@ def run_params(seed_dir):
     f = Path(seed_dir)/'stats.json'
     st = json.loads(f.read_text()) if f.exists() else {}
     if 'params_effective' in st:
-        return {**PARAMS, **st['params_effective']}
-    return {**PARAMS, **LEGACY_DEFAULTS, **st.get('params', {})}
+        return {**PARAMS, **PREDATING, **st['params_effective']}
+    return {**PARAMS, **LEGACY_DEFAULTS, **PREDATING, **st.get('params', {})}
 
 
 def total_thickness_m(z, params):

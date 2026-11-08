@@ -413,8 +413,9 @@ PARAMS = {
     # excess lith_drho_kg_m3 (Lamb et al. 2020: 20-40 kg/m^3) moves the surface by -(drho / rho_mantle)(L - lith_ref_km)
     # (locally compensated; water-loaded under the sea). lith_ref_km: Earth's continental area mean of L from the same
     # age map (lithosphere.EARTH_LITH_REF_KM). Earth's coast-to-interior fall below the Airy line is 773 m (journal 77);
-    # no fitted number
-    'lithosphere': 'none',
+    # no fitted number. Default 'thermal_age' since the sixty-ninth pass (journal 92; Craton Lithosphere Sweep
+    # sweep-20261107-144712: passes every veto with the elevation gate reading C's term in the column's own level)
+    'lithosphere': 'thermal_age',
     'lith_L0_km': 93.6, 'lith_rate_km_myr': .04, 'lith_drho_kg_m3': 30., 'lith_ref_km': 130.67,
 }
 
