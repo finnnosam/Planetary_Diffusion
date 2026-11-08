@@ -78,3 +78,54 @@ def plate_holes(mask, nbr):
         if ok and first >= 0:
             hole[i] = True; src[i] = first
     return hole, src
+
+
+
+@njit(cache=True)
+def shortest_paths(src, nbr, dist):
+    """Single-source Dijkstra from node src: the cost to every node and its predecessor on a cheapest path (-1: none).
+    Edges with dist >= 1e29 are closed."""
+    n = nbr.shape[0]
+    d = np.full(n, 1e30)
+    pred = np.full(n, -1, np.int64)
+    d[src] = 0.
+    heap = [(0.0, src)]
+    while len(heap) > 0:
+        h, i = heapq.heappop(heap)
+        if h > d[i]:
+            continue
+        for k in range(nbr.shape[1]):
+            j = nbr[i, k]
+            if j < 0 or dist[i, k] >= 1e29:
+                continue
+            v = h+dist[i, k]
+            if v < d[j]:
+                d[j] = v; pred[j] = i
+                heapq.heappush(heap, (v, j))
+    return d, pred
+
+
+
+@njit(cache=True)
+def trace_cut(cut, pred, s, e, nbr, axis):
+    """Mark on cut the cheapest path e -> s (pred from shortest_paths), filling each diagonal step with a node both
+    ends reach along an axis, so the marked nodes close against an 8-neighbour fill."""
+    i = e
+    cut[s] = True
+    while i != s and i >= 0:
+        cut[i] = True
+        j = pred[i]
+        if j < 0:
+            break
+        for k in range(nbr.shape[1]):
+            if nbr[i, k] == j and not axis[i, k]:
+                done = False
+                for a in range(nbr.shape[1]):
+                    if done or not axis[i, a] or nbr[i, a] < 0:
+                        continue
+                    m = nbr[i, a]
+                    for b in range(nbr.shape[1]):
+                        if axis[j, b] and nbr[j, b] == m:
+                            cut[m] = True; done = True
+                            break
+        i = j

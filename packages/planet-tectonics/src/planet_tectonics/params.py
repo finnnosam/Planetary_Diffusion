@@ -262,8 +262,15 @@ PARAMS = {
     # is its length x the wiggle / its strength, the strength C's thermal lithosphere thickness over Earth's continental
     # mean (lithosphere.thickness_km / lith_ref_km, the mean of the edge's ends; 1 on oceanic nodes and without C) x the
     # same belt factor (1 - (w_a + w_b)/2): weak lithosphere is slow for both fronts, so they meet in it. Strength in
-    # proportion to L is assumed (audit)
-    'rift_line': 'voronoi',
+    # proportion to L is assumed (audit). Default 'weak' since 8 Nov (Rift Line Sweep, sweep-20261107-213619,
+    # journal 95). 'chord' (seventy-second pass, journal 95): the line of a split across a continent no longer halves
+    # its plate. A rift nucleates at a point of the continent and propagates both ways to the plate's free edge
+    # (propagating rifts: Courtillot 1982, Tectonics 1, 239; Van Wijk & Blackman 2005, EPSL 229, 247); plate forces
+    # act at its edges, so the cut through the nucleus that needs the least force (the cheapest by 'weak''s cost)
+    # breaks first: a neck, a margin's young strip or an arc's rim can come off (most microcontinents and fragments
+    # are rifted from margins, many beside subduction: van den Broek & Gaina 2020, Tectonics 39, e2020TC006063). The
+    # nucleus is a random continental node; see events._chord_line. Ocean-only splits keep the 'weak' bisector
+    'rift_line': 'weak',
     # K (sixty-fifth pass, journal 87): split_rule 'poisson' (above; split_rate_per_myr assumed) or 'earth': a plate's
     # splits that cross its continent happen at Earth's rifted-margin production since its supercontinent
     # (breakup.EARTH_RIFT_PRODUCTION: Mueller et al. 2019 age grids, continental edge beside floor <= 10 Myr old,

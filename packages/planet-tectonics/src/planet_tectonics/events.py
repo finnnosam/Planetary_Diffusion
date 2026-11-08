@@ -4,10 +4,11 @@ import numpy as np
 
 from planet_grid import fields
 
-from planet_tectonics.graphops import components, nearest_label
+from planet_tectonics.graphops import components, nearest_label, shortest_paths, trace_cut
 from planet_tectonics.params import COLLISION
 
 SPLIT_L_MIN_KM = 200.   # split_rule 'earth': margins shorter than this (~2 nodes a side) count as this long
+CHORD_SECTORS = 72      # rift_line 'chord': directions from the nucleus binned at 5 degrees (a discretisation)
 
 
 class EventsMixin:
@@ -299,11 +300,13 @@ class EventsMixin:
                 if L > 0 and rng.uniform() < 1-np.exp(-prod*Ac/max(L, SPLIT_L_MIN_KM)*dt):
                     if self.split(pl, lab == 1, self._rift_speed(L), 'rift') is not None:
                         self.rift_margin_km = getattr(self, 'rift_margin_km', 0.)+L
+                        if p['rift_line'] == 'chord':
+                            self.events[-1]['line'] = self._line_kind
                     done = True
             if not done:
                 rate = p['split_rate_per_myr']*area/100.
                 if rng.uniform() < 1-np.exp(-rate*dt):
-                    lab = self._rift_line(pl, own)
+                    lab = self._rift_line(pl, own, chord=False)
                     if self._split_margin_km(own, lab) == 0:
                         self.split(pl, lab == 1, p['split_speed_cm_yr'], 'rift')
                         done = True
@@ -339,10 +342,18 @@ class EventsMixin:
         self.split(pl, lab == 1, speed, 'rift')
 
 
-    def _rift_line(self, pl, own):
+    def _rift_line(self, pl, own, chord=True):
         """The split labels of _rift_plate's line (nearest of the two seeds through the plate; nodes outside it carry
-        labels too, as split() always received them), drawn with the run's rng."""
+        labels too, as split() always received them), drawn with the run's rng. rift_line 'chord' (and chord True): the
+        cut through a continental nucleus (_chord_line); where it finds none, the 'weak' bisector."""
         g, p, rng, w = self.g, self.p, self.rng, self.world
+        if p['rift_line'] == 'chord' and chord:
+            lab = self._chord_line(own)
+            self._line_kind = 'bisector' if lab is None else 'chord'
+            st = self.chord_stats = getattr(self, 'chord_stats', {'chord': 0, 'bisector': 0})
+            st[self._line_kind] += 1
+            if lab is not None:
+                return lab
         ids = np.flatnonzero(own)
         a = ids[rng.integers(ids.size)]
         dist_a = np.arccos(np.clip(g.xyz[ids]@g.xyz[a], -1, 1))
@@ -353,15 +364,81 @@ class EventsMixin:
         belt = 1-.5*(weak[:, None]+weak[nbc])
         if p['rift_line'] == 'voronoi':
             cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)*belt
-        elif p['rift_line'] == 'weak':
+        elif p['rift_line'] in ('weak', 'chord'):
             st = self._line_strength()
             cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)/(belt*.5*(st[:, None]+st[nbc]))
         else:
-            raise ValueError(f"rift_line {p['rift_line']!r}: 'voronoi' or 'weak'")
+            raise ValueError(f"rift_line {p['rift_line']!r}: 'voronoi', 'weak' or 'chord'")
         cost = np.where(own[:, None] & own[np.clip(g.nbr, 0, None)], g.dist*cost, 1e30)
         lab0 = np.full(g.size, -1, np.int64); lab0[a] = 0; lab0[b] = 1
         lab, _ = nearest_label(lab0, g.nbr, cost)
         return lab
+
+
+    def _chord_line(self, own):
+        """rift_line 'chord' (seventy-second pass, journal 95): a rift nucleates at a point of the continent and
+        propagates both ways until it reaches the plate's free edge; plate forces act at the plate's edges, so the cut
+        that needs the least force through the nucleus breaks first. The nucleus: a random continental node of the plate
+        with all its neighbours in the plate. The cost of an edge: as 'weak' (length x wiggle / strength). The cut: the
+        cheapest pair of cheapest paths from the nucleus to the plate's edge whose ends lie more than 90 degrees apart
+        as seen from the nucleus (two branches leaving opposite ways) and that leaves a plate on both sides (at least
+        piece_min_area_mkm2, the model's smallest plate: cheaper cuts near the edge would only cut crumbs), diagonal
+        steps filled to axis steps so the cut closes. The new plate is the second-largest piece the cut leaves (the
+        rest stays with the plate). Labels as _rift_line (1 = the new part), or None when no cut qualifies."""
+        g, p, rng, w = self.g, self.p, self.rng, self.world
+        nbc = np.clip(g.nbr, 0, None); okn = g.nbr >= 0
+        inside = own & np.all(~okn | own[nbc], 1)
+        cand = np.flatnonzero(inside & w['cont'])
+        if cand.size == 0:
+            return None
+        s = cand[rng.integers(cand.size)]
+        weak = np.where(np.isnan(w['orog']), 0., p['suture_weakness'])
+        wig = 1+.3*rng.standard_normal(g.size)
+        belt = 1-.5*(weak[:, None]+weak[nbc])
+        st = self._line_strength()
+        cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)/(belt*.5*(st[:, None]+st[nbc]))
+        cost = np.where(okn & own[:, None] & own[nbc], g.dist*cost, 1e30)
+        d, pred = shortest_paths(int(s), g.nbr, cost)
+        ends = np.flatnonzero(own & ~inside & (d < 1e29))
+        if ends.size < 2:
+            return None
+        x = g.xyz[s]
+        u = np.cross(x, [0., 0., 1.]) if abs(x[2]) < .9 else np.cross(x, [1., 0., 0.])
+        u /= np.linalg.norm(u); v = np.cross(x, u)
+        ang = np.arctan2(g.xyz[ends]@v, g.xyz[ends]@u)
+        sec = np.floor((ang+np.pi)/(2*np.pi)*CHORD_SECTORS).astype(np.int64) % CHORD_SECTORS
+        best = {}
+        for k in np.argsort(d[ends], kind='stable'):
+            best.setdefault(int(sec[k]), k)
+        ks = np.array(sorted(best.values()))
+        ia, ib = np.triu_indices(ks.size, 1)
+        da = np.abs(ang[ks[ia]]-ang[ks[ib]]); da = np.minimum(da, 2*np.pi-da)
+        keep = da > np.pi/2
+        ia, ib = ia[keep], ib[keep]
+        order = np.argsort(d[ends[ks[ia]]]+d[ends[ks[ib]]], kind='stable')
+        floor = p['piece_min_area_mkm2']*1e12
+        idx = np.flatnonzero(own)
+        loc = np.full(g.size, -1, np.int64); loc[idx] = np.arange(idx.size)
+        lnbr = np.where(okn[idx], loc[nbc[idx]], -1)          # the plate's own subgraph
+        Al = g.area[idx]; Aown = Al.sum()
+        cut = np.zeros(g.size, bool)
+        self._chord_tries = 0
+        for t in order:
+            self._chord_tries += 1
+            cut[:] = False
+            trace_cut(cut, pred, int(s), int(ends[ks[ia[t]]]), g.nbr, g.axis)
+            trace_cut(cut, pred, int(s), int(ends[ks[ib[t]]]), g.nbr, g.axis)
+            comp = components(~cut[idx], lnbr)
+            n = comp.max()+1
+            if n < 2:
+                continue
+            area = np.bincount(comp[comp >= 0], weights=Al[comp >= 0], minlength=n)
+            b = int(np.argsort(area)[-2])
+            if area[b] < floor or Aown-area[b] < floor:
+                continue
+            lab = np.zeros(g.size, np.int64); lab[idx[comp == b]] = 1
+            return lab
+        return None
 
 
     def _line_strength(self):

@@ -182,8 +182,10 @@ def run_seed(seed, a, out):
               'rift_record': rifted.summary(),
               # every plate event with its time (thirty-ninth pass; output only): what cuts and joins plates when
               'event_list': [{k: (float(e[k]) if isinstance(e[k], (float, np.floating)) else e[k])
-                              for k in ('t', 'kind', 'plate', 'new_plate', 'merged', 'area_mkm2') if k in e}
+                              for k in ('t', 'kind', 'plate', 'new_plate', 'merged', 'area_mkm2', 'line') if k in e}
                              for e in sim.events]}
+    if hasattr(sim, 'chord_stats'):                     # rift_line 'chord' (pass 72): candidate lines drawn as a chord / bisector
+        result['chord_stats'] = dict(sim.chord_stats)
     (sdir/'stats.json').write_text(json.dumps(result, indent=1, default=float))
     return result
 
