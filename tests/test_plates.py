@@ -791,9 +791,12 @@ def test_plates_rule_run_keeps_the_ledgers_and_connected_plates():
     # first welds come after 35-66 steps (seeds 3-7, Linux), so a fixed 60 steps missed them on another machine's
     # trajectory (Windows, 26 Oct: two plates, no weld). (The whole-run sediment ledger drifts by ~1e-5-1e-4 here with
     # either rule: crust read and consumed in the same step is booked at its pre-increment value in _update_rasters;
-    # thirty-seventh pass.)
+    # thirty-seventh pass.) Pinned to lithosphere 'none' (seventieth pass, journal 93): with C the default (pass 69)
+    # Windows' trajectory made one weld in 150 steps (booked exactly) and missed the test's second; the subject here is
+    # the pieces' ledgers, not the lithosphere, as for the Airy-column tests pinned in pass 69.
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'piece_rule': 'plates', 'continental_sediment': True})
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'piece_rule': 'plates', 'continental_sediment': True,
+                                        'lithosphere': 'none'})
     weld = sim._weld
     welds = []
 

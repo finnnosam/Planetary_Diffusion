@@ -243,6 +243,14 @@ PARAMS = {
     # plate splitting (Poisson events). Rifting: rate per Myr for a 100 Mkm^2 plate, scaled by area and doubled for
     # mostly continental plates; the split line prefers old sutures; halves diverge at split_speed_cm_yr.
     'split_rate_per_myr': .006, 'split_min_area_mkm2': 12., 'split_speed_cm_yr': 2., 'suture_weakness': .6,
+    # the opening of a split that crosses a continent (seventieth pass, journal 93): 0 (as built) opens it at
+    # split_speed_cm_yr (2, assumed) like an ocean-only split. Earth's rifts open slowly (< 10 mm/yr full rate) and then
+    # accelerate abruptly to a fast phase, more than 35 mm/yr within 6 Myr in the South Atlantic, breaking up ~10 Myr
+    # later (Brune et al. 2016, Nature 536, 201; a rift-intrinsic strength-velocity feedback); split_rule 'earth' times
+    # its splits by Earth's floor production beside continent (floor <= 10 Myr old), i.e. the fast phase, so a value
+    # here is that phase's full rate. The halves then relax to the force law (tau_speed_myr, tau_axis_myr). Ocean-only
+    # splits keep split_speed_cm_yr
+    'rift_speed_cm_yr': 0.,
     # K (sixty-fifth pass, journal 87): split_rule 'poisson' (above; split_rate_per_myr assumed) or 'earth': a plate's
     # splits that cross its continent happen at Earth's rifted-margin production since its supercontinent
     # (breakup.EARTH_RIFT_PRODUCTION: Mueller et al. 2019 age grids, continental edge beside floor <= 10 Myr old,

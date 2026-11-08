@@ -297,7 +297,7 @@ class EventsMixin:
                 lab = self._rift_line(pl, own)
                 L = self._split_margin_km(own, lab)
                 if L > 0 and rng.uniform() < 1-np.exp(-prod*Ac/max(L, SPLIT_L_MIN_KM)*dt):
-                    if self.split(pl, lab == 1, p['split_speed_cm_yr'], 'rift') is not None:
+                    if self.split(pl, lab == 1, self._rift_speed(L), 'rift') is not None:
                         self.rift_margin_km = getattr(self, 'rift_margin_km', 0.)+L
                     done = True
             if not done:
@@ -325,10 +325,18 @@ class EventsMixin:
         return float((own & w['cont'] & other.any(1)).sum())*float(np.sqrt(g.area.mean()))/1e3
 
 
+    def _rift_speed(self, margin_km):
+        """The relative speed (cm/yr) a split's halves start with: rift_speed_cm_yr when it crosses a continent
+        (margin_km > 0) and that is set (> 0), else split_speed_cm_yr (see PARAMS)."""
+        p = self.p
+        return p['rift_speed_cm_yr'] if margin_km > 0 and p['rift_speed_cm_yr'] > 0 else p['split_speed_cm_yr']
+
+
     def _rift_plate(self, pl, own):
         """Two seeds far apart inside the plate; the split follows a wiggled Voronoi line that prefers old sutures."""
         lab = self._rift_line(pl, own)
-        self.split(pl, lab == 1, self.p['split_speed_cm_yr'], 'rift')
+        speed = self._rift_speed(self._split_margin_km(own, lab)) if self.p['rift_speed_cm_yr'] > 0 else self.p['split_speed_cm_yr']
+        self.split(pl, lab == 1, speed, 'rift')
 
 
     def _rift_line(self, pl, own):
