@@ -149,8 +149,10 @@ class SurfaceMixin:
         # level and is no load on the plate; the thickened part loads it as before
         thin = np.where(cont, np.minimum(anomaly, 0.), 0.) if p['thinning_local_isostasy'] else 0.
         load = anomaly-thin
-        # crust_density_rule 'pressure': the densified lower crust's excess mass (kg/m^2), a dry load on the plate
-        dense = densified_mass(thick, sm_dry, cont, p) if p.get('crust_density_rule', 'uniform') != 'uniform' else None
+        # crust_density_rule 'pressure': the densified lower crust's excess mass (kg/m^2), a dry load on the plate; its
+        # overburden is the column's own sediment (none without continental_sediment, which leaves that sediment out)
+        sed_over = np.where(cont, sm_dry, 0.) if p['continental_sediment'] else np.zeros_like(anomaly)
+        dense = densified_mass(thick, sed_over, cont, p) if p.get('crust_density_rule', 'uniform') != 'uniform' else None
         own_airy = p['cont_ref_elev_m']+anomaly*(rm-rc)/rm-s0
         if dense is not None:
             own_airy = own_airy-dense/rm

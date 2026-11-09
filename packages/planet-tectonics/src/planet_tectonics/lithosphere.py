@@ -133,3 +133,15 @@ def stretched_age(age_myr, ratio, p):
     lithosphere thins by the same factor and keeps the thermal age that thickness corresponds to (>= 0)."""
     L = thickness_km(age_myr, p)*ratio
     return np.maximum((L-p['lith_L0_km'])/p['lith_rate_km_myr'], 0.)
+
+
+def thickened_therm(therm, thick, gain, t, p):
+    """collision_lithosphere 'thicken' (journal 101): continental nodes whose crust gains `gain` (m) on `thick` (m)
+    by collision take the thermal age whose L is L (thick + gain) / thick (pure shear, the mirror of stretched_age).
+    Returns (new therm, changed mask); NaN therm (no lithosphere age) and gain <= 0 are left alone."""
+    therm = np.asarray(therm, np.float64).copy()
+    m = (np.asarray(gain) > 0) & np.isfinite(therm)
+    if m.any():
+        ratio = (thick[m]+gain[m])/np.maximum(thick[m], 1e3)
+        therm[m] = t-stretched_age(t-therm[m], ratio, p)
+    return therm, m

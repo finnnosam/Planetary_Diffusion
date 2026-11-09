@@ -6,6 +6,7 @@ from planet_grid import fields
 
 from planet_tectonics.crust_kernels import collision_kernel
 from planet_tectonics.graphops import nearest_label, plate_holes
+from planet_tectonics.lithosphere import thickened_therm
 
 
 class CompositionMixin:
@@ -219,9 +220,16 @@ class CompositionMixin:
         marked = collided | self._orogen_marks()
         self.orogen_marked = marked
         w['orog'] = np.where(marked, self.t, w['orog'])
-        reset = self._thermal_resets(collided)           # C: collision contacts and continental arcs
+        thick_l = np.zeros(g.size, bool)
+        if p['collision_lithosphere'] == 'thicken' and p['lithosphere'] == 'thermal_age':
+            # C, pure shear (journal 101): the mantle lithosphere thickens with the crust that collision thickens,
+            # L -> L (T + dT) / T, the mirror of the stretching rule; no reset at collision contacts
+            w['therm'], thick_l = thickened_therm(w['therm'], w['thick'], np.where(w['cont'], dVc/a, 0.), self.t, p)
+        elif p['collision_lithosphere'] not in ('reset', 'thicken'):
+            raise ValueError(f"collision_lithosphere {p['collision_lithosphere']!r}: 'reset' or 'thicken'")
+        reset = self._thermal_resets(collided)           # C: collision contacts ('reset') and continental arcs
         w['therm'][reset] = self.t
-        tchg = self.therm_changed | reset
+        tchg = self.therm_changed | reset | thick_l
         for k, pl in enumerate(self.plates):            # pass 2: ownership, new crust, thickness changes
             wn, own, gone = wns[k], owns[k], consumed[k]
             # a plate node switches on for genuinely new crust (a ridge gap), or for oceanic crust the plate already

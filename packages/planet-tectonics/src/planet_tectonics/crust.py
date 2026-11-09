@@ -193,10 +193,13 @@ class CrustMixin:
         clock, which resets on thickness alone) and the continental arc belt over a converging trench."""
         g, p, w = self.g, self.p, self.world
         cont = w['cont']
+        belt = cont & getattr(self, 'belt', np.zeros(g.size, bool))
+        if p.get('collision_lithosphere', 'reset') == 'thicken':    # collisions thicken the lithosphere instead
+            return belt
         out = cont & collided
         if hasattr(self, 'btype') and hasattr(self, 'conv_rate'):
             out |= cont & (self.btype == COLLISION) & (self.conv_rate*1e3 > p['boundary_min_mm_yr'])
-        return out | (cont & getattr(self, 'belt', np.zeros(g.size, bool)))
+        return out | belt
 
 
     def _orogen_marks(self):

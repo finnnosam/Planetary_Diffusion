@@ -357,7 +357,9 @@ PARAMS = {
     # rho_lower_crust at densify_start_gpa (garnet in, gabbro -> garnet granulite, Green & Ringwood 1967) to
     # rho_mantle at densify_neutral_gpa (Chapman et al. 2019, as eclogite_rule), held beyond. Equilibrium assumed
     # (dry granulite can stay metastable): the upper bound. A load, not a volume change
-    'crust_density_rule': 'uniform', 'lower_crust_share': .324, 'rho_lower_crust': 2947.,
+    # Default 'pressure' since the Deep Crust Sweep (sweep-20261108-170150, seventy-seventh pass, journal 101: every veto
+    # passes; highest node 7,370 -> 6,124 m, C1 -109 -> -202 m)
+    'crust_density_rule': 'pressure', 'lower_crust_share': .324, 'rho_lower_crust': 2947.,
     'densify_start_gpa': 1.0, 'densify_neutral_gpa': 2.0,
     # where a collision's volume goes (journal 86). 'node' (as built): all of it onto the receiving world node, so
     # collided crust piles on one node (+10-40 km of crust per Myr at 46 km cells); only the collapse flow spread it,
@@ -466,6 +468,15 @@ PARAMS = {
     # no fitted number. Default 'thermal_age' since the sixty-ninth pass (journal 92; Craton Lithosphere Sweep
     # sweep-20261107-144712: passes every veto with the elevation gate reading C's term in the column's own level)
     'lithosphere': 'thermal_age',
+    # C at collisions (seventy-seventh pass, journal 101). 'reset' (as built, journal 78): a collision contact resets the
+    # lithosphere's thermal age to 0 (L = lith_L0_km, thin and buoyant), so the thickest crust sits on the thinnest
+    # lithosphere (pressure arm, 0 Myr: crust 45-55 km on L p50 105 km, 35-45 km on 134; L and crust thickness
+    # uncorrelated, r 0.04). 'thicken': pure shear, the mirror of the stretching rule: where collision thickens the
+    # crust by T_after / T_before the lithosphere thickens by the same factor (its thermal age taking the thickness),
+    # with no reset; the continental arc belt still resets (hot). Earth (Lamb et al. 2020, ds02: continental means
+    # of Priestley & McKenzie 2016 lithosphere on CRUST1.0 crust): L rises 6.7-7.4 km per km of crust, thin-crust
+    # regions 80-92 km, thick-crust interiors 170-192 km (Eurasia, with Tibet, 188)
+    'collision_lithosphere': 'reset',
     'lith_L0_km': 93.6, 'lith_rate_km_myr': .04, 'lith_drho_kg_m3': 30., 'lith_ref_km': 130.67,
 }
 

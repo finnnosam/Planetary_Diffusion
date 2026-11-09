@@ -78,7 +78,8 @@ def test_off_is_the_old_rule_exactly():
 
 def test_plate_layer_ceiling_only_where_measured_and_ledger_closes():
     g = CubeSphere(96)                                     # at n = 48 (192 km) the young floor stands above the profile
-    sim = P.PlateSim(g, seed=3, params={'margin_wedge': True, 'threads': 1})
+    # crust_density_rule pinned to the trajectory this test was set on (its n = 48 seed grows no wedge with 'pressure')
+    sim = P.PlateSim(g, seed=3, params={'margin_wedge': True, 'threads': 1, 'crust_density_rule': 'uniform'})
     for _ in range(12):
         sim.step()
     p, w = sim.p, sim.world

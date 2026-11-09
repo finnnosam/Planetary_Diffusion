@@ -1,4 +1,4 @@
-"""Pass 76 (journal 100): crust_density_rule 'pressure', the lower crust densifying with pressure (deep_crust)."""
+"""Pass 76 (journal 100; default since pass 77, journal 101): crust_density_rule 'pressure', the lower crust densifying with pressure (deep_crust)."""
 import numpy as np
 
 from planet_grid.sphere_graph import CubeSphere
@@ -16,9 +16,11 @@ def _numeric(T, msed, p, n=20000):
     return float(((p['rho_mantle']-p['rho_lower_crust'])*f*np.diff(z)).sum())
 
 
-def test_default_is_uniform_and_gives_nothing():
-    assert P.PARAMS['crust_density_rule'] == 'uniform'
-    assert np.all(densified_mass(np.array([60e3]), np.array([0.]), np.array([True]), P.PARAMS) == 0)
+def test_default_is_pressure_and_uniform_gives_nothing():
+    # adopted in pass 77 (journal 101, Deep Crust Sweep)
+    assert P.PARAMS['crust_density_rule'] == 'pressure'
+    assert np.all(densified_mass(np.array([60e3]), np.array([0.]), np.array([True]),
+                                 {**P.PARAMS, 'crust_density_rule': 'uniform'}) == 0)
 
 
 def test_measured_values():
