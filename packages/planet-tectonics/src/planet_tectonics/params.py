@@ -350,6 +350,15 @@ PARAMS = {
     # 90-115 km and peaks 12-20 km on every seed of combo-01 of sweep-20261101-191306). Default 'foundering' since 6 Nov
     # (combo-05 of sweep-20261105-211423, journal 88)
     'eclogite_rule': 'foundering', 'eclogite_thick_m': 65000., 'eclogite_tau_myr': 10.,
+    # deep-crust densification (seventy-sixth pass, journal 100; planet_tectonics.deep_crust). 'uniform' (as built):
+    # the crust has one density at every depth, so a 60 km root is as buoyant per km as 35 km crust until it founders
+    # at eclogite_thick_m. 'pressure': the deepest lower_crust_share of the crystalline crust (CRUST1.0 types: 0.324 at
+    # 2,947 kg/m^3, measured, the same in every thickness bin) gains density linearly in pressure from
+    # rho_lower_crust at densify_start_gpa (garnet in, gabbro -> garnet granulite, Green & Ringwood 1967) to
+    # rho_mantle at densify_neutral_gpa (Chapman et al. 2019, as eclogite_rule), held beyond. Equilibrium assumed
+    # (dry granulite can stay metastable): the upper bound. A load, not a volume change
+    'crust_density_rule': 'uniform', 'lower_crust_share': .324, 'rho_lower_crust': 2947.,
+    'densify_start_gpa': 1.0, 'densify_neutral_gpa': 2.0,
     # where a collision's volume goes (journal 86). 'node' (as built): all of it onto the receiving world node, so
     # collided crust piles on one node (+10-40 km of crust per Myr at 46 km cells); only the collapse flow spread it,
     # and without that flow columns reach 90-115 km and peaks 12-20 km. 'earth': spread over the receiving plate's

@@ -6,6 +6,7 @@ from planet_tectonics import shelf as shelf_mod
 
 from planet_tectonics.isostasy import gdh1_depth, sea_level_for_volume, sediment_column
 from planet_tectonics.lithosphere import elevation_term
+from planet_tectonics.deep_crust import densified_mass
 
 
 class SurfaceMixin:
@@ -148,7 +149,11 @@ class SurfaceMixin:
         # level and is no load on the plate; the thickened part loads it as before
         thin = np.where(cont, np.minimum(anomaly, 0.), 0.) if p['thinning_local_isostasy'] else 0.
         load = anomaly-thin
+        # crust_density_rule 'pressure': the densified lower crust's excess mass (kg/m^2), a dry load on the plate
+        dense = densified_mass(thick, sm_dry, cont, p) if p.get('crust_density_rule', 'uniform') != 'uniform' else None
         own_airy = p['cont_ref_elev_m']+anomaly*(rm-rc)/rm-s0
+        if dense is not None:
+            own_airy = own_airy-dense/rm
         # continental_sediment: sediment on continental crust is a load like ocean-floor sediment, dry where its top
         # (on the crust's own water-loaded Airy level, the ocean rule's counterpart) stands above sea level
         zero = np.zeros_like(anomaly)
@@ -157,6 +162,8 @@ class SurfaceMixin:
         cs_wet = np.where(cont, sm_wet, 0.) if p['continental_sediment'] else zero
         c_dry = cont & (np.where(own_airy < 0, own_airy*rm/(rm-rw), own_airy)+cs > 0)
         dry = np.where(cont, rc*load+np.where(c_dry, cs_dry, 0.), np.where(above, rc*anomaly+sm_dry, 0.))
+        if dense is not None:
+            dry = dry+dense
         wet = np.where(cont, np.where(c_dry, 0., cs_wet), np.where(above, 0., (rc-rw)*anomaly+sm_wet))
         defl = self.flex_dry.deflection(dry)+self.flex_wet.deflection(wet)
         z = np.where(cont, p['cont_ref_elev_m']+load+thin*(rm-rc)/rm+cs, -gdh1_depth(ocean_age)+anomaly+sh)-defl

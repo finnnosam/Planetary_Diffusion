@@ -28,6 +28,7 @@ from planet_landscape import graph_landscape as gl
 
 from planet_tectonics import plates as P
 from planet_tectonics.lithosphere import elevation_term
+from planet_tectonics.deep_crust import densified_mass
 from planet_grid.sphere_graph import CubeSphere
 from planet_reviews import crust_review as cr
 from planet_reviews.hypsometry import EARTH_EXPORT_KM3_YR, QS, shelf_metrics
@@ -55,6 +56,8 @@ def snapshot_tests(path, g, p):
     cs = np.where(cont, sed, 0.) if p.get('continental_sediment') else 0.
     cm = np.where(cont, s_dry, 0.) if p.get('continental_sediment') else 0.
     dry = p['cont_ref_elev_m']+(T-p['cont_ref_thick_m'])*(rm-rc)/rm+cs-cm/rm
+    if p.get('crust_density_rule', 'uniform') != 'uniform':  # the densified lower crust, as surface.elevation loads it
+        dry = dry-densified_mass(T, s_dry, cont, p)/rm
     # dyn_rule 'slabs' (D) water-loads its flow field in the model: the column's own level water-loads the air-loaded
     # field (snapshots carry it); the random field is not water-loaded in the model and is read as before
     da = z['dynamic_topography_air_m'].astype(np.float64) if 'dynamic_topography_air_m' in z.files else dyn
