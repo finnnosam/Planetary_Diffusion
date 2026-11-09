@@ -155,6 +155,10 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
             dthick = dthick+ecl
             th = th+ecl
             self.erosion_totals['eclogite_foundered_m3'] = self.erosion_totals.get('eclogite_foundered_m3', 0.)-float((ecl*g.area).sum())
+            if p['collision_lithosphere'] == 'thicken' and p['lithosphere'] == 'thermal_age':
+                gone = w['cont'] & (ecl < 0)            # C: a foundering root takes its mantle lithosphere (delamination)
+                w['therm'][gone] = self.t
+                self.therm_changed |= gone
         elif p['eclogite_rule'] != 'none':
             raise ValueError(f"eclogite_rule {p['eclogite_rule']!r}: 'none' or 'foundering'")
         self.tectonic = dthick.copy()                    # tectonic thickening this step, m (no erosion); + collisions below

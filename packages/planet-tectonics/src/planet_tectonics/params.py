@@ -477,6 +477,11 @@ PARAMS = {
     # of Priestley & McKenzie 2016 lithosphere on CRUST1.0 crust): L rises 6.7-7.4 km per km of crust, thin-crust
     # regions 80-92 km, thick-crust interiors 170-192 km (Eurasia, with Tibet, 188)
     'collision_lithosphere': 'reset',
+    # 'thicken' holds L at lith_max_km (convective removal of lithosphere thickened past the thickest stable root,
+    # Houseman et al. 1981; C's own law at the oldest crust, 3.6 Ga: 93.6 + 0.04 * 3600) and resets it where
+    # eclogite_rule founders a root (delamination: asthenosphere replaces the root; Krystopowicz & Currie 2013).
+    # Without them it ratchets without bound (journal 101: the first Collision Lithosphere Sweep)
+    'lith_max_km': 237.6,
     'lith_L0_km': 93.6, 'lith_rate_km_myr': .04, 'lith_drho_kg_m3': 30., 'lith_ref_km': 130.67,
 }
 

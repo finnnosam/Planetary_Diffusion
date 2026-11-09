@@ -53,10 +53,12 @@ def texture(z, g, mask=None):
     valid = g.to_cube(np.ones(g.size, np.float32) if mask is None else mask.astype(np.float32))
     w8, v8 = windows(face, 8, 4), windows(valid, 8, 4)
     keep8 = (v8 > .5).all((1, 2)) & ((w8 > 0).mean((1, 2)) >= .98)
-    rel = np.percentile(w8[keep8], 95, axis=(1, 2))-np.percentile(w8[keep8], 5, axis=(1, 2))
+    # no window of land (a broken run: the score is then NaN, the sweep goes on; journal 101)
+    rel = (np.percentile(w8[keep8], 95, axis=(1, 2))-np.percentile(w8[keep8], 5, axis=(1, 2))) if keep8.any() \
+        else np.full(1, np.nan)
     w16, v16 = windows(face, 16, 8), windows(valid, 16, 8)
     keep16 = (v16 > .5).all((1, 2)) & ((w16 > 0).mean((1, 2)) >= .9)
-    bp = band_power(w16[keep16].astype(np.float64)).mean(0)
+    bp = band_power(w16[keep16].astype(np.float64)).mean(0) if keep16.any() else np.full(len(BANDS_KM), np.nan)
     return {'land_windows_368km': int(keep8.sum()), 'land_windows_736km': int(keep16.sum()),
             'relief_368km_m': {str(q): float(np.percentile(rel, q)) for q in (10, 25, 50, 75, 90)},
             'relief_below_300_share': float((rel < 300).mean()), 'relief_below_100_share': float((rel < 100).mean()),
@@ -94,7 +96,7 @@ def compare(planet, earth):
     ratios = {k: planet['band_power_m2'][k]/earth['band_power_m2'][k] for k in earth['band_power_m2']}
     rel = {q: planet['relief_368km_m'][q]/earth['relief_368km_m'][q] for q in ('25', '50', '75')}
     scored = [ratios['245-368'], ratios['368-736']]+list(rel.values())
-    worst = max(abs(np.log10(max(v, 1e-6))) for v in scored)
+    worst = max(abs(np.log10(max(v, 1e-6))) for v in scored) if np.all(np.isfinite(scored)) else float('inf')
     return {'band_power_ratio': ratios, 'relief_ratio': rel, 'texture_score': float(worst)}
 
 

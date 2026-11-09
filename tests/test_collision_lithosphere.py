@@ -24,6 +24,19 @@ def test_pure_shear_thickens_L_by_the_crust_factor():
     assert new[2] == therm[2] and np.isnan(new[3]) and new[4] == therm[4]
 
 
+def test_bounded_by_the_stable_root_no_ratchet():
+    # collision volume step after step on a column the crust does not keep: L stops at lith_max_km
+    p = P.PARAMS
+    t, therm = 0., np.array([-1500.])
+    for _ in range(400):
+        therm, m = thickened_therm(therm, np.array([55e3]), np.array([1e3]), t, p)
+    assert abs(thickness_km(t-therm[0], p)-p['lith_max_km']) < 1e-6
+    # a node already past the bound keeps its L (the start's oldest cratons)
+    old = np.array([-4000.])
+    new, _ = thickened_therm(old, np.array([40e3]), np.array([4e3]), 0., p)
+    assert new[0] == old[0]
+
+
 def test_thicken_resets_only_the_arc_belt():
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'collision_lithosphere': 'thicken', 'threads': 1})
@@ -51,3 +64,5 @@ def test_thicken_runs_and_keeps_thick_crust_on_thicker_lithosphere():
         T = st['crust_thickness_m']; m = st['continental'] & (T > 42e3) & np.isfinite(st['lithosphere_age_myr'])
         return thickness_km(st['lithosphere_age_myr'][m], P.PARAMS).mean() if m.any() else np.nan
     assert L_thick(out['thicken']) > L_thick(out['reset'])
+    L = thickness_km(out['thicken']['lithosphere_age_myr'], P.PARAMS)
+    assert np.nanmax(L) <= P.PARAMS['lith_max_km']+.04*40+1e-6 and np.all(np.isfinite(out['thicken']['elevation_m']))

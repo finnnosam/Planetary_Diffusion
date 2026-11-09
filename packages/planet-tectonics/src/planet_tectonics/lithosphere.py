@@ -138,10 +138,17 @@ def stretched_age(age_myr, ratio, p):
 def thickened_therm(therm, thick, gain, t, p):
     """collision_lithosphere 'thicken' (journal 101): continental nodes whose crust gains `gain` (m) on `thick` (m)
     by collision take the thermal age whose L is L (thick + gain) / thick (pure shear, the mirror of stretched_age).
-    Returns (new therm, changed mask); NaN therm (no lithosphere age) and gain <= 0 are left alone."""
+    Returns (new therm, changed mask); NaN therm (no lithosphere age) and gain <= 0 are left alone.
+    Thickened lithosphere beyond the thickest stable cratonic root is convectively unstable and removed (Houseman,
+    McKenzie & Molnar 1981): L is held at lith_max_km (C's own law at the oldest crust, 3.6 Ga: 237.6 km), and a node
+    already thicker keeps its L. Without the bound pure shear ratchets: collision volume arrives step after step
+    while the collapse flow and foundering hold the crust near 50-65 km (journal 101: L > 300 km on 1% of the
+    continent by -40 Myr, then without bound)."""
     therm = np.asarray(therm, np.float64).copy()
     m = (np.asarray(gain) > 0) & np.isfinite(therm)
     if m.any():
         ratio = (thick[m]+gain[m])/np.maximum(thick[m], 1e3)
-        therm[m] = t-stretched_age(t-therm[m], ratio, p)
+        L0 = thickness_km(t-therm[m], p)
+        L1 = np.minimum(L0*ratio, np.maximum(L0, p['lith_max_km']))
+        therm[m] = t-np.maximum((L1-p['lith_L0_km'])/p['lith_rate_km_myr'], 0.)
     return therm, m
