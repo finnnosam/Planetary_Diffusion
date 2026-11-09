@@ -16,7 +16,7 @@ nearest nodes) and to the nearest continental node (label-free), and (planet onl
 2. Arrival (the probe): over the last 40 Myr (1 Myr snapshots), the sediment change of every oceanic node between two
    snapshots, following its plate (the node's position one step earlier from the two plate rotations, the nearest node
    there owned by the same plate); new crust and nodes that changed plate are skipped. Positive change = arrival
-   (fill-and-spill turbidites and margin deposits; pelagic_m_myr is 0 in the runs read), negative = erosion of floor
+   (fill-and-spill turbidites and margin deposits, plus pelagic rain where pelagic_m_myr > 0: the default since pass 75), negative = erosion of floor
    sediment. Checked against the run's own ledger (ocean_sediment_m3 over the same steps). The gross arrival carries
    resampling noise of both signs (nearest-node sampling across sediment gradients); read the net.
 3. Four classes by the two distances (200 km): active-margin foot, passive-margin foot, intra-oceanic trench zone,

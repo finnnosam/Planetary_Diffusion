@@ -214,6 +214,8 @@ def snapshot_metrics(g, f):
     sp = {int(q['id']): q['speed_cm_yr'] for q in plates}
     pr = []
     for k, A, v, cf in rows:
+        if k not in nl:          # a node still labelled with a plate dropped this step (empty raster; journal 99)
+            continue
         per = float(L[(ka == k) | (kb == k)].sum())
         slab = float(L[(typ == 2) & (down == k)].sum())
         q = nl[k]

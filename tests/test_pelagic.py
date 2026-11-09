@@ -1,4 +1,4 @@
-"""Pass 74 (journal 97): pelagic_m_myr, sediment rained on the ocean floor (Earth's far-ocean rate, 1.1 m/Myr of grain).
+"""Pass 74 (journal 97; default since pass 75, journal 99): pelagic_m_myr, sediment rained on the ocean floor (Earth's far-ocean rate, 1.1 m/Myr of grain).
 It lands on oceanic nodes only, its ledger term is what it adds, and the ocean-floor sediment budget closes with it."""
 import numpy as np
 
@@ -13,8 +13,9 @@ def _sim(rate, seed=3):
                                             'threads': 1})
 
 
-def test_default_is_off():
-    assert P.PARAMS['pelagic_m_myr'] == 0.
+def test_default_is_earths_rate():
+    # adopted in pass 75 (journal 99, Pelagic Sweep)
+    assert P.PARAMS['pelagic_m_myr'] == 1.1
 
 
 def test_pelagic_lands_on_the_ocean_floor_and_its_budget_closes():

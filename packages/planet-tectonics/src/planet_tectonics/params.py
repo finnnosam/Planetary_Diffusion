@@ -180,8 +180,9 @@ PARAMS = {
     # trenches, as grain by the ocean's Athy column: sum(a S) / sum(a age) = 1.41 / 1.12 / 1.01 m/Myr at >= 800 / 1,200 /
     # 1,600 km from the continent (trench >= 500 / 500 / 800 km); the planet holds 11 m there at 54 Myr (Earth 150 m bulk),
     # so the 1,200 km class is pelagic: 1.1 (2.7 m/Myr bulk). Uniform: the carbonate compensation depth's control is left
-    # out (assumed). 0 (as built) until the Pelagic Sweep reads it
-    'pelagic_m_myr': 0.,
+    # out (assumed). Default 1.1 since the Pelagic Sweep (sweep-20261108-150308, seventy-fifth pass, journal 99: every
+    # veto passes; sea +91 m on the datum, land p50 -134 m, far ocean 126 m bulk against Earth's 150); 0 before
+    'pelagic_m_myr': 1.1,
     # continental shelves (planet_tectonics.shelf): wave transport in shallow water, kappa_wave * exp(-depth / wave_base),
     # and coastal retreat at cliff_retreat_m_yr damped by the water in front of the coast; run after every coarse
     # erosion substep. shelf_kappa_m2_yr = 0 turns it off. On since 22 Oct (sweep-20261022-194148: 3e4 / 0.003 with
