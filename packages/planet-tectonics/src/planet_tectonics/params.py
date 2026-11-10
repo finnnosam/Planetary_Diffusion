@@ -485,6 +485,13 @@ PARAMS = {
     # Without them it ratchets without bound (journal 101: the first Collision Lithosphere Sweep)
     'lith_max_km': 237.6,
     'lith_L0_km': 93.6, 'lith_rate_km_myr': .04, 'lith_drho_kg_m3': 30., 'lith_ref_km': 130.67,
+    # C's frame (eightieth pass, journal 104; lithosphere module text). 'artemieva' (as built): the four lith_ keys
+    # above, Artemieva's thermal-age L with Lamb's central drho 30. 'lamb': L by tectonothermal age measured from
+    # Hoggard et al. 2020's seismic lithosphere (SL2013sv) on Earth's own ages, crust <= 45 km, monotone (94 km at
+    # 33 Ma, 112 at 100 Ma, 114 to 770 Ma, 165 at 1.5 Ga, 178 for cratons), drho from Lamb's k (10.753 m per km x
+    # rho_mantle: 35.5 kg/m^3; Lamb derived it with seismic L), reference 130.68 km and top 177.74 km from the same
+    # table; the lith_ keys above are then unused. No fitted number
+    'lith_frame': 'artemieva',
 }
 
 

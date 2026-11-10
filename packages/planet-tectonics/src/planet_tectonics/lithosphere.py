@@ -32,6 +32,21 @@ collision boundary that is closing faster than boundary_min_mm_yr), in the conti
 trench, on new continental crust from arcs; ocean-floor sediment basins that turn continental keep the floor's age.
 Stretching thins the lithosphere with the crust (McKenzie 1978 uniform stretching): L -> L T_after / T_before; new
 rift crust starts at age 0.
+
+Frames (lith_frame; journal 104). 'artemieva' (above): Artemieva's thermal-age L with Lamb's central drho 30, two
+frames joined (journal 102 section 4). 'lamb': L measured from a global seismic lithosphere model on Earth's own
+ages, with the density excess Lamb et al. derived for seismic L. Hoggard et al. 2020 (Nat. Geosci. 13, 504;
+https://osf.io/twksd), SL2013sv LAB depth, sampled at the n = 217 nodes of Earth's continent as above (earth_continent),
+crust <= 45 km (unthickened: the planet thickens collided lithosphere itself, collision_lithosphere 'thicken'); the
+area mean of each age class (CLASS_AGE_MA), pooled where an older class is thinner than a younger one (conductive
+cooling never thins lithosphere as its thermal age grows; area-weighted pool-adjacent-violators), linear between the
+classes, flat below the youngest class and beyond the oldest (LAMB_AGE_MA, LAMB_L_KM): 94 km at 33 Ma, 112 by 100
+Ma, 114 through the late Proterozoic, 165 at 1.5 Ga, 178 for cratons (Artemieva's line: 95 / 98 / 124 / 154 / 164-222).
+Its density excess is Lamb's k (10.753 m of elevation per km of L, the reduction of his ds02 table) x rho_mantle:
+35.5 kg/m^3; its reference is the table's area mean on Earth's whole continent (130.68 km); lith_max_km is the
+table's top (177.74 km). The conductive-cooling form L_inf - (L_inf - L_a) exp(-t / tau) does not describe these
+means (tau runs to 1,500 Myr, the fit's bound; rms 54 km; precheck-p80-hoggard/hoggard_law.txt). The table rises by
+LAMB_EPS km per Myr besides, so it inverts (stretching, thickening); 0.004 km over 3.6 Gyr.
 """
 import numpy as np
 
@@ -117,22 +132,93 @@ def start_ages(dist, v, table=None):
     return tab[b, k]*(1-f)+tab[b, k+1]*f
 
 
+# lith_frame 'lamb' (module text; recomputed by tests/test_lithosphere.py when data/Hoggard2020 is present)
+LAMB_AGE_MA = (0., 33., 100., 270., 770., 1520., 1750., 3600.)
+LAMB_L_KM = (93.78, 93.78, 111.74, 114.29, 114.29, 164.50, 177.74, 177.74)
+LAMB_EPS = 1e-6
+LAMB_REF_KM = 130.68
+LAMB_K_M_PER_KM = 10.753   # Lamb et al. 2020, ds02's reduced elevation z + k (L - 100)
+HOGGARD_SL2013SV = ('Hoggard2020', 'twksd-osfstorage-archive', 'supplementary_datasets', 'lithospheric_thickness_maps',
+                    'global', 'SL2013sv', 'SL2013sv.csv')
+
+
+def _lamb(p):
+    return p.get('lith_frame', 'artemieva') == 'lamb'
+
+
+def frame(p):
+    """(reference L km, density excess kg/m^3, top L km) of the run's lithosphere frame."""
+    if _lamb(p):
+        return LAMB_REF_KM, LAMB_K_M_PER_KM*p['rho_mantle']/1e3, LAMB_L_KM[-1]+LAMB_EPS*LAMB_AGE_MA[-1]
+    return p['lith_ref_km'], p['lith_drho_kg_m3'], p['lith_max_km']
+
+
 def thickness_km(age_myr, p):
+    if _lamb(p):
+        t = np.maximum(age_myr, 0.)
+        return np.interp(t, LAMB_AGE_MA, LAMB_L_KM)+LAMB_EPS*np.minimum(t, LAMB_AGE_MA[-1])
     return p['lith_L0_km']+p['lith_rate_km_myr']*np.maximum(age_myr, 0.)
+
+
+def age_of_thickness(L, p):
+    """The thermal age (Myr, >= 0) whose lithosphere is L km thick (the inverse of thickness_km)."""
+    if _lamb(p):
+        tk = np.asarray(LAMB_AGE_MA)
+        return np.interp(L, np.asarray(LAMB_L_KM)+LAMB_EPS*tk, tk)
+    return np.maximum((L-p['lith_L0_km'])/p['lith_rate_km_myr'], 0.)
+
+
+def earth_lamb_table(n=217, data=None):
+    """(LAMB_L_KM at the class ages, LAMB_REF_KM) recomputed from Hoggard et al. 2020's SL2013sv map and CRUST1.0
+    (see the module text)."""
+    from planet_grid.paths import DATA
+    from planet_grid.sphere_graph import CubeSphere
+    from planet_earth.reference import ice_mask
+    root = data or DATA
+    g = CubeSphere(n)
+    lat = np.degrees(np.arcsin(np.clip(g.xyz[:, 2], -1, 1))); lon = np.degrees(np.arctan2(g.xyz[:, 1], g.xyz[:, 0]))
+    r = np.clip((89.5-lat+.5).astype(int), 0, 179); c = np.clip((lon+180).astype(int), 0, 359)
+    T = np.loadtxt(root/'crust1'/'crsthk.xyz')[:, 2].reshape(180, 360)[r, c]
+    tn = np.array([l.split() for l in (root/'crust1'/'CNtype1-1.txt').read_text().splitlines() if l.strip()])[r, c]
+    cont = ~np.isin(tn, OCEANIC_TYPES) & (T >= 20) & ~ice_mask(g)
+    d = np.loadtxt(root.joinpath(*HOGGARD_SL2013SV), delimiter=',')
+    grid = np.full((361, 721), np.nan)
+    grid[np.round((90-d[:, 1])*2).astype(int), np.round((d[:, 0] % 360)*2).astype(int) % 720] = d[:, 2]
+    grid[:, 720] = grid[:, 0]
+    L = grid[np.round((90-lat)*2).astype(int), np.round((lon % 360)*2).astype(int)]
+    age = np.array([CLASS_AGE_MA.get(t, np.nan) for t in tn])
+    m = cont & (T <= 45) & np.isfinite(L)
+    ages = np.array(sorted(set(age[m])))
+    mu = [float((L[m & (age == t)]*g.area[m & (age == t)]).sum()/g.area[m & (age == t)].sum()) for t in ages]
+    wa = [float(g.area[m & (age == t)].sum()) for t in ages]
+    blocks = [[v, w, [i]] for i, (v, w) in enumerate(zip(mu, wa))]   # pool adjacent violators, area-weighted
+    i = 0
+    while i < len(blocks)-1:
+        if blocks[i][0] > blocks[i+1][0]:
+            a_, b_ = blocks[i], blocks[i+1]
+            blocks[i] = [(a_[0]*a_[1]+b_[0]*b_[1])/(a_[1]+b_[1]), a_[1]+b_[1], a_[2]+b_[2]]; del blocks[i+1]
+            i = max(i-1, 0)
+        else:
+            i += 1
+    iso = np.empty(len(mu))
+    for v, _, idx in blocks:
+        iso[idx] = v
+    whole = np.interp(age[cont], ages, iso)
+    return dict(zip(ages.tolist(), iso.tolist())), float((whole*g.area[cont]).sum()/g.area[cont].sum())
 
 
 def elevation_term(age_myr, p):
     """Surface offset (m, dry) of a continental column whose lithosphere has this tectonothermal age (NaN -> 0)."""
     L = thickness_km(np.nan_to_num(age_myr, nan=0.), p)
-    dz = -p['lith_drho_kg_m3']/p['rho_mantle']*(L-p['lith_ref_km'])*1e3
+    ref, drho, _ = frame(p)
+    dz = -drho/p['rho_mantle']*(L-ref)*1e3
     return np.where(np.isnan(age_myr), 0., dz)
 
 
 def stretched_age(age_myr, ratio, p):
     """Age after uniform stretching that leaves the crust at `ratio` (T_after / T_before) of its thickness: the
     lithosphere thins by the same factor and keeps the thermal age that thickness corresponds to (>= 0)."""
-    L = thickness_km(age_myr, p)*ratio
-    return np.maximum((L-p['lith_L0_km'])/p['lith_rate_km_myr'], 0.)
+    return age_of_thickness(thickness_km(age_myr, p)*ratio, p)
 
 
 def thickened_therm(therm, thick, gain, t, p):
@@ -149,6 +235,6 @@ def thickened_therm(therm, thick, gain, t, p):
     if m.any():
         ratio = (thick[m]+gain[m])/np.maximum(thick[m], 1e3)
         L0 = thickness_km(t-therm[m], p)
-        L1 = np.minimum(L0*ratio, np.maximum(L0, p['lith_max_km']))
-        therm[m] = t-np.maximum((L1-p['lith_L0_km'])/p['lith_rate_km_myr'], 0.)
+        L1 = np.minimum(L0*ratio, np.maximum(L0, frame(p)[2]))
+        therm[m] = t-age_of_thickness(L1, p)
     return therm, m

@@ -555,10 +555,10 @@ class EventsMixin:
         p, w = self.p, self.world
         if p['lithosphere'] != 'thermal_age':
             return np.ones(self.g.size)
-        from planet_tectonics.lithosphere import thickness_km
+        from planet_tectonics.lithosphere import thickness_km, frame
         age = self.t-w['therm']
         ok = w['cont'] & np.isfinite(age)
-        return np.where(ok, thickness_km(np.where(ok, age, 0.), p)/p['lith_ref_km'], 1.)
+        return np.where(ok, thickness_km(np.where(ok, age, 0.), p)/frame(p)[0], 1.)
 
 
     def _initiate_subduction(self, pl, own, old):
