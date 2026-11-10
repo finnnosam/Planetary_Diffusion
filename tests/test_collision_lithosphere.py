@@ -6,8 +6,9 @@ from planet_tectonics import plates as P
 from planet_tectonics.lithosphere import thickened_therm, thickness_km
 
 
-def test_default_is_reset():
-    assert P.PARAMS['collision_lithosphere'] == 'reset'
+def test_default_is_thicken():
+    # adopted in pass 79 (journal 103, Collision Lithosphere Sweep)
+    assert P.PARAMS['collision_lithosphere'] == 'thicken'
 
 
 def test_pure_shear_thickens_L_by_the_crust_factor():
