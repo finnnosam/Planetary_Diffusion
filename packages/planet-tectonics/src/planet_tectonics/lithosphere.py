@@ -46,7 +46,19 @@ Its density excess is Lamb's k (10.753 m of elevation per km of L, the reduction
 35.5 kg/m^3; its reference is the table's area mean on Earth's whole continent (130.68 km); lith_max_km is the
 table's top (177.74 km). The conductive-cooling form L_inf - (L_inf - L_a) exp(-t / tau) does not describe these
 means (tau runs to 1,500 Myr, the fit's bound; rms 54 km; precheck-p80-hoggard/hoggard_law.txt). The table rises by
-LAMB_EPS km per Myr besides, so it inverts (stretching, thickening); 0.004 km over 3.6 Gyr.
+LAMB_EPS km per Myr besides, so it inverts (stretching, thickening); 0.004 km over 3.6 Gyr. Default 'lamb' since the
+eighty-first pass (journal 105).
+
+The start's join to its crust (start_lithosphere 'crust'; journal 105). On Earth, seismic L follows the crust mostly
+through distance from the continent's edge (both thicken inland: crust p50 26 -> 41 km, L p50 91 -> 174 km from the
+edge to beyond 1,000 km); within a distance bin the normal scores of crust (CRUST1.0 total) and L (SL2013sv) correlate
+weakly, rho 0.05 at the edge, 0.37 at 500-800 km, 0.10 beyond 1,000 km (EARTH_START_RHO, area-weighted, on
+earth_continent's domain). A Gaussian copula with that rho on Earth's own (distance, crust) reproduces Earth's L by
+crust bin (100 / 103 / 114 / 139 / 159 / 167 km against 97 / 97 / 107 / 143 / 158 / 157 on 20-25 ... 45-55 km;
+precheck-p81-ltlink/earth_join.txt). start_ages_crust uses it: within each distance bin the age quantile is
+Phi(rho z_crust + sqrt(1 - rho^2) z_craton), z_crust the normal score of the start's own crust rank in the bin and
+z_craton that of the craton rank; rho 0 gives start_ages. A supercontinent lies mostly beyond 1,000 km (75% of the
+start's area; Earth's continents 31%), where rho is small.
 """
 import numpy as np
 
@@ -130,6 +142,75 @@ def start_ages(dist, v, table=None):
     x = np.clip(np.asarray(v, np.float64), 0., 1.)*(len(TABLE_V)-1)
     k = np.clip(x.astype(int), 0, len(TABLE_V)-2); f = x-k
     return tab[b, k]*(1-f)+tab[b, k+1]*f
+
+
+# start_lithosphere 'crust' (module text; recomputed by tests/test_start_lithosphere.py when data/Hoggard2020 is
+# present): per DIST_BINS_KM row, Earth's area-weighted correlation of the normal scores of crust and seismic L
+EARTH_START_RHO = (0.050, 0.060, 0.050, 0.128, 0.200, 0.311, 0.344, 0.370, 0.365, 0.268, 0.098)
+
+
+def _ncdf(z):
+    from math import erf, sqrt
+    return 0.5*(1.+np.vectorize(erf)(np.asarray(z, np.float64)/sqrt(2.)))
+
+
+def _nscore(x, w):
+    """Normal scores of x by area-weighted rank (mid-rank of each node's weight; ties broken by order)."""
+    from statistics import NormalDist
+    x = np.asarray(x, np.float64); w = np.asarray(w, np.float64)
+    o = np.argsort(x, kind='stable'); cw = np.cumsum(w[o]); u = np.empty(x.size)
+    u[o] = (cw-.5*w[o])/cw[-1]
+    return np.vectorize(NormalDist().inv_cdf)(np.clip(u, 1e-6, 1-1e-6))
+
+
+def earth_start_rho(n=217, data=None):
+    """EARTH_START_RHO recomputed from Hoggard et al. 2020's SL2013sv map and CRUST1.0 (module text)."""
+    from planet_grid.paths import DATA
+    from planet_grid.sphere_graph import CubeSphere
+    from planet_earth.reference import ice_mask
+    from planet_landscape import graph_landscape as gl
+    root = data or DATA
+    g = CubeSphere(n)
+    lat = np.degrees(np.arcsin(np.clip(g.xyz[:, 2], -1, 1))); lon = np.degrees(np.arctan2(g.xyz[:, 1], g.xyz[:, 0]))
+    r = np.clip((89.5-lat+.5).astype(int), 0, 179); c = np.clip((lon+180).astype(int), 0, 359)
+    T = np.loadtxt(root/'crust1'/'crsthk.xyz')[:, 2].reshape(180, 360)[r, c]
+    tn = np.array([l.split() for l in (root/'crust1'/'CNtype1-1.txt').read_text().splitlines() if l.strip()])[r, c]
+    whole = ~np.isin(tn, OCEANIC_TYPES) & (T >= 20)
+    d = gl.distance_to(~whole, g.nbr, g.dist)/1e3
+    L = _hoggard_on(g, lat, lon, root)
+    m = whole & ~ice_mask(g) & np.isfinite(L)
+    a, dk, Tk, Lk = g.area[m], d[m], T[m], L[m]
+    out = []
+    for lo, hi in zip(DIST_BINS_KM[:-1], DIST_BINS_KM[1:]):
+        k = (dk >= lo) & (dk < hi)
+        zt, zl = _nscore(Tk[k], a[k]), _nscore(Lk[k], a[k])
+        out.append(float(np.sum(a[k]*zt*zl)/np.sqrt(np.sum(a[k]*zt**2)*np.sum(a[k]*zl**2))))
+    return out
+
+
+def start_ages_crust(dist, crust, area, v, rho=None, table=None):
+    """start_lithosphere 'crust': tectonothermal ages (Ma) for start continental nodes, joined to their own crust
+    within each distance bin by a Gaussian copula with Earth's rho (module text). dist (m), crust (m), area (m^2), v
+    the craton rank in [0, 1]."""
+    from statistics import NormalDist
+    rho = np.asarray(EARTH_START_RHO if rho is None else rho, np.float64)
+    dist = np.asarray(dist, np.float64); crust = np.asarray(crust, np.float64); area = np.asarray(area, np.float64)
+    zv = np.vectorize(NormalDist().inv_cdf)(np.clip(np.asarray(v, np.float64), 1e-6, 1-1e-6))
+    b = np.clip(np.searchsorted(DIST_BINS_KM, dist/1e3, side='right')-1, 0, len(DIST_BINS_KM)-2)
+    u = np.empty(dist.size)
+    for i in np.unique(b):
+        k = b == i
+        u[k] = _ncdf(rho[i]*_nscore(crust[k], area[k])+np.sqrt(1.-rho[i]**2)*zv[k])
+    return start_ages(dist, u, table)
+
+
+def _hoggard_on(g, lat, lon, root):
+    """SL2013sv LAB depth (km) at the graph's nodes (nearest 0.5-degree cell)."""
+    d = np.loadtxt(root.joinpath(*HOGGARD_SL2013SV), delimiter=',')
+    grid = np.full((361, 721), np.nan)
+    grid[np.round((90-d[:, 1])*2).astype(int), np.round((d[:, 0] % 360)*2).astype(int) % 720] = d[:, 2]
+    grid[:, 720] = grid[:, 0]
+    return grid[np.round((90-lat)*2).astype(int), np.round((lon % 360)*2).astype(int)]
 
 
 # lith_frame 'lamb' (module text; recomputed by tests/test_lithosphere.py when data/Hoggard2020 is present)

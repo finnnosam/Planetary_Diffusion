@@ -76,7 +76,8 @@ def test_strength_is_c_thickness_over_earth_mean():
     st = sim._line_strength()
     c = w['cont'] & np.isfinite(sim.t-w['therm'])
     p = sim.p
-    exp = (p['lith_L0_km']+p['lith_rate_km_myr']*np.maximum(sim.t-w['therm'][c], 0.))/p['lith_ref_km']
+    from planet_tectonics.lithosphere import frame, thickness_km
+    exp = thickness_km(sim.t-w['therm'][c], p)/frame(p)[0]             # the run's frame (pass 81: 'lamb')
     assert np.allclose(st[c], exp) and np.all(st[~c] == 1.)
     assert np.all(_sim({'rift_line': 'weak', 'lithosphere': 'none'})._line_strength() == 1.)
 

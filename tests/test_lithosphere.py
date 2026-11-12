@@ -20,7 +20,7 @@ def test_earth_table_and_reference_reproduce_crust1():
 
 
 def test_elevation_term_and_stretching():
-    p = P.PARAMS
+    p = {**P.PARAMS, 'lith_frame': 'artemieva'}                       # Artemieva's frame (the default is 'lamb')
     t_ref = (p['lith_ref_km']-p['lith_L0_km'])/p['lith_rate_km_myr']
     dz = lt.elevation_term(np.array([t_ref, 0., 3200., np.nan]), p)
     assert abs(dz[0]) < 1e-9 and dz[3] == 0.
@@ -121,7 +121,9 @@ def test_elevation_gate_reads_c_in_the_columns_own_level(tmp_path):
     (pass 69): a C run's state reads as the same state without C, and the old reading (C left out) does not."""
     from planet_reviews import elevation_check as ec
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'erosion': False, 'threads': 1, 'lithosphere': 'thermal_age'})
+    # lith_frame pinned to the frame this test was set on (pass 81: 'lamb' is the default; its offsets differ 37 m)
+    sim = P.PlateSim(g, seed=3, params={'erosion': False, 'threads': 1, 'lithosphere': 'thermal_age',
+                                        'lith_frame': 'artemieva'})
     sim.state()
     for _ in range(3):
         sim.step(); sim.state()

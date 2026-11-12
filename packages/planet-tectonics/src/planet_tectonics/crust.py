@@ -123,6 +123,8 @@ class CrustMixin:
         g, p, w = self.g, self.p, self.world
         out = np.zeros(g.size)
         self.belt = np.zeros(g.size, bool)
+        if p['belt_lithosphere'] == 'shorten':          # C: crust margin shortening adds to belt nodes (journal 105)
+            self.belt_gain = np.zeros(g.size)
         if not hasattr(self, 'btype'):
             return out
         src = (self.btype == SUBDUCTION) & ~self.trench          # overriding side of a subduction boundary
@@ -182,6 +184,8 @@ class CrustMixin:
                                       p['foreland_d0_km']*1e3, p['foreland_sigma_km']*1e3,
                                       match=p['shortening_match'])
             out = out+moved
+            if p['belt_lithosphere'] == 'shorten':
+                self.belt_gain = np.where(self.belt, np.maximum(moved, 0.), 0.)
             self.erosion_totals['margin_shortening_moved_m3'] = self.erosion_totals.get('margin_shortening_moved_m3', 0.)+float(
                 (np.maximum(moved, 0)*g.area).sum())
         return out
@@ -190,10 +194,13 @@ class CrustMixin:
     def _thermal_resets(self, collided):
         """C: continental world nodes whose lithosphere is reset to thermal age 0 this step: collision contacts (crust
         consumed under continental crust, or a collision boundary closing faster than boundary_min_mm_yr; not the belt
-        clock, which resets on thickness alone) and the continental arc belt over a converging trench."""
+        clock, which resets on thickness alone) and the continental arc belt over a converging trench (with
+        belt_lithosphere 'shorten', the belt nodes that margin shortening did not thicken this step)."""
         g, p, w = self.g, self.p, self.world
         cont = w['cont']
         belt = cont & getattr(self, 'belt', np.zeros(g.size, bool))
+        if p.get('belt_lithosphere', 'reset') == 'shorten':  # shortened belt nodes thickened instead (sim.step)
+            belt = belt & ~(getattr(self, 'belt_gain', np.zeros(g.size)) > 0)
         if p.get('collision_lithosphere', 'reset') == 'thicken':    # collisions thicken the lithosphere instead
             return belt
         out = cont & collided

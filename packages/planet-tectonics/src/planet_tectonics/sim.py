@@ -32,7 +32,7 @@ from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import eclogite_loss, edge_spread
 from planet_tectonics.isostasy import sediment_column
-from planet_tectonics.lithosphere import stretched_age
+from planet_tectonics.lithosphere import stretched_age, thickened_therm
 from planet_tectonics.mantle import Mantle
 from planet_tectonics.params import PARAMS
 from planet_tectonics.start import StartMixin
@@ -144,6 +144,15 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         th = th+rift_dthick
         dsed = np.zeros(g.size)
         sub = self._subduction_thickening()
+        if p['belt_lithosphere'] == 'shorten':
+            # C (journal 105): the crust margin shortening adds to the arc belt thickens its lithosphere by pure shear,
+            # L -> L (T + dT) / T (bounded at the frame's top), as collisions do; those nodes are not reset this step
+            bg = getattr(self, 'belt_gain', None)
+            if p['lithosphere'] == 'thermal_age' and bg is not None and (bg > 0).any():
+                w['therm'], bl = thickened_therm(w['therm'], th, np.where(w['cont'], bg, 0.), self.t, p)
+                self.therm_changed |= bl
+        elif p['belt_lithosphere'] != 'reset':
+            raise ValueError(f"belt_lithosphere {p['belt_lithosphere']!r}: 'reset' or 'shorten'")
         if self.mantle is not None:
             vol = self.mantle.volcanic(self.t, dt)
             self.erosion_totals['volcanic_added_m3'] = self.erosion_totals.get('volcanic_added_m3', 0.)+float((vol*g.area).sum())

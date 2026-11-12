@@ -490,8 +490,29 @@ PARAMS = {
     # Hoggard et al. 2020's seismic lithosphere (SL2013sv) on Earth's own ages, crust <= 45 km, monotone (94 km at
     # 33 Ma, 112 at 100 Ma, 114 to 770 Ma, 165 at 1.5 Ga, 178 for cratons), drho from Lamb's k (10.753 m per km x
     # rho_mantle: 35.5 kg/m^3; Lamb derived it with seismic L), reference 130.68 km and top 177.74 km from the same
-    # table; the lith_ keys above are then unused. No fitted number
-    'lith_frame': 'artemieva',
+    # table; the lith_ keys above are then unused. No fitted number. Default 'lamb' since the Lithosphere Frame Sweep
+    # (sweep-20261109-222925, eighty-first pass, journal 105: every veto passes; land p50 1,165 -> 1,043 m, crust
+    # > 45 km 0.212 -> 0.157, continental area 0.349 -> 0.360; the column 728 -> 713 m)
+    'lith_frame': 'lamb',
+    # C at the start (eighty-first pass, journal 105). 'distance' (as built, journal 78): start ages from Earth's table
+    # by distance from the continent's edge, within a distance bin by the craton's age rank alone, so the start's L
+    # does not follow its crust (lamb arm, -250 Myr: L 137 / 137 / 141 / 138 km on crust 25-30 ... 40-45 km; Earth's
+    # seismic L 97 / 107 / 143 / 158). 'crust': within a distance bin the age quantile is a Gaussian copula of the
+    # start's own crust rank and the craton rank, z = rho z_crust + sqrt(1 - rho^2) z_craton, rho Earth's correlation
+    # of the normal scores of crust and Hoggard et al. 2020's SL2013sv L in that bin (lithosphere.EARTH_START_RHO,
+    # 0.05 at the edge to 0.37 at 500-800 km, 0.10 beyond 1,000 km); rho 0 is 'distance'. No fitted number
+    'start_lithosphere': 'distance',
+    # C in the continental arc belt (eighty-first pass, journal 105). 'reset' (as built, journal 78): every belt node
+    # (continental, 30-270 km behind a converging trench) is reset to thermal age 0 every step, while margin shortening
+    # thickens its crust: young lithosphere under crust > 45 km is 97 km (lamb arm, 0 Myr; 24% of the thick crust,
+    # half of it reset within the last Myr). Earth (SL2013sv, Cenozoic CRUST1.0 classes): arcs on thin crust stand on
+    # thin lithosphere (continental arcs 72 / 99 km), shortened arc crust on thick (Andes, crust 45-55 km 166, 55-80
+    # km 202, perhaps part slab; Tibet 158 / 196; the Cordillera's back-arc 79 / 119 on 35-45 / 45-55 km).
+    # 'shorten': a belt node that margin shortening thickens this step keeps its lithosphere and thickens it by pure
+    # shear, L -> L (T + dT) / T (lithosphere.thickened_therm, bounded at the frame's top), as collisions do under
+    # collision_lithosphere 'thicken'; belt nodes not shortened are reset by the arc as before. Carried by the plate's
+    # own thermal age (no memory of the belt: the belt is set on world nodes each step)
+    'belt_lithosphere': 'reset',
 }
 
 

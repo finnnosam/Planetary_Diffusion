@@ -1,5 +1,5 @@
 """C's 'lamb' frame (eightieth pass, journal 104): L by tectonothermal age measured from Hoggard et al. 2020's
-seismic lithosphere on Earth's ages, Lamb's k as the density excess; the default frame unchanged."""
+seismic lithosphere on Earth's ages, Lamb's k as the density excess; the default since pass 81; 'artemieva' unchanged."""
 import numpy as np
 import pytest
 
@@ -11,9 +11,10 @@ from planet_tectonics import plates as P
 LAMB = {**P.PARAMS, 'lith_frame': 'lamb'}
 
 
-def test_default_frame_is_artemieva_and_unchanged():
-    p = P.PARAMS
-    assert p['lith_frame'] == 'artemieva'
+def test_default_frame_is_lamb_and_artemieva_unchanged():
+    # 'lamb' adopted in pass 81 (journal 105, Lithosphere Frame Sweep); 'artemieva' as built
+    assert P.PARAMS['lith_frame'] == 'lamb'
+    p = {**P.PARAMS, 'lith_frame': 'artemieva'}
     assert lt.frame(p) == (p['lith_ref_km'], p['lith_drho_kg_m3'], p['lith_max_km'])
     a = np.array([0., 50., 1000., 3600.])
     assert np.array_equal(lt.thickness_km(a, p), 93.6+.04*a)

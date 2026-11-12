@@ -3,7 +3,7 @@ import numpy as np
 
 from planet_grid.sphere_graph import CubeSphere
 from planet_tectonics import plates as P
-from planet_tectonics.lithosphere import thickened_therm, thickness_km
+from planet_tectonics.lithosphere import frame, thickened_therm, thickness_km
 
 
 def test_default_is_thicken():
@@ -26,16 +26,19 @@ def test_pure_shear_thickens_L_by_the_crust_factor():
 
 
 def test_bounded_by_the_stable_root_no_ratchet():
-    # collision volume step after step on a column the crust does not keep: L stops at lith_max_km
+    # collision volume step after step on a column the crust does not keep: L stops at the frame's top
     p = P.PARAMS
     t, therm = 0., np.array([-1500.])
     for _ in range(400):
         therm, m = thickened_therm(therm, np.array([55e3]), np.array([1e3]), t, p)
-    assert abs(thickness_km(t-therm[0], p)-p['lith_max_km']) < 1e-6
+    assert abs(thickness_km(t-therm[0], p)-frame(p)[2]) < 1e-6
     # a node already past the bound keeps its L (the start's oldest cratons)
     old = np.array([-4000.])
-    new, _ = thickened_therm(old, np.array([40e3]), np.array([4e3]), 0., p)
+    pa = {**p, 'lith_frame': 'artemieva'}                 # Artemieva's line rises past its bound (4 Ga: 253.6 km)
+    new, _ = thickened_therm(old, np.array([40e3]), np.array([4e3]), 0., pa)
     assert new[0] == old[0]
+    new, _ = thickened_therm(old, np.array([40e3]), np.array([4e3]), 0., p)   # 'lamb': flat at its top past 3.6 Ga
+    assert abs(thickness_km(-new, p)[0]-thickness_km(-old, p)[0]) < 1e-9
 
 
 def test_thicken_resets_only_the_arc_belt():
@@ -66,4 +69,4 @@ def test_thicken_runs_and_keeps_thick_crust_on_thicker_lithosphere():
         return thickness_km(st['lithosphere_age_myr'][m], P.PARAMS).mean() if m.any() else np.nan
     assert L_thick(out['thicken']) > L_thick(out['reset'])
     L = thickness_km(out['thicken']['lithosphere_age_myr'], P.PARAMS)
-    assert np.nanmax(L) <= P.PARAMS['lith_max_km']+.04*40+1e-6 and np.all(np.isfinite(out['thicken']['elevation_m']))
+    assert np.nanmax(L) <= frame(P.PARAMS)[2]+.04*40+1e-6 and np.all(np.isfinite(out['thicken']['elevation_m']))

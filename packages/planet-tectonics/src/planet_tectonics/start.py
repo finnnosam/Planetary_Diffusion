@@ -5,7 +5,7 @@ from planet_grid import fields
 from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import quantile_map
-from planet_tectonics.lithosphere import start_ages
+from planet_tectonics.lithosphere import start_ages, start_ages_crust
 from planet_tectonics.graphops import components, nearest_label
 from planet_tectonics.params import EARTH_STABLE_CRUST_KM, RIDGE
 from planet_tectonics.plate import Plate
@@ -64,7 +64,13 @@ class StartMixin:
         # bin by the craton's own age rank (lithosphere.start_ages; no random draw, so the run is unchanged with
         # lithosphere 'none')
         therm_c = np.full(g.size, np.nan)
-        therm_c[cont] = self.t-start_ages(d_coast[cont], (craton_age[np.clip(clab, 0, None)][cont]-1500.)/2000.)
+        v_cr = (craton_age[np.clip(clab, 0, None)][cont]-1500.)/2000.
+        if p['start_lithosphere'] == 'distance':
+            therm_c[cont] = self.t-start_ages(d_coast[cont], v_cr)
+        elif p['start_lithosphere'] == 'crust':           # joined to the start's own crust (journal 105)
+            therm_c[cont] = self.t-start_ages_crust(d_coast[cont], thick[cont], g.area[cont], v_cr)
+        else:
+            raise ValueError(f"start_lithosphere {p['start_lithosphere']!r}: 'distance' or 'crust'")
 
         # plates: Voronoi with wiggled distances; n_cont_plates seeds inside the continent
         oids = np.flatnonzero(~cont)
