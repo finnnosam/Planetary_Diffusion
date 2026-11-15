@@ -68,14 +68,15 @@ PARAMS = {
     # (step 6) then 6 (sweep-20261022-194148), Sc 0.05; reviews read old runs with crust_review.LEGACY_DEFAULTS
     'erosion_K_factor': 1.0, 'erosion_Sc': .036, 'erosion_Kd_factor': 4.,
     'erosion_theta': 200.,
-    # which surface the incision threshold erosion_theta holds (eighty-fifth pass, journal 110). 'bedrock' (default, as
-    # built): every surface; a node below the threshold only receives sediment, so loose deposits on low-gradient land
+    # which surface the incision threshold erosion_theta holds (eighty-fifth pass, journal 110; 'cover' adopted in the
+    # eighty-sixth, journal 111, Sediment Cover Sweep sweep-20261115-141434). 'bedrock' (the default until then): every
+    # surface; a node below the threshold only receives sediment, so loose deposits on low-gradient land
     # (plains, plateaus) never leave by rivers (the planet keeps ~90% of what it erodes on its continents, its high
     # land 2-3x Earth's sediment, export 2 against Earth's 4-8 km^3/yr). 'cover': the threshold is bedrock's (the
     # stream power a river needs to cut rock, as OCTOPUS's 10Be rates measure it); the continental and oceanic
     # sediment layer is loose and entrained by the same law without it (Yuan et al. 2019 at theta = 0) down to its
     # base. No new number
-    'sediment_entrainment': 'bedrock',
+    'sediment_entrainment': 'cover',
     'stable_erodibility': .15,     # old crust relative to fresh orogens (as the test bed)
     'orogen_erodibility_tau_myr': 50.,
     # which crust resets the orogeny clock (erodibility 1, decaying with orogen_erodibility_tau_myr) (twenty-fourth

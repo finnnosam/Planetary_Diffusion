@@ -1,5 +1,6 @@
 """Plate layer, part 1: lookup, isostasy, and invariants of a short simulation on a coarse cube."""
 import numpy as np
+import pytest
 
 from planet_grid import cube
 from planet_grid import fields
@@ -243,23 +244,27 @@ def test_edge_collapse_run_keeps_the_ledger():
     assert abs((sim.continental_volume()-v0)-sum(sim.ledger.values())) < 2e-3*v0
 
 
-def test_ocean_floor_eroded_below_its_sediment_loses_crust(monkeypatch):
+@pytest.mark.parametrize('rule', ['cover', 'bedrock'])
+def test_ocean_floor_eroded_below_its_sediment_loses_crust(monkeypatch, rule):
     # eighteenth pass: the clamp dsed >= -sed dropped erosion below the sediment from the ledger while the material
     # was deposited elsewhere. With ocean_crust_erosion the crust pays for it: crust + sediment change sums to the
-    # kernels' own total (erode_and_deposit's small residual, twentieth pass)
+    # kernels' own total (erode_and_deposit's small residual, twentieth pass). Each sediment_entrainment rule calls its
+    # own kernel (surface_step: 'cover' erode_and_deposit_cover, 'bedrock' erode_and_deposit; journal 111)
     from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
     kernel = []
-    ead = gl.erode_and_deposit
+    name = 'erode_and_deposit_cover' if rule == 'cover' else 'erode_and_deposit'
+    ead = getattr(gl, name)
 
     def counted(*args, **kw):
         r = ead(*args, **kw)
         kernel.append(float(((r[0]-args[0])*g.area).sum()+np.sum(r[3])))
         return r
-    monkeypatch.setattr(gl, 'erode_and_deposit', counted)
+    monkeypatch.setattr(gl, name, counted)
     out = {}
     for flag in (True, False):
-        sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'ocean_crust_erosion': flag})
+        sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'ocean_crust_erosion': flag,
+                                            'sediment_entrainment': rule})
         for _ in range(3):
             sim.step()
         w = sim.world
@@ -312,24 +317,27 @@ def test_thinned_strip_stands_at_its_own_depth_and_does_not_lift_the_ocean():
     assert np.median(z0[front]+P.gdh1_depth(0.)) > 1000.
 
 
-def test_continental_sediment_layer_keeps_both_ledgers(monkeypatch):
+@pytest.mark.parametrize('rule', ['cover', 'bedrock'])
+def test_continental_sediment_layer_keeps_both_ledgers(monkeypatch, rule):
     # twentieth pass (tests fixed in the plan doc, nineteenth pass): deposits on continental crust go to the sediment
     # layer, erosion takes sediment first; in every erosion call crust + sediment change equals the surface change
     # the landscape kernels made, and the run's crust and continental-sediment volumes change only by their causes
     from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True})
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True,
+                                        'sediment_entrainment': rule})
     a = g.area
     # erode_and_deposit is not exactly closed: now and then (both modes; ~2e-5 of the gross at n = 48) it sends a
     # little more to the sea than it erodes. The partition must reproduce the kernels' total, residual included
     kernel = []
-    ead = gl.erode_and_deposit
+    name = 'erode_and_deposit_cover' if rule == 'cover' else 'erode_and_deposit'   # the rule's kernel (journal 111)
+    ead = getattr(gl, name)
 
     def counted(*args, **kw):
         r = ead(*args, **kw)
         kernel.append(float(((r[0]-args[0])*a).sum()+np.sum(r[3])))
         return r
-    monkeypatch.setattr(gl, 'erode_and_deposit', counted)
+    monkeypatch.setattr(gl, name, counted)
     v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()
     for _ in range(15):
         w = sim.world
@@ -663,22 +671,24 @@ def test_compacted_sediment_is_a_porous_load():
         assert inner.sum() > 100
 
 
-def test_compaction_run_keeps_both_ledgers(monkeypatch):
+@pytest.mark.parametrize('rule', ['cover', 'bedrock'])
+def test_compaction_run_keeps_both_ledgers(monkeypatch, rule):
     # with compaction the sediment field is solid volume: the kernels' closure, the crust and continental-sediment
     # ledgers hold as without it, and the snapshot's bulk thickness is the column's
     from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True,
-                                        'sediment_compaction': True})
+                                        'sediment_compaction': True, 'sediment_entrainment': rule})
     a = g.area
     kernel = []
-    ead = gl.erode_and_deposit
+    name = 'erode_and_deposit_cover' if rule == 'cover' else 'erode_and_deposit'   # the rule's kernel (journal 111)
+    ead = getattr(gl, name)
 
     def counted(*args, **kw):
         r = ead(*args, **kw)
         kernel.append(float(((r[0]-args[0])*a).sum()+np.sum(r[3])))
         return r
-    monkeypatch.setattr(gl, 'erode_and_deposit', counted)
+    monkeypatch.setattr(gl, name, counted)
     v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()
     for _ in range(15):
         w = sim.world

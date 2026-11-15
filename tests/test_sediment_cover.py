@@ -78,8 +78,8 @@ def test_plate_layer_cover_exports_more_and_keeps_the_ledger():
     assert keep['cover'] < keep['bedrock']
 
 
-def test_default_is_bedrock_and_unknown_rule_raises():
-    assert P.PARAMS['sediment_entrainment'] == 'bedrock'
+def test_default_is_cover_and_unknown_rule_raises():
+    assert P.PARAMS['sediment_entrainment'] == 'cover'
     sim = P.PlateSim(CubeSphere(16), seed=1, params={'sediment_entrainment': 'nope', 'threads': 1})
     sim.state()
     with pytest.raises(ValueError):
