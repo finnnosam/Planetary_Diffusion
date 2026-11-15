@@ -150,6 +150,17 @@ def erode_and_deposit(z, zf, ocean, rec, rdist, stack, area, K, m, G, Sc, dt, ce
     theta > 0 adds an incision threshold, E = K (A^m S - theta) where positive, else no fluvial erosion: rivers need
     enough stream power to cut bedrock, so low-gradient lowlands stop eroding (cratons and platforms erode at only
     ~1-10 m/Myr on Earth). theta = 0 is exactly the regional model."""
+    return erode_and_deposit_cover(z, zf, ocean, rec, rdist, stack, area, K, m, G, Sc, dt, cell_area, lake_tol,
+                                   iterations, theta, np.zeros(z.shape[0]))
+
+
+@njit(cache=True)
+def erode_and_deposit_cover(z, zf, ocean, rec, rdist, stack, area, K, m, G, Sc, dt, cell_area, lake_tol, iterations,
+                            theta, cover):
+    """erode_and_deposit with a loose cover (m per node; zeros = erode_and_deposit exactly). The threshold theta is
+    bedrock's (the stream power a river needs to cut rock); loose sediment is entrained without it (Yuan's law at
+    theta = 0), down to the cover's base: below it the bedrock law holds, and where the bedrock law cuts deeper than
+    the cover, it wins (journal 110)."""
     n = z.shape[0]
     lake = (zf-z) > lake_tol
     zn = z.copy()
@@ -174,6 +185,9 @@ def erode_and_deposit(z, zf, ocean, rec, rdist, stack, area, K, m, G, Sc, dt, ce
             v = (z[i]+G*qs[i]/area[i]+f*base+K[i]*dt*theta)/(1.+f)
             if theta > 0. and area[i]**m*(v-base)/rdist[i] <= theta:
                 v = z[i]+G*qs[i]/area[i]                 # below threshold: deposition only
+            if theta > 0. and cover[i] > 0.:             # loose cover: entrained without bedrock's threshold
+                v0 = (z[i]+G*qs[i]/area[i]+f*base)/(1.+f)
+                v = min(v, max(v0, z[i]-cover[i]))
             v = min(v, base+Sc*rdist[i])
             zn[i] = v
     eroded = np.maximum(z-zn, 0.)
@@ -430,14 +444,16 @@ def diffuse_variable(z, domain, kappa, dt, nbr, dist, axis, cell_area):
 
 
 def surface_step(g, z, sea_seed, edge_outlets, fallback, K, p, dt, h_min, bound, tick=None, start=None, keep_deep=False,
-                 wedge_top=None):
+                 wedge_top=None, cover=None):
     """One step of the surface processes on a graph, without tectonic forcing or flexure: open sea, priority flood,
     D8 routing, Yuan erosion-deposition with lakes, marine sediment (deltas, graded shelves), hillslope and marine
     diffusion. Returns the new surface and the routing state. Used by GraphLandscape and the plate layer.
     keep_deep: also return 'deep_m3', the sediment that found no room on the shelves, at the sea-floor low where its
     path ended (the regional model drops it; a closed planet must place it: the plate layer spreads it as fans).
     wedge_top: the margin wedge's ceiling beyond the shelf (marine_sediment_kept; None = off). With keep_deep, also
-    returns 'wedge_m3', the volume deposited beyond the shelf on the wedge, per node."""
+    returns 'wedge_m3', the volume deposited beyond the shelf on the wedge, per node.
+    cover: loose sediment per node (m; None = none): entrained without the incision threshold down to its base
+    (erode_and_deposit_cover)."""
     c = time.perf_counter() if start is None else start
     tick = tick or (lambda key, c0: time.perf_counter())
     ocean = connected_ocean(z, sea_seed, g.nbr)
@@ -446,8 +462,14 @@ def surface_step(g, z, sea_seed, edge_outlets, fallback, K, p, dt, h_min, bound,
     rec, dist, stack = route(zf, outlets, g.nbr, g.dist)
     area = accumulate(rec, stack, g.area)
     c = tick('routing', c)
-    zn, eroded, deposited, sea_in = erode_and_deposit(z, zf, ocean, rec, dist, stack, area, K, p['m'], p['G'], p['Sc'], dt,
-                                                      g.area, p['lake_tolerance'], 6, p.get('theta', 0.))
+    if cover is None:
+        zn, eroded, deposited, sea_in = erode_and_deposit(z, zf, ocean, rec, dist, stack, area, K, p['m'], p['G'], p['Sc'],
+                                                          dt, g.area, p['lake_tolerance'], 6, p.get('theta', 0.))
+    else:
+        zn, eroded, deposited, sea_in = erode_and_deposit_cover(z, zf, ocean, rec, dist, stack, area, K, p['m'], p['G'],
+                                                                p['Sc'], dt, g.area, p['lake_tolerance'], 6,
+                                                                float(p.get('theta', 0.)),
+                                                                np.asarray(cover, np.float64))
     c = tick('erosion', c)
     d_land = distance_to(~ocean, g.nbr, g.dist, p['shelf_width'])
     marine, deep = marine_sediment_kept(zn, ocean, sea_in, g.nbr, g.dist, g.area, p['shelf_depth'], p['shelf_gradient'],

@@ -4,7 +4,7 @@ import numpy as np
 from planet_landscape import graph_landscape as gl
 from planet_tectonics import shelf as shelf_mod
 
-from planet_tectonics.isostasy import gdh1_depth, sea_level_for_volume, sediment_column
+from planet_tectonics.isostasy import ocean_depth, sea_level_for_volume, sediment_column
 from planet_tectonics.lithosphere import elevation_term
 from planet_tectonics.deep_crust import densified_mass
 
@@ -35,9 +35,14 @@ class SurfaceMixin:
         keep = p['keep_deep_sediment']
         deep = np.zeros(g.size)
         wedge_top = self._wedge_top(thick) if p['margin_wedge'] else None
+        rule = p['sediment_entrainment']
+        if rule not in ('bedrock', 'cover'):
+            raise ValueError(f"sediment_entrainment {rule!r}: 'bedrock' or 'cover'")
+        cover = np.maximum(w['sed'], 0.) if rule == 'cover' else None    # loose sediment (journal 110)
         for _ in range(p['erosion_substeps']):
+            zs = z
             r = gl.surface_step(g, z, seed, None, fallback, K, lp, dt, self.h_min, self.bound, keep_deep=keep,
-                                wedge_top=wedge_top)
+                                wedge_top=wedge_top, cover=cover)
             z = r['z']
             if wedge_top is not None:
                 self.erosion_totals['margin_wedge_m3'] = self.erosion_totals.get('margin_wedge_m3', 0.)+float(
@@ -57,6 +62,8 @@ class SurfaceMixin:
                 z, _, off = shelf_mod.shelf_step(g, z, ocean, avail, p['shelf_kappa_m2_yr'], p['shelf_wave_base_m'],
                                                  p['cliff_retreat_m_yr'], dt)
                 self.erosion_totals['shelf_off_land_m3'] = self.erosion_totals.get('shelf_off_land_m3', 0.)+off
+            if cover is not None:                    # the cover follows the surface: deposits add, erosion takes it first
+                cover = np.maximum(cover+z-zs, 0.)
         self.erosion_totals['deep_sea_sediment_m3'] = self.erosion_totals.get('deep_sea_sediment_m3', 0.)+float(deep.sum())
         dz = z-z0
         cont = w['cont']
@@ -124,7 +131,7 @@ class SurfaceMixin:
         """Elevation (m) with flexural isostasy on an elastic plate (Te).
 
         Continental crust: its thickness anomaly (relative to cont_ref_thick_m, which stands at cont_ref_elev_m) is a
-        load of density rho_crust against the mantle. Ocean floor: thermal subsidence with age (GDH1); its crust
+        load of density rho_crust against the mantle. Ocean floor: thermal subsidence with age (ocean_depth_rule: GDH1, or Earth's measured floor); its crust
         anomaly (arcs, plateaus) and sediment are submarine loads of density (rho - rho_water) against
         (rho_mantle - rho_water), so a basin filled to sea level holds ~2.5x its depth of sediment, as on Earth.
         Long wavelengths reduce to Airy isostasy; valleys and single belts are partly held up by the plate.
@@ -144,7 +151,8 @@ class SurfaceMixin:
         anomaly = np.where(cont, thick-p['cont_ref_thick_m'], thick-p['ocean_thick_m'])
         ocean_age = np.where(cont, 0., self.t-w['born'])
         s0 = getattr(self, 'sea_level', 0.)                     # previous sea level on the datum (loads use it)
-        above = (-gdh1_depth(ocean_age)+anomaly+sh) > s0        # oceanic crust built above sea level (arcs, fills)
+        floor = -ocean_depth(ocean_age, p)                      # the floor's basement level from its age (ocean_depth_rule)
+        above = (floor+anomaly+sh) > s0        # oceanic crust built above sea level (arcs, fills)
         # thinning_local_isostasy: the thinned part (negative anomaly) of continental crust stands at its local Airy
         # level and is no load on the plate; the thickened part loads it as before
         thin = np.where(cont, np.minimum(anomaly, 0.), 0.) if p['thinning_local_isostasy'] else 0.
@@ -168,7 +176,7 @@ class SurfaceMixin:
             dry = dry+dense
         wet = np.where(cont, np.where(c_dry, 0., cs_wet), np.where(above, 0., (rc-rw)*anomaly+sm_wet))
         defl = self.flex_dry.deflection(dry)+self.flex_wet.deflection(wet)
-        z = np.where(cont, p['cont_ref_elev_m']+load+thin*(rm-rc)/rm+cs, -gdh1_depth(ocean_age)+anomaly+sh)-defl
+        z = np.where(cont, p['cont_ref_elev_m']+load+thin*(rm-rc)/rm+cs, floor+anomaly+sh)-defl
         z = z+np.where(cont & (own_airy < 0), own_airy*rw/(rm-rw), 0.)
         if p['lithosphere'] == 'thermal_age':            # C: the mantle lithosphere's thermal state, locally compensated
             dl = np.where(cont, elevation_term(self.t-w['therm'], p), 0.)

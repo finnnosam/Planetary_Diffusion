@@ -21,8 +21,10 @@ def test_nearest_nodes_match_cube_coordinates():
 
 
 def test_isostatic_elevation():
-    z = P.isostatic_elevation(np.array([False, False, True, True]), np.array([7e3, 7e3, 38e3, 28e3]), np.array([0., 100., 0., 0.]))
-    assert abs(z[0]+2600) < 1 and -5700 < z[1] < -5000
+    args = (np.array([False, False, True, True]), np.array([7e3, 7e3, 38e3, 28e3]), np.array([0., 100., 0., 0.]))
+    z = P.isostatic_elevation(*args)
+    assert abs(z[0]+P.ocean_depth(np.array([0.]))[0]) < 1 and -5700 < z[1] < -5000   # the run's floor law (pass 83)
+    assert abs(P.isostatic_elevation(*args, {**P.PARAMS, 'ocean_depth_rule': 'gdh1'})[0]+2600) < 1   # GDH1's ridge
     assert abs(z[2]-300) < 1e-6
     assert z[3] < 0                                    # thinned continental margin under water
 
@@ -232,7 +234,8 @@ def test_edge_spread_moves_only_collapse_excess_across_the_coast():
 
 def test_edge_collapse_run_keeps_the_ledger():
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'collapse_edge': True, 'collapse_thick_m': 38000., **OLD_START})
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'collapse_edge': True, 'collapse_thick_m': 38000.,
+                                        'crust_flow_rule': 'fitted', **OLD_START})   # collapse_edge acts under 'fitted' only
     v0 = sim.continental_volume()
     for _ in range(15):
         sim.step()

@@ -44,7 +44,8 @@ def test_spread_conserves_volume_and_stays_on_the_receiving_plate():
 def test_spread_and_foundering_runs_keep_the_ledger():
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'collision_spread': 'earth', 'eclogite_rule': 'foundering',
-                                        'eclogite_thick_m': 40000., 'crust_kappa_m2_yr': 0.})
+                                        'eclogite_thick_m': 40000., 'crust_kappa_m2_yr': 0.,
+                                        'crust_flow_rule': 'fitted'})   # no collapse flow: the fitted law at kappa 0
     v0 = sim.continental_volume()
     for _ in range(15):
         sim.step()

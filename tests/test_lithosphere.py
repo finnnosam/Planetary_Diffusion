@@ -121,9 +121,11 @@ def test_elevation_gate_reads_c_in_the_columns_own_level(tmp_path):
     (pass 69): a C run's state reads as the same state without C, and the old reading (C left out) does not."""
     from planet_reviews import elevation_check as ec
     g = CubeSphere(48)
-    # lith_frame pinned to the frame this test was set on (pass 81: 'lamb' is the default; its offsets differ 37 m)
+    # lith_frame and the start's join pinned to what this test was set on (pass 81: 'lamb' is the default, its offsets
+    # differ 37 m; pass 82: start_lithosphere 'crust' is the default, they differ 31 m against the 30 m bound)
     sim = P.PlateSim(g, seed=3, params={'erosion': False, 'threads': 1, 'lithosphere': 'thermal_age',
-                                        'lith_frame': 'artemieva'})
+                                        'lith_frame': 'artemieva', 'start_lithosphere': 'distance',
+                                        'belt_lithosphere': 'reset'})
     sim.state()
     for _ in range(3):
         sim.step(); sim.state()

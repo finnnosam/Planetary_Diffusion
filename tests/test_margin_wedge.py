@@ -78,10 +78,12 @@ def test_off_is_the_old_rule_exactly():
 
 def test_plate_layer_ceiling_only_where_measured_and_ledger_closes():
     g = CubeSphere(96)                                     # at n = 48 (192 km) the young floor stands above the profile
-    # crust_density_rule and lith_frame pinned to the trajectory this test was set on (its seed grows no wedge with
-    # 'pressure', nor booked spill with 'lamb')
+    # crust_density_rule, lith_frame and the lithosphere's link pinned to the trajectory this test was set on (its seed
+    # grows no wedge with 'pressure', nor booked spill with 'lamb' or, pass 82, with start_lithosphere 'crust'; pass 83:
+    # nor a booked wedge with ocean_depth_rule 'earth', whose floor stands above the profile on this small state)
     sim = P.PlateSim(g, seed=3, params={'margin_wedge': True, 'threads': 1, 'crust_density_rule': 'uniform',
-                                        'lith_frame': 'artemieva'})
+                                        'lith_frame': 'artemieva', 'start_lithosphere': 'distance',
+                                        'belt_lithosphere': 'reset', 'ocean_depth_rule': 'gdh1'})
     for _ in range(12):
         sim.step()
     p, w = sim.p, sim.world
@@ -113,7 +115,7 @@ def test_plate_layer_ceiling_only_where_measured_and_ledger_closes():
     assert t['margin_wedge_m3'] > 0. and t['margin_wedge_spill_m3'] >= 0.   # booked in the plate layer's totals
 
 
-def test_default_is_off():
-    assert P.PARAMS['margin_wedge'] is False
+def test_default_is_on():
+    assert P.PARAMS['margin_wedge'] is True               # adopted, Margin Rise Sweep (journal 109)
     km, depth = np.array(P.PARAMS['margin_wedge_profile']).T
     assert (np.diff(km) > 0).all() and (np.diff(depth) < 0).all()   # the rise deepens seaward

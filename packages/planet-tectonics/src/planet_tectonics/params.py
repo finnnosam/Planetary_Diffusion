@@ -5,6 +5,17 @@ Earth's stable-crust thickness quantiles."""
 PARAMS = {
     'dt_myr': 1.,
     'ocean_thick_m': 7000.,
+    # the ocean floor's basement depth by age (eighty-second pass, journal 107; isostasy.ocean_depth). 'gdh1' (as
+    # built): Stein & Stein 1992, fitted to the North Pacific and the north-west Atlantic. 'earth': Earth's normal
+    # floor measured on the n = 217 graph, ETOPO on dated floor (Seton et al. 2020) of normal oceanic crust (CRUST1.0
+    # A1, A0) with the model's own sediment (GlobSed) and crust terms taken out, area means by age, monotone
+    # (isostasy.EARTH_FLOOR_DEPTH_M): GDH1 stands 120-220 m below it beyond 10 Myr (flattening at 5.35-5.41 km
+    # against GDH1's 5.65). 'earth_all': the same on every dated floor (plateaus in the mean; read only: the planet
+    # has no process for thickened oceanic crust, and this spreads its volume over all floor). No fitted number.
+    # Journal 106: the planet's floor stands 318 m of sea level too deep at a given age, 180 of it this.
+    # Default 'earth' since the eighty-third pass (Floor Depth Sweep sweep-20261113-201653, every veto passes; journal
+    # 108): the sea -494 -> -373 m on the datum, land p50 1,055 -> 987 m
+    'ocean_depth_rule': 'earth',
     'cont_ref_thick_m': 38000.,    # continental crust standing at cont_ref_elev_m
     'cont_ref_elev_m': 300.,
     'rho_crust': 2830., 'rho_mantle': 3300., 'rho_water': 1030., 'rho_sediment': 2400.,
@@ -57,6 +68,14 @@ PARAMS = {
     # (step 6) then 6 (sweep-20261022-194148), Sc 0.05; reviews read old runs with crust_review.LEGACY_DEFAULTS
     'erosion_K_factor': 1.0, 'erosion_Sc': .036, 'erosion_Kd_factor': 4.,
     'erosion_theta': 200.,
+    # which surface the incision threshold erosion_theta holds (eighty-fifth pass, journal 110). 'bedrock' (default, as
+    # built): every surface; a node below the threshold only receives sediment, so loose deposits on low-gradient land
+    # (plains, plateaus) never leave by rivers (the planet keeps ~90% of what it erodes on its continents, its high
+    # land 2-3x Earth's sediment, export 2 against Earth's 4-8 km^3/yr). 'cover': the threshold is bedrock's (the
+    # stream power a river needs to cut rock, as OCTOPUS's 10Be rates measure it); the continental and oceanic
+    # sediment layer is loose and entrained by the same law without it (Yuan et al. 2019 at theta = 0) down to its
+    # base. No new number
+    'sediment_entrainment': 'bedrock',
     'stable_erodibility': .15,     # old crust relative to fresh orogens (as the test bed)
     'orogen_erodibility_tau_myr': 50.,
     # which crust resets the orogeny clock (erodibility 1, decaying with orogen_erodibility_tau_myr) (twenty-fourth
@@ -195,7 +214,7 @@ PARAMS = {
     # ocean floor to the trenches like any other sediment. (A first version spread it by diffusion over the connected
     # open sea; enclosed pockets could not pass it on and grew 20-250 km towers.) False = the old sink
     'keep_deep_sediment': True,
-    # S, the margin wedge (sixty-first pass, journal 83; off until a sweep adopts it): what overflows the graded shelf
+    # S, the margin wedge (sixty-first pass, journal 83): what overflows the graded shelf
     # is deposited in front of its source, up to Earth's measured profile seaward of passive continental edges, on its
     # way down (the marine path and fill_and_spill's turbidite paths), before any rest fills the sea-floor lows (turbidites and contourites build the slope and rise beside their source).
     # Without it the planet has no continental rise (floor 0.25-0.85 km deeper than Earth's within 200 km of passive
@@ -203,8 +222,10 @@ PARAMS = {
     # (n = 217): ETOPO p50 depth (m, ice out) by distance (km, bin centres) from the label-free continent (CRUST1.0
     # crust + sediment >= 20 km), ocean nodes > 300 km from any Bird PB2002 boundary (pass 60, margin_bathymetry);
     # applied where it was measured (column < margin_wedge_edge_m, > margin_wedge_boundary_km from the planet's
-    # boundaries), to margin_wedge_max_km. No fitted number
-    'margin_wedge': False,
+    # boundaries), to margin_wedge_max_km. No fitted number. Default True since the Margin Rise Sweep
+    # (sweep-20261114-104046, eighty-fourth pass, journal 109: every veto passes; booked 0.01 km^3/yr, the sea +3 m:
+    # inert while the deep-sea supply is small)
+    'margin_wedge': True,
     'margin_wedge_profile': ((25., -2083.), (75., -2827.), (125., -3302.), (175., -3582.), (250., -3948.),
                              (400., -4412.), (600., -4633.), (850., -4761.)),
     'margin_wedge_max_km': 1000., 'margin_wedge_boundary_km': 300., 'margin_wedge_edge_m': 20e3,
@@ -373,6 +394,28 @@ PARAMS = {
     'collapse_thick_m': 45000.,
     'collapse_scale_m': 6000.,
     'collapse_max_factor': 200.,
+    # the thick tail (eighty-fourth pass, journal 109; planet_tectonics.crust_flow): how the crust flows above
+    # kappa_normal. Default 'rey' since 15 Nov (Thick Tail Sweep, sweep-20261114-210918, journal 110; 'fitted'
+    # before). 'fitted' (as built): the collapse term above (crust_kappa_m2_yr, collapse_thick_m,
+    # collapse_scale_m, collapse_max_factor; tuned to Tibet's plateau, fitted). 'channel' / 'sheet': the flow the crust's
+    # rheology gives, in place of those four numbers: a steady geotherm from T and C's L (heat production in the felsic
+    # crust flow_heat_upper_w_m3 and in the lower crust flow_heat_lower_w_m3, Hasterok & Chapman 2011; the LAB at
+    # flow_t_lab_c, the 1,175 C isotherm Hoggard et al. 2020 map as L; conductivities assumed), dislocation creep of wet
+    # quartzite above (Gleason & Tullis 1995, melt-free: A MPa^-n s^-1, n, Q J/mol) and wet anorthite in the lower crust
+    # (Rybacki & Dresen 2000), driven by the isostatic surface slope. 'channel': fixed boundary (zero velocity at the
+    # surface and the Moho); 'sheet': free boundary (the crust spreads from its surface down), Rey et al. 2001's two
+    # modes. 'rey': fixed within flow_pinned_km of active convergence (half of Earth's collisional thickening lies within
+    # 290 km of the boundary: crust_kernels.COLLISION_KERNEL), free elsewhere. flow_kappa_max_m2_yr: numerical ceiling
+    # (today's collapse ceiling; relaxes a 300 km edge in ~0.5 Myr)
+    'crust_flow_rule': 'rey',
+    'flow_heat_upper_w_m3': 1.0e-6, 'flow_heat_lower_w_m3': 0.4e-6, 'flow_k_crust': 2.5, 'flow_k_mantle': 3.0,
+    'flow_t_surface_c': 10., 'flow_t_lab_c': 1175.,
+    'flow_law_upper': (1.1e-4, 4., 223e3), 'flow_law_lower': (10**2.6, 3., 356e3),
+    'flow_kappa_max_m2_yr': 2e5,
+    'flow_pinned_km': 290.,
+    # numerical: edges above flow_kappa_split_m2_yr take their own substeps inside steps of at most flow_split_step_myr
+    # (crust_flow.hot_subcycle; on a bumpy n = 217 state as close to a 10x finer explicit run as the plain explicit step)
+    'flow_kappa_split_m2_yr': 2e3, 'flow_split_step_myr': .1,
     # collapse past the continent edge (seventeenth pass): the collapse part of the crust flow (crust thicker than
     # collapse_thick_m) may also cross the coastline into oceanic nodes of the same plate that are not on a plate
     # boundary, volume-conserving; such nodes become continental crust through the arc rule (arc_to_continent_thick_m).
@@ -500,8 +543,10 @@ PARAMS = {
     # seismic L 97 / 107 / 143 / 158). 'crust': within a distance bin the age quantile is a Gaussian copula of the
     # start's own crust rank and the craton rank, z = rho z_crust + sqrt(1 - rho^2) z_craton, rho Earth's correlation
     # of the normal scores of crust and Hoggard et al. 2020's SL2013sv L in that bin (lithosphere.EARTH_START_RHO,
-    # 0.05 at the edge to 0.37 at 500-800 km, 0.10 beyond 1,000 km); rho 0 is 'distance'. No fitted number
-    'start_lithosphere': 'distance',
+    # 0.05 at the edge to 0.37 at 500-800 km, 0.10 beyond 1,000 km); rho 0 is 'distance'. No fitted number.
+    # Default 'crust' since the L-T Link Sweep (sweep-20261112-203456, eighty-second pass, journal 107: every veto
+    # passes on crust / shorten; scored: land p50 +6 m (sd 171 between seeds), the sea -7 m, dL/dT 0.83 -> 0.76)
+    'start_lithosphere': 'crust',
     # C in the continental arc belt (eighty-first pass, journal 105). 'reset' (as built, journal 78): every belt node
     # (continental, 30-270 km behind a converging trench) is reset to thermal age 0 every step, while margin shortening
     # thickens its crust: young lithosphere under crust > 45 km is 97 km (lamb arm, 0 Myr; 24% of the thick crust,
@@ -511,8 +556,10 @@ PARAMS = {
     # 'shorten': a belt node that margin shortening thickens this step keeps its lithosphere and thickens it by pure
     # shear, L -> L (T + dT) / T (lithosphere.thickened_therm, bounded at the frame's top), as collisions do under
     # collision_lithosphere 'thicken'; belt nodes not shortened are reset by the arc as before. Carried by the plate's
-    # own thermal age (no memory of the belt: the belt is set on world nodes each step)
-    'belt_lithosphere': 'reset',
+    # own thermal age (no memory of the belt: the belt is set on world nodes each step). Default 'shorten' since the
+    # L-T Link Sweep (eighty-second pass, journal 107, by its rule); it acts on ~9% of belt node-steps and leaves the
+    # young lithosphere under crust > 45 km at 97 km (the arc reset's form, open)
+    'belt_lithosphere': 'shorten',
 }
 
 

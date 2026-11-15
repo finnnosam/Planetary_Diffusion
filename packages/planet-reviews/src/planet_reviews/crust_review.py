@@ -49,7 +49,9 @@ LEGACY_DEFAULTS = {'sediment_compaction': False, 'piece_rule': 'shared', 'erosio
 # parameters whose PARAMS default changed after runs that predate the key were saved: a run without the key ran the
 # old behaviour (lithosphere: added 1 Nov, pass 56, as 'none'; 'thermal_age' is PARAMS since pass 69)
 PREDATING = {'lithosphere': 'none', 'rift_speed_cm_yr': 0., 'rift_line': 'voronoi', 'crust_density_rule': 'uniform',
-             'collision_lithosphere': 'reset', 'lith_frame': 'artemieva'}
+             'collision_lithosphere': 'reset', 'lith_frame': 'artemieva', 'start_lithosphere': 'distance',
+             'belt_lithosphere': 'reset', 'ocean_depth_rule': 'gdh1', 'margin_wedge': False,
+             'crust_flow_rule': 'fitted', 'sediment_entrainment': 'bedrock'}
 
 
 def run_params(seed_dir):

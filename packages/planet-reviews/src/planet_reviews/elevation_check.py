@@ -48,7 +48,7 @@ def snapshot_tests(path, g, p):
     rc, rm, rw = p['rho_crust'], p['rho_mantle'], p['rho_water']
     a = g.area
     anom = T-p['ocean_thick_m']
-    own_ocean = -P.gdh1_depth(np.nan_to_num(age))+anom+sed+dyn-sl
+    own_ocean = -P.ocean_depth(np.nan_to_num(age), p)+anom+sed+dyn-sl     # the run's own floor law (ocean_depth_rule)
     d = gl.distance_to(cont, g.nbr, g.dist, 150e3)
     yo = (~cont) & (age < 20) & (anom < 1000) & (sed < 500) & (d <= 100e3)
     # continental column: crust, and with continental_sediment its sediment (rho_sediment), at local Airy, water-loaded

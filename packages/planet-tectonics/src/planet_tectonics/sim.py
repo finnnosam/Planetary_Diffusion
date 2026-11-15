@@ -31,6 +31,7 @@ from planet_grid.sphere_flexure import SphereFlexure
 from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import eclogite_loss, edge_spread
+from planet_tectonics import crust_flow
 from planet_tectonics.isostasy import sediment_column
 from planet_tectonics.lithosphere import stretched_age, thickened_therm
 from planet_tectonics.mantle import Mantle
@@ -118,6 +119,11 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         before = w['thick'].copy()
         th = before
         T = dt*1e6
+        if p['crust_flow_rule'] != 'fitted':             # the measured rheology (crust_flow; journal 109)
+            if p['crust_flow_rule'] not in ('channel', 'sheet', 'rey'):
+                raise ValueError(f"crust_flow_rule {p['crust_flow_rule']!r}: 'fitted', 'channel', 'sheet' or 'rey'")
+            th = crust_flow.flow(self, th, dt)
+            T = 0.
         while T > 0:                                     # nonlinear: substeps follow the current largest diffusivity
             kap = p['crust_kappa_normal_m2_yr']+p['crust_kappa_m2_yr']*np.minimum(
                 np.expm1(np.clip(th-p['collapse_thick_m'], 0, None)/p['collapse_scale_m']), p['collapse_max_factor'])

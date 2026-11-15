@@ -1,6 +1,7 @@
 """Pass 81 (journal 105): the lithosphere joined to its crust. start_lithosphere 'crust' (the start's ages coupled to
 its own crust within each distance bin by Earth's measured rho) and belt_lithosphere 'shorten' (shortened arc-belt
-crust thickens its lithosphere by pure shear instead of the arc's reset); both off by default."""
+crust thickens its lithosphere by pure shear instead of the arc's reset). Both the default since pass 82 (journal 107,
+the L-T Link Sweep)."""
 import numpy as np
 import pytest
 
@@ -10,8 +11,9 @@ from planet_tectonics import lithosphere as lt
 from planet_tectonics import plates as P
 
 
-def test_defaults_off():
-    assert P.PARAMS['start_lithosphere'] == 'distance' and P.PARAMS['belt_lithosphere'] == 'reset'
+def test_defaults_are_the_adopted_options():
+    # adopted in pass 82 (journal 107, L-T Link Sweep sweep-20261112-203456)
+    assert P.PARAMS['start_lithosphere'] == 'crust' and P.PARAMS['belt_lithosphere'] == 'shorten'
 
 
 @pytest.mark.skipif(not DATA.joinpath(*lt.HOGGARD_SL2013SV).exists() or not (DATA/'crust1'/'CNtype1-1.txt').exists(),
