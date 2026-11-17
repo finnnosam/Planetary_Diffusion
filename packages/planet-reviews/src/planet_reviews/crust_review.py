@@ -51,7 +51,8 @@ LEGACY_DEFAULTS = {'sediment_compaction': False, 'piece_rule': 'shared', 'erosio
 PREDATING = {'lithosphere': 'none', 'rift_speed_cm_yr': 0., 'rift_line': 'voronoi', 'crust_density_rule': 'uniform',
              'collision_lithosphere': 'reset', 'lith_frame': 'artemieva', 'start_lithosphere': 'distance',
              'belt_lithosphere': 'reset', 'ocean_depth_rule': 'gdh1', 'margin_wedge': False,
-             'crust_flow_rule': 'fitted', 'sediment_entrainment': 'bedrock'}
+             'crust_flow_rule': 'fitted', 'sediment_entrainment': 'bedrock',
+             'trench_polarity': 'node', 'trench_flux': 'band', 'arc_accretion': False, 'arc_H_ocean_m': 300.}
 
 
 def run_params(seed_dir):

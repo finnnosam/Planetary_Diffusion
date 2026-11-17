@@ -122,16 +122,20 @@ PARAMS = {
     # g_fore, and the segment moves the smaller of the two volumes. No new number
     # Adopted 6 Nov (Breakup History Sweep sweep-20261105-211423, combo-05; journal 88)
     'shortening_match': True,
-    'arc_H_ocean_m': 300., 'arc_d0_km': 150., 'arc_sigma_km': 50.,
+    # arc_H_ocean_m: island-arc addition per m^2 of ocean consumed (under trench_flux 'consumed'): Earth's 30-95
+    # km^3/Myr per km of intra-oceanic arc (Dimalanta et al. 2002) over Bird 2003's intra-oceanic closing rate gives
+    # ~1,000 m (journal 57). 300 m was the old band-law value (it stood beside the band law's 1.7-2.7x over-count of
+    # ocean-arc trench; no measurement). Adopted 16 Nov (Arc Accretion Sweep sweep-20261115-213654, arm D; journal 114)
+    'arc_H_ocean_m': 1000., 'arc_d0_km': 150., 'arc_sigma_km': 50.,
     'arc_to_continent_thick_m': 20000.,
     # B-d (thirty-ninth pass): arc crust docks instead of subducting. With arc_accretion, oceanic crust thicker than
     # ocean_thick_m that a trench consumes hands its excess to the overriding plate's node as volume (as collision
     # volume): all of it where the column is at least arc_buoyant_thick_m (Cloos 1993: island arcs thicker than ~15 km
     # are buoyant enough to collide), else its upper arc_accrete_upper_m (Tetreault & Buiter 2014, Solid Earth 5: "only
     # the upper 2-5 km of arc crust are accreted onto continents through thin-skinned thrusting"); the normal 7 km of
-    # basement subducts. Received on continental crust it is an arc-continent collision (orogeny marked). Default off
-    # until a sweep decides.
-    'arc_accretion': False, 'arc_buoyant_thick_m': 15000., 'arc_accrete_upper_m': 3500.,
+    # basement subducts. Received on continental crust it is an arc-continent collision (orogeny marked).
+    # Adopted 16 Nov (Arc Accretion Sweep sweep-20261115-213654, arm D; journal 114).
+    'arc_accretion': True, 'arc_buoyant_thick_m': 15000., 'arc_accrete_upper_m': 3500.,
     # B-d2 (fortieth pass): what feeds the trench fluxes (continental and island arcs, subduction erosion). 'band': each
     # overriding trench node adds closing rate x H x a Gaussian in trench distance, so the flux follows the node-typed
     # trench, which on the planet's rough boundaries runs 1.2-2.7x the true line (ocean arcs 1.7-2.7x the contour's
@@ -139,14 +143,14 @@ PARAMS = {
     # 'consumed': the oceanic area a trench consumed last step (m^2, at the world node it disappeared under) goes to the
     # nearest overriding trench node of that plate; each term adds area x H, spread over that node's band with its
     # Gaussian, normalized over the band (so a straight trench gets the 'band' law with v = consumed area / length).
-    # Earth's H values are per m of convergence per m of trench, i.e. per m^2 consumed. Default 'band' until a sweep decides.
-    'trench_flux': 'band',
+    # Earth's H values are per m of convergence per m of trench, i.e. per m^2 consumed. Adopted 16 Nov (Arc Accretion Sweep sweep-20261115-213654, arm D; journal 114).
+    'trench_flux': 'consumed',
     # B-d2 (fortieth pass): which side of an ocean-ocean subduction boundary is the trench (downgoing) side. 'node': each
     # node by its own crust age against its neighbour's (as built); the overlap resolution meanwhile consumes crust by one
     # polarity per plate pair (_ocean_polarity), and the two disagree at ~22% of oceanic overriding-typed nodes (seed 1001,
     # -245..-178 Myr): arcs grow on the downgoing plate and slab pull goes to the overriding one there. 'pair': where the
-    # pair overlapped this step, the node follows that polarity; elsewhere the node rule. Default 'node' until a sweep decides.
-    'trench_polarity': 'node',
+    # pair overlapped this step, the node follows that polarity; elsewhere the node rule. Adopted 16 Nov (Arc Accretion Sweep sweep-20261115-213654, arm D; journal 114).
+    'trench_polarity': 'pair',
     # B-d3 (forty-second pass): when a convergent boundary becomes a subduction zone with a slab. 'instant' (as built):
     # every convergence above boundary_min_mm_yr with ocean on one side is a trench with slab pull and an arc from its
     # first step, so the planet has no slow oceanic convergence without a slab (Bird 2003's OCB: 17.4k km, closing p50

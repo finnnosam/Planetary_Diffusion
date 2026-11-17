@@ -944,10 +944,11 @@ def test_start_poles_forces_moves_ocean_plates_toward_the_ring():
 
 
 # ---------------------------------------------------------------- thirty-ninth pass: B-d, island arcs dock
-def test_arc_accretion_is_off_by_default():
-    assert P.PARAMS['arc_accretion'] is False
+def test_arc_accretion_is_on_by_default():
+    # adopted 16 Nov (journal 114) with trench_flux 'consumed', trench_polarity 'pair' and Earth's arc rate per m^2
+    assert P.PARAMS['arc_accretion'] is True
     assert P.PARAMS['arc_buoyant_thick_m'] == 15000. and P.PARAMS['arc_accrete_upper_m'] == 3500.
-    assert P.PARAMS['arc_H_ocean_m'] == 300.
+    assert P.PARAMS['arc_H_ocean_m'] == 1000.
 
 
 def test_docked_arcs_keep_the_ledgers():
@@ -986,8 +987,8 @@ def test_docked_volume_spreads_over_the_arc_band_and_is_conserved():
 
 
 # ---------------------------------------------------------------- fortieth pass: B-d2, trench fluxes from consumed area
-def test_trench_flux_band_is_the_default():
-    assert P.PARAMS['trench_flux'] == 'band'
+def test_trench_flux_consumed_is_the_default():
+    assert P.PARAMS['trench_flux'] == 'consumed'
 
 
 def test_consumed_trench_flux_on_a_straight_trench_is_the_band_law():
@@ -1038,8 +1039,8 @@ def test_consumed_trench_flux_keeps_the_ledgers():
 
 def test_pair_polarity_follows_the_overlap_resolution():
     # trench_polarity 'pair': at ocean-ocean subduction nodes the trench flag is the polarity the overlap resolution used
-    # for that pair this step (the overriding plate's nodes are not trench nodes); 'node' stays the default
-    assert P.PARAMS['trench_polarity'] == 'node'
+    # for that pair this step (the overriding plate's nodes are not trench nodes); 'pair' is the default (16 Nov)
+    assert P.PARAMS['trench_polarity'] == 'pair'
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'trench_polarity': 'pair'})
     checked = 0
@@ -1224,8 +1225,12 @@ def test_torque_law_pulls_toward_the_trench_and_scales_with_the_force():
 
 
 def test_torque_law_keeps_the_ledgers():
+    # pins trench_polarity 'node' (the default until 16 Nov): with 'pair' slab pull goes to the downgoing plate, and the
+    # torque law (built, not adopted) then runs one small plate here to 37 cm/yr at step 23 (journal 114): a defect of
+    # the torque law's force balance, not of the ledgers this test checks
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True, 'force_law': 'torque'})
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True, 'force_law': 'torque',
+                                        'trench_polarity': 'node'})
     v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()
     for _ in range(40):
         sim.step()
