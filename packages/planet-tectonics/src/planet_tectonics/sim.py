@@ -55,6 +55,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self.t = float(t0)
         self.t_start = float(t0)                         # K: split_rule 'earth' maps the time since the start onto Earth's
         self.rng = np.random.default_rng(seed)
+        self.seed = seed                                 # the start's sediment draws from its own stream (seed, 9)
         self.bound = graph.diffusion_bound()
         self.h_min = graph.spacing_min()
         # loads are passed as mass per area (kg/m^2): subaerial loads displace mantle against air (rho_m), submarine

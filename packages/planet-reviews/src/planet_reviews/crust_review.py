@@ -52,7 +52,7 @@ PREDATING = {'lithosphere': 'none', 'rift_speed_cm_yr': 0., 'rift_line': 'vorono
              'collision_lithosphere': 'reset', 'lith_frame': 'artemieva', 'start_lithosphere': 'distance',
              'belt_lithosphere': 'reset', 'ocean_depth_rule': 'gdh1', 'margin_wedge': False,
              'crust_flow_rule': 'fitted', 'sediment_entrainment': 'bedrock',
-             'trench_polarity': 'node', 'trench_flux': 'band', 'arc_accretion': False, 'arc_H_ocean_m': 300.}
+             'trench_polarity': 'node', 'trench_flux': 'band', 'arc_accretion': False, 'arc_H_ocean_m': 300., 'start_sediment': 'none'}
 
 
 def run_params(seed_dir):

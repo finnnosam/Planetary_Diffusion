@@ -436,6 +436,18 @@ PARAMS = {
     # 32.9 / 38.2 / 43.0 km), keeping its spatial structure (thicker near old sutures); the thinned rim at the coast
     # as before. Default 'earth' since the interior sweep (sweep-20261024-193840, twenty-fifth pass; 'assumed' before)
     'start_crust': 'earth',
+    # sediment on the start (eighty-ninth pass, journal 115). 'none' (as before): the supercontinent and its ocean
+    # carry no sediment, while Earth's continents hold 320 Mkm^3 (bulk) and its floor ~190 (journal 108 sec. 3).
+    # 'continent': the supercontinent carries the cover of the same Earth domain its crust is mapped onto
+    # (EARTH_STABLE_SED_BULK_M: CRUST1.0 sedthk on Precambrian and platform crust > 500 km from Bird's boundaries,
+    # p25 / 50 / 75 / 90 = 100 / 600 / 1,810 / 3,800 m bulk, mean 1,331 m), placed by a Gaussian copula: Earth's
+    # rank correlation with the crystalline crust (EARTH_STABLE_SED_RHO -0.31, thin crust under thick cover) and for the
+    # rest a random field whose correlation with distance is Earth's cover's on that domain (EARTH_STABLE_SED_FIELD:
+    # 0.84 / 0.70 / 0.50 / 0.34 / 0.21 at 0-100 / -200 / -400 / -600 / -1,000 km), drawn from its own stream (seed, 9),
+    # so the start's crust, plates and poles are unchanged; set before the rim is thinned, and turned into solid
+    # thickness by the continental compaction law. 'all': the same, and the start's ocean floor carries the pelagic
+    # rain of its own age (pelagic_m_myr x age). No fitted number
+    'start_sediment': 'none',
     # the start's plate geometry (thirty-eighth pass). 'voronoi' (as built): plates are Voronoi cells of the whole
     # sphere, n_cont_plates seeded inside the supercontinent, so its plates reach into the ocean and its coast is a
     # passive margin inside plates (continental-side trench at -250 Myr 0.2-0.7k km); a closed sphere consumes what it
@@ -584,3 +596,11 @@ EARTH_STABLE_CRUST_Q = (.01, .05, .10, .15, .20, .25, .30, .35, .40, .45, .50, .
 EARTH_STABLE_CRUST_Q = (.01, .05, .10, .15, .20, .25, .30, .35, .40, .45, .50, .55, .60, .65, .70, .75, .80, .85, .90, .95, .99)
 EARTH_STABLE_CRUST_KM = (25.65, 30.54, 32.91, 34.36, 35.2, 35.9, 36.43, 36.9, 37.19, 37.7, 38.17, 38.7, 38.99, 39.44,
                          39.99, 40.51, 41.02, 42.0, 43.0, 44.9, 48.79)
+# Earth's sediment on that domain (start_sediment; eighty-ninth pass, journal 115; tests/test_start_sediment.py
+# recomputes them): CRUST1.0 sedthk (bulk, m) at the quantiles EARTH_STABLE_CRUST_Q; the area-weighted correlation of
+# the normal scores of sediment and crystalline crust; the random field (lmax, slope) whose correlation with distance
+# matches the cover's (normal scores, 4,000 nodes; sum of squared misfit over seven distance bins 0.017)
+EARTH_STABLE_SED_BULK_M = (0., 0., 0., 10., 10., 100., 200., 200., 300., 410., 600., 700., 900., 1000., 1500., 1810., 2300.,
+                           3000., 3800., 5100., 9000.)
+EARTH_STABLE_SED_RHO = -0.309
+EARTH_STABLE_SED_FIELD = (100, 1.5)

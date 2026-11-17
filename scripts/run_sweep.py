@@ -31,7 +31,7 @@ PLANET_TESTS = ('test_shelf', 'test_plates', 'test_sphere_graph', 'test_graph_la
                 'test_margin_wedge', 'test_collision_spread', 'test_breakup_match', 'test_start_breakup',
                 'test_init_site', 'test_progress', 'test_rift_speed', 'test_rift_line', 'test_pelagic', 'test_deep_crust',
                 'test_collision_lithosphere', 'test_lith_frame', 'test_lt_link', 'test_ocean_depth',
-                'test_crust_flow', 'test_sediment_cover')
+                'test_crust_flow', 'test_sediment_cover', 'test_start_sediment')
 # (name, module or script, arguments; {SW} sweep folder, {CTL} control folder, {CTLNAME} its name, {REF} identity
 # reference, {OUT} the review's json path): as the sweep .cmd files ran them since pass 67
 REVIEWS = (

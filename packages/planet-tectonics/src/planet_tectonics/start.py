@@ -7,8 +7,33 @@ from planet_landscape import graph_landscape as gl
 from planet_tectonics.crust_kernels import quantile_map
 from planet_tectonics.lithosphere import start_ages, start_ages_crust
 from planet_tectonics.graphops import components, nearest_label
-from planet_tectonics.params import EARTH_STABLE_CRUST_KM, RIDGE
+from planet_tectonics.isostasy import _solid_thickness
+from planet_tectonics.params import (EARTH_STABLE_CRUST_KM, EARTH_STABLE_CRUST_Q, EARTH_STABLE_SED_BULK_M,
+                                     EARTH_STABLE_SED_FIELD, EARTH_STABLE_SED_RHO, RIDGE)
 from planet_tectonics.plate import Plate
+
+
+def _nscore(x, w):
+    """Normal scores of x by area-weighted mid-rank (ties broken by order)."""
+    from statistics import NormalDist
+    o = np.argsort(x, kind='stable'); cw = np.cumsum(w[o]); u = np.empty(x.size)
+    u[o] = (cw-.5*w[o])/cw[-1]
+    inv = NormalDist().inv_cdf
+    return np.array([inv(v) for v in np.clip(u, 1e-6, 1-1e-6)])
+
+
+def start_sediment(crust, area, xyz, cont, rng, p):
+    """start_sediment: solid sediment thickness (m) on the start's continental nodes (crust, area: theirs; xyz, cont:
+    the whole graph's). Earth's stable cover (EARTH_STABLE_SED_BULK_M) by area-weighted rank of a Gaussian copula,
+    rho z(crust) + sqrt(1 - rho^2) z(field), with Earth's rho and Earth's spatial correlation (PARAMS text)."""
+    lmax, slope = EARTH_STABLE_SED_FIELD
+    f = fields.random_field(xyz, lmax, slope, rng)[cont]
+    rho = EARTH_STABLE_SED_RHO
+    z = rho*_nscore(crust, area)+np.sqrt(1.-rho**2)*_nscore(f, area)
+    bulk = quantile_map(z, area, q=EARTH_STABLE_CRUST_Q, target=EARTH_STABLE_SED_BULK_M)
+    if not p['sediment_compaction']:
+        return bulk
+    return np.maximum(_solid_thickness(bulk, p['phi0_continent'], p['compaction_c_continent_per_km']), 0.)
 
 
 class StartMixin:
@@ -55,6 +80,12 @@ class StartMixin:
             thick[cont] = quantile_map(thick[cont], g.area[cont], target=tuple(1e3*k for k in EARTH_STABLE_CRUST_KM))
         elif p['start_crust'] != 'assumed':
             raise ValueError(f"start_crust {p['start_crust']!r}: 'assumed' or 'earth'")
+        rule = p['start_sediment']
+        if rule not in ('none', 'continent', 'all'):
+            raise ValueError(f"start_sediment {rule!r}: 'none', 'continent' or 'all'")
+        sed0 = np.zeros(g.size)
+        if rule != 'none':                               # Earth's stable cover, joined to the crust before the rim
+            sed0[cont] = start_sediment(thick[cont], g.area[cont], xyz, cont, np.random.default_rng([self.seed, 9]), p)
         thick = thick-(p['cont_ref_thick_m']-28000.)*np.clip(1-d_coast/200e3, 0, 1)   # thinned rim at the margins
         born_c = self.t-craton_age[np.clip(clab, 0, None)]
         # old orogen age: from the two cratons it welds (nearest other-craton label across the suture)
@@ -105,6 +136,8 @@ class StartMixin:
         ridge = (~cont) & self._label_boundary(~cont, plab)
         d_ridge = gl.distance_to(ridge, g.nbr, g.dist)
         age_o = np.clip(d_ridge/30e3*(1+.2*fields.random_field(xyz, 16, 2., rng)), 0, 180)
+        if rule == 'all':                                # the floor's pelagic rain over its own age
+            sed0[~cont] = p['pelagic_m_myr']*age_o[~cont]
 
         for k in range(n_plates):
             own = plab == k
@@ -126,6 +159,7 @@ class StartMixin:
             pl.born[:] = np.where(cont, born_c, self.t-age_o)
             pl.orog[:] = np.where(cont, orog_c, np.nan)
             pl.therm[:] = np.where(cont, therm_c, np.nan)
+            pl.sed[:] = sed0
 
 
     def _start_poles_from_forces(self):

@@ -9,7 +9,7 @@
 """
 from planet_grid import fields  # re-exported: scripts use plates.fields
 
-from planet_tectonics.params import PARAMS, RIDGE, SUBDUCTION, COLLISION, TRANSFORM, CONVERGENT, EARTH_STABLE_CRUST_Q, EARTH_STABLE_CRUST_KM
+from planet_tectonics.params import PARAMS, RIDGE, SUBDUCTION, COLLISION, TRANSFORM, CONVERGENT, EARTH_STABLE_CRUST_Q, EARTH_STABLE_CRUST_KM, EARTH_STABLE_SED_BULK_M, EARTH_STABLE_SED_RHO, EARTH_STABLE_SED_FIELD
 from planet_tectonics.isostasy import gdh1_depth, ocean_depth, bulk_thickness, sediment_column, isostatic_elevation, sea_level_for_volume
 from planet_tectonics.graphops import nearest_label, components, plate_holes
 from planet_tectonics.crust_kernels import quantile_map, margin_shortening, edge_spread, _zone_dijkstra, rift_pure_shear, _pure_shear_apply, spread_to_band, trench_flux_consumed
@@ -17,4 +17,4 @@ from planet_tectonics.boundaries import classify_boundaries, classify_boundaries
 from planet_tectonics.plate import Plate
 from planet_tectonics.sim import PlateSim
 
-__all__ = ["fields", "PARAMS", "RIDGE", "SUBDUCTION", "COLLISION", "TRANSFORM", "CONVERGENT", "EARTH_STABLE_CRUST_Q", "EARTH_STABLE_CRUST_KM", "gdh1_depth", "ocean_depth", "bulk_thickness", "sediment_column", "isostatic_elevation", "sea_level_for_volume", "nearest_label", "components", "plate_holes", "quantile_map", "margin_shortening", "edge_spread", "_zone_dijkstra", "rift_pure_shear", "_pure_shear_apply", "spread_to_band", "trench_flux_consumed", "classify_boundaries", "classify_boundaries_ring", "Plate", "PlateSim"]
+__all__ = ["fields", "PARAMS", "RIDGE", "SUBDUCTION", "COLLISION", "TRANSFORM", "CONVERGENT", "EARTH_STABLE_CRUST_Q", "EARTH_STABLE_CRUST_KM", "EARTH_STABLE_SED_BULK_M", "EARTH_STABLE_SED_RHO", "EARTH_STABLE_SED_FIELD", "gdh1_depth", "ocean_depth", "bulk_thickness", "sediment_column", "isostatic_elevation", "sea_level_for_volume", "nearest_label", "components", "plate_holes", "quantile_map", "margin_shortening", "edge_spread", "_zone_dijkstra", "rift_pure_shear", "_pure_shear_apply", "spread_to_band", "trench_flux_consumed", "classify_boundaries", "classify_boundaries_ring", "Plate", "PlateSim"]
