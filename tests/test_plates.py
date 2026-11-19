@@ -289,7 +289,8 @@ def _strip_setup(flag):
     g = CubeSphere(217)
     # lithosphere 'none': the column under test is the crust's Airy column (C, PARAMS since pass 69, adds its own term,
     # checked in test_lithosphere)
-    sim = P.PlateSim(g, seed=1, params={'water_volume_km3': None, 'mantle': False, 'thinning_local_isostasy': flag,
+    # a bare start (start_sediment 'none', default 'all' since pass 90): the strip's depth is read against the bare floor
+    sim = P.PlateSim(g, seed=1, params={'water_volume_km3': None, 'mantle': False, 'thinning_local_isostasy': flag, 'start_sediment': 'none',
                                         'lithosphere': 'none'})
     w, p = sim.world, sim.p
     d_ocean = gl.distance_to(~w['cont'], g.nbr, g.dist, 300e3)

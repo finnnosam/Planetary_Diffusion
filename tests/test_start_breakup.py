@@ -66,6 +66,12 @@ def test_the_recorder_is_output_only_and_accounts_for_every_passive_node():
     assert ended >= 0 and np.isfinite(ended)
     r = pool([('seed7', s)])
     assert r is not None and r['passive_km'] >= 0 and abs(sum(r['fates'].values())-(1 if ended > 0 else 0)) < 1e-9
+    # pass 90: the stock and the ends are booked by birth type (start / rifted / converted), and the split adds up
+    from planet_reviews.passive_survival import BIRTHS
+    for bn in s['bins']:
+        assert abs(sum(bn[f'tracked_{c}_km'] for c in BIRTHS)-bn['tracked_km']) < 1e-6
+        assert abs(sum(bn[f'end_{c}_birth_km'] for c in BIRTHS)-sum(bn[f'end_{f}_km'] for f in FATES)) < 1e-6
+    assert r['by_birth'] is not None and set(r['by_birth']) == set(BIRTHS)
 
 
 def test_a_still_planet_keeps_its_passive_margins():

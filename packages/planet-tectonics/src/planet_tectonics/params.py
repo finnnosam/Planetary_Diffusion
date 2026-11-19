@@ -446,8 +446,10 @@ PARAMS = {
     # 0.84 / 0.70 / 0.50 / 0.34 / 0.21 at 0-100 / -200 / -400 / -600 / -1,000 km), drawn from its own stream (seed, 9),
     # so the start's crust, plates and poles are unchanged; set before the rim is thinned, and turned into solid
     # thickness by the continental compaction law. 'all': the same, and the start's ocean floor carries the pelagic
-    # rain of its own age (pelagic_m_myr x age). No fitted number
-    'start_sediment': 'none',
+    # rain of its own age (pelagic_m_myr x age). No fitted number. 'all' adopted 17 Nov (ninetieth pass, journal 116:
+    # the Start Sediment Sweep, sweep-20261117-195758; every veto passes; land p50 503 -> 456 m, the continents' share
+    # under the datum 0.34 -> 0.31, sediment on land above the sea 88 -> 107 Mkm^3 against Earth's 176)
+    'start_sediment': 'all',
     # the start's plate geometry (thirty-eighth pass). 'voronoi' (as built): plates are Voronoi cells of the whole
     # sphere, n_cont_plates seeded inside the supercontinent, so its plates reach into the ocean and its coast is a
     # passive margin inside plates (continental-side trench at -250 Myr 0.2-0.7k km); a closed sphere consumes what it

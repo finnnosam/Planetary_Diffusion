@@ -74,7 +74,8 @@ def test_isostatic_elevation_and_the_surface_follow_the_rule():
         p = {**P.PARAMS, 'ocean_depth_rule': rule}
         assert np.allclose(P.isostatic_elevation(cont, thick, age, p), -P.ocean_depth(age, p))
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'threads': 1})
+    # a bare start (start_sediment 'none'; default 'all' since pass 90): the plain floor read against the law
+    sim = P.PlateSim(g, seed=3, params={'threads': 1, 'start_sediment': 'none'})
     for _ in range(3):
         sim.step()
     w = sim.world

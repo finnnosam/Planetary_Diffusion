@@ -21,6 +21,10 @@ ended, by what is at the landing node after the step (boundary types within 300 
 Passive-edge nodes no survivor reached are births, by the oldest ocean floor beside them: < 25 Myr 'rifted' (the
 ridge has just moved 300 km away), else 'converted' (a boundary nearby stopped or moved off: an active margin turned
 passive). Nodes passive at the start carry birth = the start (their age is unknown: 'start' cohort).
+Since the ninetieth pass (journal 116) every tracked node also carries its birth type (start / rifted / converted;
+with its birth, the oldest wins), and the stock and the ends are booked by it: the lifespan of rifted births is the
+one Bradley's margins measure (since island arcs dock, journal 114 sec. 4, most converted births are arc-terrane
+edges). Records written before it have no split (`by_birth` None).
 
 Earth: Bradley (2008, Earth-Sci. Rev. 91, 1-26): 76 ancient passive margins have a mean lifespan of 181 Myr (130 Myr
 for those of Permian to Neogene age); today's have a mean age of 104 Myr (maximum 180). In a steady state, mean
@@ -43,6 +47,8 @@ FATES = ('subduction', 'collision', 'ridge', 'transform', 'closed', 'closed_coll
 TYPE_NAME = {RIDGE: 'ridge', SUBDUCTION: 'subduction', COLLISION: 'collision', TRANSFORM: 'transform'}
 AGE_EDGES = (0., 5., 25., 50., 100., 150., 200., np.inf)       # lifespan at death, Myr
 RIFTED_MYR = 25.
+BIRTHS = ('start', 'rifted', 'converted')                        # birth type codes 0, 1, 2 (NO_TYPE: not tracked)
+NO_TYPE = 9
 EARTH_LIFESPAN_MYR = (130., 181.)                                # Bradley 2008: Permian-Neogene / all ancient margins
 EARTH_PASSIVE_KM = 173.1e3                                       # margin_width at 46 km (journal 85)
 
@@ -69,7 +75,7 @@ class PassiveRecorder:
         self.g = g
         self.sp_km = float(np.sqrt(g.area.mean()))/1e3
         self.bins = {}
-        self.prev = None                                   # (positions, birth, start cohort) of last Myr's passive nodes
+        self.prev = None                                   # (positions, birth, start cohort, birth type) of last Myr's passive nodes
 
     def _bin(self, t):
         k = float(np.floor(t/BIN_MYR)*BIN_MYR)
@@ -77,7 +83,10 @@ class PassiveRecorder:
             self.bins[k] = {'t0_myr': k, 'steps': 0, 'passive_km': 0., 'tracked_km': 0., 'births_rifted_km': 0., 'births_converted_km': 0.,
                             **{f'end_{f}_km': 0. for f in FATES},
                             **{f'end_{f}_lasting_km': 0. for f in FATES},
-                            'end_by_age_km': [0.]*(len(AGE_EDGES)-1), 'end_age_sum_km_myr': 0., 'end_start_cohort_km': 0.}
+                            'end_by_age_km': [0.]*(len(AGE_EDGES)-1), 'end_age_sum_km_myr': 0., 'end_start_cohort_km': 0.,
+                            **{f'tracked_{c}_km': 0. for c in BIRTHS},
+                            **{f'end_{c}_birth_km': 0. for c in BIRTHS},
+                            **{f'end_{c}_birth_lasting_km': 0. for c in BIRTHS}}
         return self.bins[k]
 
     def update(self, sim, st):
@@ -92,8 +101,9 @@ class PassiveRecorder:
         birth = np.full(g.size, np.inf)
         start = np.zeros(g.size, bool)
         reached = np.zeros(g.size, bool)
+        btype = np.full(g.size, NO_TYPE, np.int8)
         if self.prev is not None:
-            x, b0, s0 = self.prev
+            x, b0, s0, c0 = self.prev
             j = fields.nearest_nodes(g, x)
             hood = np.concatenate([j[:, None], np.where(ok[j], nb[j], j[:, None])], 1)    # landing node + ring
             keep_ok = edge & (dmin > KEEP_KM*1e3)
@@ -103,6 +113,11 @@ class PassiveRecorder:
             hst = np.repeat(s0[alive], hood.shape[1])
             keep = keep_ok[hs]
             np.minimum.at(birth, hs[keep], hb[keep])
+            # the birth type goes with the oldest birth (ties: the lowest code)
+            hc = np.repeat(c0[alive], hood.shape[1])
+            win = np.zeros(hs.size, bool)
+            win[keep] = hb[keep] == birth[hs[keep]]
+            np.minimum.at(btype, hs[win], hc[win])
             reached[hs[keep]] = True
             np.logical_or.at(start, hs[keep], hst[keep])
             dead = ~alive
@@ -128,18 +143,28 @@ class PassiveRecorder:
             b['end_by_age_km'] = [u+float(v)*self.sp_km for u, v in zip(b['end_by_age_km'], h)]
             b['end_age_sum_km_myr'] += float(age[fresh].sum())*self.sp_km
             b['end_start_cohort_km'] += float((~fresh).sum())*self.sp_km
+            cd = c0[dead]
+            for code, c in enumerate(BIRTHS):
+                b[f'end_{c}_birth_km'] += float((cd == code).sum())*self.sp_km
+                b[f'end_{c}_birth_lasting_km'] += float(((cd == code) & lasting).sum())*self.sp_km
         birth = np.where(pas | reached, birth, np.inf)
+        btype = np.where(pas | reached, btype, NO_TYPE).astype(np.int8)
         new = pas & ~reached
         if self.prev is not None and new.any():
             oage = np.where(cont, -np.inf, np.nan_to_num(np.asarray(st['ocean_age_myr'], np.float64), nan=-np.inf))
             nage = np.where(ok, oage[nbc], -np.inf).max(1)[new]
             b['births_rifted_km'] += float((nage < RIFTED_MYR).sum())*self.sp_km
             b['births_converted_km'] += float((nage >= RIFTED_MYR).sum())*self.sp_km
+            btype[new] = np.where(nage < RIFTED_MYR, 1, 2)
+        elif new.any():
+            btype[new] = 0
         birth[new] = sim.t
         start[new] = self.prev is None
         # carry this Myr's passive nodes with their plates over the next step
         I = np.flatnonzero(pas | (reached & np.isfinite(birth)))   # passive, and kept by the hysteresis
         b['tracked_km'] += float(I.size)*self.sp_km
+        for code, c in enumerate(BIRTHS):
+            b[f'tracked_{c}_km'] += float((btype[I] == code).sum())*self.sp_km
         x = g.xyz[I].copy()
         rot = {pl.id: fields.rotation(pl.axis, pl.speed*1e-2*sim.p['dt_myr']*1e6/g.radius) for pl in sim.plates}
         own = sim.owner[I]
@@ -147,7 +172,7 @@ class PassiveRecorder:
             if pid in rot:
                 m = own == pid
                 x[m] = x[m]@rot[pid].T
-        self.prev = (x, birth[I], start[I])
+        self.prev = (x, birth[I], start[I], btype[I])
 
     def summary(self):
         return {'bin_myr': BIN_MYR, 'node_km': self.sp_km, 'age_edges_myr': [float(a) for a in AGE_EDGES],
@@ -328,6 +353,17 @@ def pool(records, t_from=-1e9, t_to=1e9):
     out['tracked_km'] = tot.get('tracked_km', tot['passive_km'])/steps
     out['lifespan_myr'] = out['tracked_km']/max(out['ended_km_myr'], 1e-9)
     out['durable_lifespan_myr'] = out['tracked_km']/max(out['durable_end_km_myr'], 1e-9)
+    # by birth type (records since the ninetieth pass; older ones have no split)
+    out['by_birth'] = None
+    if all(f'tracked_{c}_km' in tot for c in BIRTHS):
+        out['by_birth'] = {}
+        for c in BIRTHS:
+            tr = tot[f'tracked_{c}_km']/steps
+            e = tot[f'end_{c}_birth_km']/n/myr
+            el = tot[f'end_{c}_birth_lasting_km']/n/myr
+            out['by_birth'][c] = {'tracked_km': tr, 'ended_km_myr': e, 'lasting_end_km_myr': el,
+                                  'lifespan_myr': tr/e if e > 0 else float('inf'),
+                                  'durable_lifespan_myr': tr/el if el > 0 else float('inf')}
     return out
 
 
@@ -341,7 +377,10 @@ def fmt(name, r):
             f"{r['mean_age_at_end_myr']:4.0f} Myr\n      ends: " + ', '.join(f'{k} {v:.2f}' for k, v in f.items())
             + '\n      ends lasting >= 5 Myr (and the start cohort): ' + ', '.join(f'{k} {v:.2f}' for k, v in r['lasting_fates'].items())
             + '\n      age at end ' + ' / '.join(f'{a:.0f}-{b:.0f}' if np.isfinite(b) else f'{a:.0f}+' for a, b in zip(AGE_EDGES[:-1], AGE_EDGES[1:]))
-            + ' Myr: ' + ' / '.join(f'{v:.2f}' for v in r['end_by_age_share']))
+            + ' Myr: ' + ' / '.join(f'{v:.2f}' for v in r['end_by_age_share'])
+            + ('' if not r.get('by_birth') else '\n      by birth type (stock / ends per Myr / lifespan, lasting ends): ' + '; '.join(
+                f"{c} {v['tracked_km']/1e3:.1f}k km / {v['ended_km_myr']:.0f} / {v['lifespan_myr']:.0f} Myr ({v['durable_lifespan_myr']:.0f})"
+                for c, v in r['by_birth'].items())))
 
 
 def main(argv=None):

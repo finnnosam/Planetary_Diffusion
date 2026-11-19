@@ -9,8 +9,9 @@ from planet_tectonics import plates as P
 def _sim(rate, seed=3):
     g = CubeSphere(48)
     # plumbing size; no erosion, so the ocean floor's only source is the pelagic rain; sea level held at the datum
+    # a bare start (start_sediment 'none'; 'all', the default since pass 90, puts the start floor's own rain on it)
     return P.PlateSim(g, seed=seed, params={'erosion': False, 'water_volume_km3': None, 'pelagic_m_myr': rate,
-                                            'threads': 1})
+                                            'threads': 1, 'start_sediment': 'none'})
 
 
 def test_default_is_earths_rate():

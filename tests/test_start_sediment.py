@@ -12,15 +12,16 @@ from planet_tectonics.isostasy import sediment_column
 from planet_tectonics.start import _nscore
 
 
-def test_start_sediment_is_off_by_default():
-    assert P.PARAMS['start_sediment'] == 'none'
-    sim = P.PlateSim(CubeSphere(48), seed=3, params={'erosion': False})
+def test_start_sediment_all_is_the_default():
+    # adopted 17 Nov (ninetieth pass, journal 116); 'none' leaves the start bare
+    assert P.PARAMS['start_sediment'] == 'all'
+    sim = P.PlateSim(CubeSphere(48), seed=3, params={'erosion': False, 'start_sediment': 'none'})
     assert not sim.world['sed'].any()
 
 
 def test_start_sediment_leaves_the_rest_of_the_start_unchanged():
     g = CubeSphere(48)
-    a = P.PlateSim(g, seed=3, params={'threads': 1})
+    a = P.PlateSim(g, seed=3, params={'threads': 1, 'start_sediment': 'none'})
     b = P.PlateSim(g, seed=3, params={'threads': 1, 'start_sediment': 'all'})
     for k in ('cont', 'thick', 'born', 'orog', 'therm'):
         assert np.array_equal(a.world[k], b.world[k], equal_nan=True), k
