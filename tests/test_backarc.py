@@ -1,5 +1,6 @@
 """backarc_extension (ninety-second pass, journal 119): the extensional branch of the upper-plate rate u - rollback.
-Volume moves from the back-arc band to the node the arc-forearc block steps onto; the ledgers close; off by default."""
+Volume moves from the back-arc band to the node the arc-forearc block steps onto; the ledgers close; on by default
+since pass 93 (journal 122), off books nothing."""
 import numpy as np
 
 from planet_grid.sphere_graph import CubeSphere
@@ -8,9 +9,9 @@ from planet_tectonics import plates as P
 BASE = {'water_volume_km3': None, 'start_sediment': 'none'}
 
 
-def test_backarc_is_off_by_default_and_books_nothing():
-    assert P.PARAMS['backarc_extension'] is False
-    sim = P.PlateSim(CubeSphere(48), seed=3, params=BASE)
+def test_backarc_default_and_off_books_nothing():
+    assert P.PARAMS['backarc_extension'] is True and P.PARAMS['rollback_mm_yr'] == 9.
+    sim = P.PlateSim(CubeSphere(48), seed=3, params={**BASE, 'backarc_extension': False})
     for _ in range(6):
         sim.step()
     assert 'backarc' not in sim.ledger and sim.erosion_totals.get('backarc_steps', 0) == 0
@@ -76,4 +77,4 @@ def test_lallemand_rollback_follows_the_subducting_plate():
     vs = np.mean([-np.dot(np.cross(om[int(sim.owner[j])], x)*g.radius, n[i]) for j in js])
     assert abs(r[i]-(14e-3-.24*vs)) < 1e-12
     sim.p['rollback_rule'] = 'fixed'
-    assert sim._rollback(idx, nb, other, n) == 17e-3
+    assert sim._rollback(idx, nb, other, n) == sim.p['rollback_mm_yr']*1e-3

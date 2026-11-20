@@ -112,7 +112,11 @@ PARAMS = {
     'subduction_H_cont_m': 2500., 'subduction_d0_cont_km': 150., 'subduction_sigma_cont_km': 60.,
     # Every sweep passed True from 23 Oct (Earth's margin budget, thirteenth and sixteenth passes); default since 29 Oct
     # (before: False, with subduction_H_cont_m as new crust)
-    'margin_shortening': True, 'rollback_mm_yr': 17., 'arc_H_cont_m': 750.,
+    # rollback_mm_yr 9 since 19 Nov (pass 93, journal 122; Back Arc Sweep sweep-20261119-182758, adopted with
+    # backarc_extension): Earth's mean trench rollback in the SB04 frame, 0.9 +- 3.0 cm/yr over 166 transects (Lallemand
+    # et al. 2008 Table 2); its regime split on the planet's continental overriding trench lay nearest Earth's. Before:
+    # 17 (Oncken et al. 2006's Central Andes)
+    'margin_shortening': True, 'rollback_mm_yr': 9., 'arc_H_cont_m': 750.,
     'foreland_d0_km': 350., 'foreland_sigma_km': 100.,
     # backarc_extension (ninety-second pass, journal 119): the extensional branch of the same kinematic identity
     # (Heuret & Lallemand 2005: upper-plate deformation = its trenchward speed - the trench's rollback; Lallemand et al.
@@ -126,8 +130,10 @@ PARAMS = {
     # spreading would take over), its lithosphere stretched with it (lithosphere.stretched_age). Band weight by
     # distance from the trench: Earth's excess thin crust (CRUST1.0 total 20-30 km over its share beyond 1,500 km of
     # subduction) by distance to Bird 2003's subduction steps, 200-1,500 km in 100 km bins (BACKARC_PROFILE_*; pass 92,
-    # precheck-p92-backarc/thin_by_trench.py: excess-weighted mean 745 km, sd 340). No fitted number. Default off
-    'backarc_extension': False,
+    # precheck-p92-backarc/thin_by_trench.py: excess-weighted mean 745 km, sd 340). No fitted number. Default since
+    # 19 Nov (pass 93, journal 122: Back Arc Sweep, every veto passed; with rollback_mm_yr 9 the regime split nearest
+    # Earth's); before: False
+    'backarc_extension': True,
     # rollback_rule (ninety-second pass, journal 119): the trench's rollback in u - rollback, for both branches.
     # 'fixed': rollback_mm_yr everywhere (Oncken et al. 2006's Central Andes, 17 mm/yr). 'lallemand': Lallemand et
     # al. 2008's neutral-arc relation in the SB04 hotspot frame (Steinberger et al. 2004; the frame tied to the deep
