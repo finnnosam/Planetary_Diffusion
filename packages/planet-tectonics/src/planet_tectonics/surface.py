@@ -136,6 +136,7 @@ class SurfaceMixin:
         (rho_mantle - rho_water), so a basin filled to sea level holds ~2.5x its depth of sediment, as on Earth.
         Long wavelengths reduce to Airy isostasy; valleys and single belts are partly held up by the plate.
         A thinned continental column below sea level is water-loaded (its own Airy depth only, not its neighbours').
+        water_load_rule 'column': only where the whole local column (crust, root, sediment) stands below sea level.
         With thinning_local_isostasy, continental crust thinner than cont_ref_thick_m stands at that local Airy depth
         (plus the deflection from other loads) and is no negative load on the plate. With continental_sediment, the
         sediment on continental crust adds its thickness and loads the plate (rho_sediment; against water where its
@@ -170,14 +171,22 @@ class SurfaceMixin:
         cs = np.where(cont, sh, 0.) if p['continental_sediment'] else zero
         cs_dry = np.where(cont, sm_dry, 0.) if p['continental_sediment'] else zero
         cs_wet = np.where(cont, sm_wet, 0.) if p['continental_sediment'] else zero
-        c_dry = cont & (np.where(own_airy < 0, own_airy*rm/(rm-rw), own_airy)+cs > 0)
+        rule = p.get('water_load_rule', 'parts')
+        if rule == 'column':     # one decision: the column's air-loaded local level against sea level (1-D Airy)
+            wet_col = cont & (own_airy+cs-cs_dry/rm < 0)
+            c_dry = cont & ~wet_col
+        elif rule == 'parts':    # as built: the crust by its own depth, the sediment by its top on the crust's wet level
+            c_dry = cont & (np.where(own_airy < 0, own_airy*rm/(rm-rw), own_airy)+cs > 0)
+            wet_col = cont
+        else:
+            raise ValueError(f"water_load_rule {rule!r}: 'parts' or 'column'")
         dry = np.where(cont, rc*load+np.where(c_dry, cs_dry, 0.), np.where(above, rc*anomaly+sm_dry, 0.))
         if dense is not None:
             dry = dry+dense
         wet = np.where(cont, np.where(c_dry, 0., cs_wet), np.where(above, 0., (rc-rw)*anomaly+sm_wet))
         defl = self.flex_dry.deflection(dry)+self.flex_wet.deflection(wet)
         z = np.where(cont, p['cont_ref_elev_m']+load+thin*(rm-rc)/rm+cs, floor+anomaly+sh)-defl
-        z = z+np.where(cont & (own_airy < 0), own_airy*rw/(rm-rw), 0.)
+        z = z+np.where(wet_col & (own_airy < 0), own_airy*rw/(rm-rw), 0.)
         if p['lithosphere'] == 'thermal_age':            # C: the mantle lithosphere's thermal state, locally compensated
             dl = np.where(cont, elevation_term(self.t-w['therm'], p), 0.)
             z = z+np.where(z+dl+self.dyn < s0, dl*rm/(rm-rw), dl)   # water-loaded where the surface is under the sea

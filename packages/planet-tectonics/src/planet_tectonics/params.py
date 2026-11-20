@@ -45,6 +45,14 @@ PARAMS = {
     # stay flexural. On since 24 Oct (sweep-20261024-114002: passes the elevation tests on 3 seeds, 0% of young
     # coastal ocean above sea level vs 31-33% without)
     'thinning_local_isostasy': True,
+    # water_load_rule (pass 94, journal 124): how a continental column's water load is decided. 'parts' (as built): three
+    # decisions per node, the crust's own Airy depth water-loaded wherever it lies below sea level, the sediment dry
+    # where its bulk top stands above the crust's water-loaded level, C by the final surface; on sediment-filled thinned
+    # crust the crust is water-loaded under a dry sediment load (no water in the column): -306 m on 30-35 km crust, -200
+    # m on the continent's mean (precheck-p94-level/rest_split.txt). 'column': one decision, the column's air-loaded
+    # local level (crust, densified root, sediment's bulk height less its dry mass) against sea level: wet columns
+    # water-load crust and sediment, dry ones neither (1-D Airy, the law elevation_check's gate already reads). No value
+    'water_load_rule': 'parts',
     # ocean floor eroded below its sediment loses the rest from its crust (eighteenth pass): before, the clamp
     # dsed >= -sed dropped it from the ledger while the material was deposited elsewhere (8 km^3/yr created from
     # nothing with Earth rifting). False = the old leak, for reproducing earlier runs only
