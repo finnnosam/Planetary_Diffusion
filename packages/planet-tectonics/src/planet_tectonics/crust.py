@@ -6,7 +6,8 @@ from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import margin_shortening, rift_pure_shear, spread_to_band, trench_flux_consumed
 from planet_tectonics.graphops import nearest_label
-from planet_tectonics.params import COLLISION, SUBDUCTION
+from planet_tectonics.lithosphere import stretched_age
+from planet_tectonics.params import BACKARC_PROFILE_KM, BACKARC_PROFILE_W, COLLISION, SUBDUCTION
 
 
 class CrustMixin:
@@ -188,7 +189,132 @@ class CrustMixin:
                 self.belt_gain = np.where(self.belt, np.maximum(moved, 0.), 0.)
             self.erosion_totals['margin_shortening_moved_m3'] = self.erosion_totals.get('margin_shortening_moved_m3', 0.)+float(
                 (np.maximum(moved, 0)*g.area).sum())
+            self._record_upper_plate(src)
+            if p['backarc_extension']:
+                out = out+self._backarc_extension(near, d, w['thick']+out)
+        elif p['backarc_extension']:
+            raise ValueError('backarc_extension needs margin_shortening (the same upper-plate rate)')
         return out
+
+
+    def _record_upper_plate(self, src):
+        """Output only: overriding trench length (m, summed over steps) in all, on continental crust, and of that in
+        shortening / extension by the rate u - rollback (and beyond +-5 mm/yr), for Earth's share of transects in each
+        regime (Lallemand et al. 2008)."""
+        g, w = self.g, self.world
+        rate, front, ell = self._upper_plate_rate(src)
+        ET = self.erosion_totals
+        has = front >= 0
+        c = has & w['cont']
+        for key, m in (('overriding_trench_m', has), ('overriding_cont_trench_m', c),
+                       ('overriding_cont_shortening_m', c & (rate > 0)), ('overriding_cont_extending_m', c & (rate < 0)),
+                       ('overriding_cont_shortening5_m', c & (rate > 5e-3)), ('overriding_cont_extending5_m', c & (rate < -5e-3)),
+                       ('overriding_ocean_extending_m', has & ~w['cont'] & (rate < 0))):
+            ET[key] = ET.get(key, 0.)+float(ell[m].sum())
+
+
+    def _backarc_extension(self, near, d, thick):
+        """backarc_extension (see PARAMS): thinning (m, <= 0) of the back-arc bands behind the trench segments whose
+        arc-forearc block steps trenchward this step; the steps are kept in self.backarc_steps for _backarc_strips."""
+        g, p, w = self.g, self.p, self.world
+        out = np.zeros(g.size)
+        self.backarc_steps = []
+        src = (self.btype == SUBDUCTION) & ~self.trench
+        rate, front, ell = self._upper_plate_rate(src)
+        e = np.where((front >= 0) & w['cont'] & (rate < 0), -rate, 0.)
+        I = np.flatnonzero(e > 0)
+        if I.size == 0:
+            return out
+        if not hasattr(self, 'backarc_rng'):
+            self.backarc_rng = np.random.default_rng([self.seed, 10])
+        a = g.area
+        dt = p['dt_myr']*1e6
+        F = front[I]
+        P = e[I]*dt*ell[I]/a[F]
+        ET = self.erosion_totals
+        ET['backarc_expected_m2'] = ET.get('backarc_expected_m2', 0.)+float((e[I]*dt*ell[I]).sum())
+        ET['backarc_capped_steps'] = ET.get('backarc_capped_steps', 0)+int((P > 1).sum())
+        go = self.backarc_rng.random(I.size) < P
+        I, F = I[go], F[go]
+        if I.size == 0:
+            return out
+        _, first = np.unique(F, return_index=True)           # one step per front node
+        keep = np.zeros(I.size, bool); keep[first] = True
+        I, F = I[keep], F[keep]
+        idx = self._claim_idx
+        slot = self.owner_slot
+        def free(i, f):                                  # the front's raster node is new to the plate and touches it
+            m = self.plates[slot[i]].mask
+            j = idx[slot[i], f]
+            nj = g.nbr[j]
+            return (not m[j]) and bool(m[nj[nj >= 0]].any())
+        ok = np.array([free(i, f) for i, f in zip(I, F)], bool)
+        I, F = I[ok], F[ok]
+        if I.size == 0:
+            return out
+        # the back-arc band of each stepping segment: continental nodes of the same plate whose nearest overriding
+        # trench node is the segment's, weighted by Earth's profile at their distance from the trench
+        km = np.asarray(BACKARC_PROFILE_KM)*1e3
+        b = np.searchsorted(km, d, side='right')-1
+        inb = (b >= 0) & (b < len(BACKARC_PROFILE_W))
+        k = np.where(inb, np.asarray(BACKARC_PROFILE_W)[np.clip(b, 0, len(BACKARC_PROFILE_W)-1)], 0.)
+        nr = np.clip(near, 0, None)
+        Tb = p['breakup_thick_m']
+        zone = (near >= 0) & inb & w['cont'] & (self.owner == self.owner[nr]) & (thick > Tb)
+        sel = np.zeros(g.size, bool); sel[I] = True
+        zone &= sel[nr]
+        K = np.bincount(near[zone], weights=(a*k)[zone], minlength=g.size)
+        has = K[I] > 0
+        I, F = I[has], F[has]
+        if I.size == 0:
+            return out
+        af = np.zeros(g.size); af[I] = a[F]
+        zone &= af[nr] > 0
+        c = np.where(zone, af[nr]*k/np.maximum(K[nr], 1e-300), 0.)
+        out = np.where(zone, np.maximum(-thick*(1.-np.exp(-c)), Tb-thick), 0.)
+        V = np.bincount(near[zone], weights=(-out*a)[zone], minlength=g.size)
+        if p['lithosphere'] == 'thermal_age':        # C: the stretched lithosphere thins with the crust (as rifts)
+            th = zone & (out < 0)
+            ratio = np.clip((thick[th]+out[th])/thick[th], 0., 1.)
+            w['therm'][th] = self.t-stretched_age(self.t-w['therm'][th], ratio, p)
+            self.therm_changed |= th
+        self.backarc_steps = [(int(i), int(f), float(V[i])) for i, f in zip(I, F)]
+        ET['backarc_steps'] = ET.get('backarc_steps', 0)+int(I.size)
+        ET['backarc_stretched_m3'] = ET.get('backarc_stretched_m3', 0.)+float(V[I].sum())
+        ET['backarc_area_m2'] = ET.get('backarc_area_m2', 0.)+float(a[F].sum())
+        return out
+
+
+    def _backarc_strips(self):
+        """backarc_extension: after the rasters' update, each stepping segment's plate claims its front node with the
+        band's stretched volume as continental crust (the translated arc-forearc block; it keeps the edge node's crust,
+        orogeny and thermal ages; no sediment). Ledgers 'backarc' (volume) and area 'backarc'."""
+        steps = getattr(self, 'backarc_steps', [])
+        self.backarc_steps = []
+        if not steps:
+            return
+        g, w = self.g, self.world
+        a = g.area
+        idx = self._claim_idx
+        for i, f, V in steps:
+            k = self.owner_slot[i]
+            pl = self.plates[k]
+            j = idx[k, f]
+            T = V/a[j]
+            if pl.mask[j] and pl.cont[j]:            # covered since the step was drawn: the volume joins that node
+                pl.thick[j] += np.float32(T)
+            else:
+                pl.mask[j] = True
+                pl.cont[j] = True
+                pl.thick[j] = T
+                pl.born[j] = w['born'][i]
+                pl.orog[j] = w['orog'][i]
+                pl.therm[j] = w['therm'][i]
+                pl.sed[j] = 0.
+                pl.under[j] = 0
+                pl.slab[j] = 0
+                self.area_ledger['backarc'] = self.area_ledger.get('backarc', 0.)+float(a[j])
+            self.ledger['backarc'] = self.ledger.get('backarc', 0.)+float(np.float32(T))*float(a[j])
 
 
     def _thermal_resets(self, collided):
@@ -237,12 +363,66 @@ class CrustMixin:
         idx = np.flatnonzero(src)
         nb = g.nbr[idx]
         other = (nb >= 0) & (self.owner[np.maximum(nb, 0)] != self.owner[idx][:, None])
+        u, n = self._trenchward_speed(idx, nb, other)
+        out[idx] = np.clip(u-self._rollback(idx, nb, other, n), 0, None)*other.any(1)
+        return out
+
+
+    def _rollback(self, idx, nb, other, n):
+        """The trench's rollback (m/yr, oceanward) at overriding trench nodes idx (rollback_rule, see PARAMS)."""
+        p = self.p
+        rule = p['rollback_rule']
+        if rule == 'fixed':
+            return p['rollback_mm_yr']*1e-3
+        if rule != 'lallemand':
+            raise ValueError(f"rollback_rule {rule!r}: 'fixed' or 'lallemand'")
+        g, w = self.g, self.world
+        nbs = np.maximum(nb, 0)
+        oc = other & ~w['cont'][nbs]
+        use = np.where(oc.any(1)[:, None], oc, other)       # the subducting plate: oceanic neighbours, else any
+        om = {pl.id: pl.omega(g.radius) for pl in self.plates}
+        x = g.xyz[idx]
+        vs = np.zeros(idx.size)
+        for c in range(nb.shape[1]):
+            wj = np.stack([om.get(int(k), np.zeros(3)) for k in self.owner[nbs[:, c]]]) if idx.size else np.zeros((0, 3))
+            vs += np.where(use[:, c], -np.einsum('ij,ij->i', np.cross(wj, x)*g.radius, n), 0.)
+        vs /= np.maximum(use.sum(1), 1)                       # m/yr toward the upper plate
+        return (p['rollback_sb04_mm_yr']*1e-3-p['rollback_sb04_slope']*vs)
+
+
+    def _trenchward_speed(self, idx, nb, other):
+        """u (m/yr): the overriding plate's speed toward the trench at nodes idx (world frame), and the unit trench
+        normal n (mean direction to the neighbours on other plates)."""
+        g = self.g
         x = g.xyz[idx]
         disp = np.where(other[..., None], g.xyz[np.maximum(nb, 0)]-x[:, None], 0.).sum(1)
         disp -= np.einsum('ij,ij->i', disp, x)[:, None]*x
         n = disp/np.maximum(np.linalg.norm(disp, axis=1, keepdims=True), 1e-15)
         om = {pl.id: pl.omega(g.radius) for pl in self.plates}
-        w = np.stack([om.get(int(k), np.zeros(3)) for k in self.owner[idx]])
+        w = np.stack([om.get(int(k), np.zeros(3)) for k in self.owner[idx]]) if idx.size else np.zeros((0, 3))
         u = np.einsum('ij,ij->i', np.cross(w, x)*g.radius, n)             # m/yr toward the trench
-        out[idx] = np.clip(u-p['rollback_mm_yr']*1e-3, 0, None)*other.any(1)
-        return out
+        return u, n
+
+
+    def _upper_plate_rate(self, src):
+        """The signed upper-plate rate u - rollback (m/yr; > 0 shortening, < 0 extension; Heuret & Lallemand 2005) at
+        every overriding trench node with an oceanic neighbour on another plate, that neighbour (the node most nearly
+        along the trench normal: the front the arc-forearc block steps onto; -1 elsewhere), and the trench length per
+        node (BOUNDARY_NODE_H h)."""
+        from planet_tectonics.motion import BOUNDARY_NODE_H
+        g, p, w = self.g, self.p, self.world
+        rate = np.zeros(g.size)
+        front = np.full(g.size, -1, np.int64)
+        idx = np.flatnonzero(src)
+        nb = g.nbr[idx]
+        nbs = np.maximum(nb, 0)
+        other = (nb >= 0) & (self.owner[nbs] != self.owner[idx][:, None])
+        u, n = self._trenchward_speed(idx, nb, other)
+        rate[idx] = (u-self._rollback(idx, nb, other, n))*other.any(1)
+        ocean = other & ~w['cont'][nbs]
+        along = np.einsum('ikj,ij->ik', g.xyz[nbs]-g.xyz[idx][:, None], n)
+        best = np.argmax(np.where(ocean, along, -np.inf), 1)
+        has = ocean.any(1)
+        front[idx[has]] = nbs[has, best[has]]
+        ell = BOUNDARY_NODE_H*np.sqrt(g.area)
+        return rate, front, ell

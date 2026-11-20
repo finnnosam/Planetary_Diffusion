@@ -114,6 +114,30 @@ PARAMS = {
     # (before: False, with subduction_H_cont_m as new crust)
     'margin_shortening': True, 'rollback_mm_yr': 17., 'arc_H_cont_m': 750.,
     'foreland_d0_km': 350., 'foreland_sigma_km': 100.,
+    # backarc_extension (ninety-second pass, journal 119): the extensional branch of the same kinematic identity
+    # (Heuret & Lallemand 2005: upper-plate deformation = its trenchward speed - the trench's rollback; Lallemand et al.
+    # 2008: compression where positive, extension where negative), which the shortening rate's max(0, .) discards.
+    # Where an overriding trench node on continental crust has u - rollback_mm_yr < 0, the upper plate extends at
+    # e = rollback - u: the arc-forearc block moves trenchward at e, so the overriding plate claims the oceanic node in
+    # front of the trench (probability e x dt x trench length per node / that node's area each step, drawn from the
+    # run's own stream [seed, 10]) and the same area opens behind the arc as pure shear of that segment's back-arc band:
+    # the band gives the new node its crust, a_f x the band's weighted mean thickness, each band node thinning as
+    # T exp(-c) (the rift's pure-shear form; volume conserved, ledger 'backarc'), never below breakup_thick_m (back-arc
+    # spreading would take over), its lithosphere stretched with it (lithosphere.stretched_age). Band weight by
+    # distance from the trench: Earth's excess thin crust (CRUST1.0 total 20-30 km over its share beyond 1,500 km of
+    # subduction) by distance to Bird 2003's subduction steps, 200-1,500 km in 100 km bins (BACKARC_PROFILE_*; pass 92,
+    # precheck-p92-backarc/thin_by_trench.py: excess-weighted mean 745 km, sd 340). No fitted number. Default off
+    'backarc_extension': False,
+    # rollback_rule (ninety-second pass, journal 119): the trench's rollback in u - rollback, for both branches.
+    # 'fixed': rollback_mm_yr everywhere (Oncken et al. 2006's Central Andes, 17 mm/yr). 'lallemand': Lallemand et
+    # al. 2008's neutral-arc relation in the SB04 hotspot frame (Steinberger et al. 2004; the frame tied to the deep
+    # mantle, as the model's world frame is the frame of its drag against the mantle), Vup = 0.24 Vsub - 1.4 cm/yr over
+    # their 166 transects: the trench rolls back at rollback_sb04_mm_yr - rollback_sb04_slope x Vsub, Vsub the
+    # subducting plate's speed toward the upper plate (mean over the node's oceanic neighbours on other plates). On
+    # the planet's continental overriding trench (start_sediment-all, -40 ... 0 Myr; precheck-p92-backarc/
+    # trench_kinematics.txt): beyond +-5 mm/yr shortening / extending 0.15 / 0.62 under 'fixed' 17, 0.50 / 0.24 under
+    # 'lallemand'; Earth's continental upper plates 0.21 / 0.11 (Lallemand 2008 Table 1). No fitted number
+    'rollback_rule': 'fixed', 'rollback_sb04_mm_yr': 14., 'rollback_sb04_slope': .24,
     # shortening_match (sixty-fifth pass, journal 87): the belt was renormalised to the continental nodes a segment has,
     # so a segment whose belt is missing (an oceanic forearc, or a few continental nodes in the Gaussian's tail) put its
     # whole foreland's volume on them: +20-120 km of crust in one Myr at one node in a third of all steps (Earth's
@@ -606,3 +630,9 @@ EARTH_STABLE_SED_BULK_M = (0., 0., 0., 10., 10., 100., 200., 200., 300., 410., 6
                            3000., 3800., 5100., 9000.)
 EARTH_STABLE_SED_RHO = -0.309
 EARTH_STABLE_SED_FIELD = (100, 1.5)
+# Earth's back-arc band (backarc_extension; ninety-second pass, journal 119): the excess of Earth's thin continental
+# crust (CRUST1.0 total 20-30 km, non-oceanic, ice-free) over its share beyond 1,500 km of subduction, by distance to
+# Bird 2003's nearest subduction step, in 100 km bins starting at BACKARC_PROFILE_KM (share of the whole excess);
+# the bins below 200 km (forearc and arc) are left out. outputs/planet-calibration/precheck-p92-backarc/thin_by_trench.txt
+BACKARC_PROFILE_KM = (200., 300., 400., 500., 600., 700., 800., 900., 1000., 1100., 1200., 1300., 1400., 1500.)
+BACKARC_PROFILE_W = (.078, .073, .080, .081, .082, .070, .065, .073, .059, .047, .035, .035, .023)

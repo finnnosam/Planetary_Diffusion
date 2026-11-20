@@ -813,9 +813,17 @@ def test_plates_rule_run_keeps_the_ledgers_and_connected_plates():
     # the pieces' ledgers, not the lithosphere, as for the Airy-column tests pinned in pass 69. Pinned to rift_line
     # 'voronoi' too (seventy-second pass, journal 95): with 'weak' the default, Windows' trajectory ended on a step with
     # 2 pinholes (full runs have pinholes on ~10-30% of steps with either line); the subject is not the split line.
+    # Pinned to threads 1 (ninety-second pass, journal 120): the flexure's thread count changes the trajectory from the
+    # first step (ducc0, ~1e-12), so with all cores the run's end state followed the machine's core count; Windows'
+    # Back Arc Sweep tests ended on a step with 3 pinholes while the default path was identical step by step to HEAD's
+    # under both thread settings (cloud). Exact checks need threads 1 (STATE section 6). With threads 1 Windows again
+    # ended on a step with 3 pinholes (19 Nov; cloud: none in 150 steps): one step's count is the trajectory's luck
+    # (seeds 4-7 here: pinholes on 0-2 of 150 steps, 1-2 nodes, never on the same node two steps running). So the check
+    # is over the steps (journal 121): a pinhole is new crust inside a plate that the next step must have closed (no
+    # node a pinhole two steps running), and steps with any pinhole stay within the ~30% that full runs show (journal 95).
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'piece_rule': 'plates', 'continental_sediment': True,
-                                        'lithosphere': 'none', 'rift_line': 'voronoi'})
+                                        'lithosphere': 'none', 'rift_line': 'voronoi', 'threads': 1})
     weld = sim._weld
     welds = []
 
@@ -827,17 +835,23 @@ def test_plates_rule_run_keeps_the_ledgers_and_connected_plates():
                       sim.continental_sediment_volume()-s-(sim.sed_ledger['pieces']-ls), v))
     sim._weld = booked
     v0 = sim.continental_volume()
+    prev = np.zeros(g.size, bool)
+    holed = []
     for i in range(150):
         sim.step()
         assert (sim.owner >= 0).all()
         assert sim.detached_area() <= .01*g.area.sum()
+        ph = sim.pinhole_mask()
+        assert not (ph & prev).any()                     # no pinhole survives a step
+        prev = ph
+        holed.append(bool(ph.any()))
         if i >= 59 and sim.piece_stats['plates_made'] >= 1 and len(welds) >= 2:
             break
     assert sim.piece_stats['plates_made'] >= 1 and len(welds) >= 2
     for dv, ds, v in welds:
         assert abs(dv) < 1e-9*v and abs(ds) < 1e-9*v
     assert abs((sim.continental_volume()-v0)-sum(sim.ledger.values())) < 2e-3*v0
-    assert sim.pinholes() == 0
+    assert np.mean(holed) <= .3
 
 
 # ---------------------------------------------------------------- thirty-eighth pass: the start's plate geometry

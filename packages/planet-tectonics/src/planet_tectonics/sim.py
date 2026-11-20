@@ -113,6 +113,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
             else:
                 self.dyn = self.mantle.topography(self.t)
         idx, claimed = self._claims()
+        self._claim_idx = idx                            # backarc_extension: plate raster node of each world node
         self._world_from(idx, claimed, record=True)
         w = self.world
         rift_dthick = self._rift()
@@ -201,6 +202,8 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         dthick = dthick+conv_t
         dsed = dsed+conv_s
         self._update_rasters(dthick, idx, dsed)
+        if p['backarc_extension']:
+            self._backarc_strips()
         self.plates = [pl for pl in self.plates if pl.mask.any()]
         if p['piece_rule'] == 'plates':
             self._separate_pieces()
@@ -303,8 +306,13 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
     def pinholes(self):
         """New-crust nodes more than 2.5 cells from any plate boundary: holes inside a plate (should be ~0). Ridge crust
         is always next to the boundary it opened at."""
+        return int(self.pinhole_mask().sum())
+
+
+    def pinhole_mask(self):
+        """The world nodes pinholes() counts (this step's new crust > 2.5 cells from every plate boundary)."""
         g = self.g
         nb = np.where(g.nbr >= 0, g.nbr, np.arange(g.size)[:, None])
         edge = (self.owner[nb] != self.owner[:, None]).any(1)
         d = gl.distance_to(edge, g.nbr, g.dist, 3*np.sqrt(g.area.mean()))
-        return int((self.new_crust & (d > 2.5*np.sqrt(g.area.mean()))).sum())
+        return self.new_crust & (d > 2.5*np.sqrt(g.area.mean()))
