@@ -121,6 +121,20 @@ S1 Mantle (absolute frame) ──► S2 Plates & crust history ──► S3 Pale
 | passive vs active margin length | — |
 | number of continents; largest continent's share over time (supercontinent index) | — |
 
+**Run length (long-term goal, 21 Nov 2026).** Today S2 runs 250 Myr from a supercontinent whose crust, cover and
+lithosphere ages carry Earth's measured statistics, so every planet comes out at Earth's present stage of the
+supercontinent cycle, the stage the scorecard compares against. The final generator should run longer (one to two
+cycles, ~0.5–1 Gyr; ~1–2 h for one planet, small beside S4) and stop at a chosen stage of the cycle (dispersal,
+assembly, a supercontinent world), so that the start itself (crust ages, sutures, cratons, old cover) and the mantle's
+slab record come from the planet's own history. Needed first, in order: (1) the plate layer steady over long spans
+(crust volume, sediment stock, plate count and the continents' level settle rather than drift); (2) a mechanism for
+the supercontinent cycle in place of `split_rule` 'earth', which maps the run's time onto Earth's rifted-margin
+production since 250 Ma and holds its last rate beyond that (breakup from the supercontinent's insulation of the mantle
+and plume heads; assembly from slab pull); (3) long-term crustal growth and loss that hold the volume, or follow
+Earth's estimated growth curve; (4) tests for a long run: cycle period, supercontinent size and plate counts against
+Earth's reconstructions (e.g. Merdith et al. 2021 to 1 Ga, plate maps only), and the present-day scorecard read at
+the run's own stage matching Earth's.
+
 ## S3 Paleoclimate and sea level ○
 
 An energy-balance atmosphere with latitude, continentality and lapse rate, simple ocean heat transport, moisture
@@ -315,5 +329,7 @@ level? Correct only if that test fails.
 5. S1 mantle and hotspots.
 6. Zoom-stage conditioning (S8).
 7. Products (S9).
+8. Longer S2 runs that build their own start and stop at a chosen stage of the supercontinent cycle (S2, "Run
+   length"): after the plate layer's open problems against today's Earth, and only with a mechanism for the cycle.
 
 Each step is adopted only if it beats the current chain on a held-out test fixed in advance.
