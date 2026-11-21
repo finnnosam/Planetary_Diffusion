@@ -51,8 +51,9 @@ PARAMS = {
     # crust the crust is water-loaded under a dry sediment load (no water in the column): -306 m on 30-35 km crust, -200
     # m on the continent's mean (precheck-p94-level/rest_split.txt). 'column': one decision, the column's air-loaded
     # local level (crust, densified root, sediment's bulk height less its dry mass) against sea level: wet columns
-    # water-load crust and sediment, dry ones neither (1-D Airy, the law elevation_check's gate already reads). No value
-    'water_load_rule': 'parts',
+    # water-load crust and sediment, dry ones neither (1-D Airy, the law elevation_check's gate already reads). No value.
+    # 'column' adopted 20 Nov (pass 95, journal 126: Water Load Sweep sweep-20261119-215825, every veto passes)
+    'water_load_rule': 'column',
     # ocean floor eroded below its sediment loses the rest from its crust (eighteenth pass): before, the clamp
     # dsed >= -sed dropped it from the ledger while the material was deposited elsewhere (8 km^3/yr created from
     # nothing with Earth rifting). False = the old leak, for reproducing earlier runs only
@@ -85,6 +86,19 @@ PARAMS = {
     # sediment layer is loose and entrained by the same law without it (Yuan et al. 2019 at theta = 0) down to its
     # base. No new number
     'sediment_entrainment': 'cover',
+    # sediment_rock (pass 95, journal 126): which part of the sediment layer is loose. 'none' (as built): all of it, so
+    # under 'cover' the whole layer is entrained without bedrock's threshold, also Earth's old platform cover (the
+    # start's stable cover leaves the high land within ~40 Myr and settles low: journal 116; the planet's cover is
+    # 0.35x Earth's on 40-45 km crust, 1.7x on 20-25: precheck-p94-level/level_split). 'burial': each plate carries a
+    # rock layer (solid m, <= its sediment): sediment buried deeper than rock_depth_m (bulk, below the column's top)
+    # turns to rock (lithification), and the start's continental cover is rock (Earth's stable cover is Palaeozoic-
+    # Mesozoic sedimentary rock); only the loose top is the cover the 'cover' law entrains at theta 0, rock erodes by
+    # the bedrock law (theta, K as crystalline: no new erosion number). Needs sediment_entrainment 'cover'
+    'sediment_rock': 'none',
+    # rock_depth_m: bulk burial depth at which sediment is rock: the onset of quartz cementation, 70-80 C (Walderhaug
+    # 1994; Bjorlykke 1999: mechanical compaction to 2-3 km, chemical below), at Earth's mean sedimentary-basin gradient
+    # ~30 C/km from a 10 C surface: 2.0 km (measured onset, assumed gradient; mudrocks are compacted to rock by then)
+    'rock_depth_m': 2000.,
     'stable_erodibility': .15,     # old crust relative to fresh orogens (as the test bed)
     'orogen_erodibility_tau_myr': 50.,
     # which crust resets the orogeny clock (erodibility 1, decaying with orogen_erodibility_tau_myr) (twenty-fourth

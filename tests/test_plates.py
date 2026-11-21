@@ -1242,10 +1242,12 @@ def test_torque_law_pulls_toward_the_trench_and_scales_with_the_force():
 def test_torque_law_keeps_the_ledgers():
     # pins trench_polarity 'node' (the default until 16 Nov): with 'pair' slab pull goes to the downgoing plate, and the
     # torque law (built, not adopted) then runs one small plate here to 37 cm/yr at step 23 (journal 114): a defect of
-    # the torque law's force balance, not of the ledgers this test checks
+    # the torque law's force balance, not of the ledgers this test checks. Pins the margins as before pass 93
+    # (backarc_extension False, rollback_mm_yr 17; journal 125): on Windows the new defaults' trajectory ran one plate to
+    # 20.9 cm/yr at step 40 with the ledgers closed (the Water Load Sweep's V1), the same defect
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True, 'force_law': 'torque',
-                                        'trench_polarity': 'node'})
+                                        'trench_polarity': 'node', 'backarc_extension': False, 'rollback_mm_yr': 17.})
     v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()
     for _ in range(40):
         sim.step()

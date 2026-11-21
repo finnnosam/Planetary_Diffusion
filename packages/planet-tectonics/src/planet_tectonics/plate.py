@@ -17,6 +17,7 @@ class Plate:
         self.therm = np.full(size, np.nan, np.float32)  # last thermal event of the continental lithosphere, Myr (C)
         self.under = np.zeros(size, np.int16)           # consecutive steps hidden under another plate
         self.sed = np.zeros(size, np.float32)            # sediment, m (on continental crust too with continental_sediment)
+        self.rock = np.zeros(size, np.float32)           # the sediment's lithified part, solid m (<= sed; sediment_rock)
         self.slab = np.zeros(size, np.float32)           # underthrust convergence beside this plate's overriding edge, km
 
     def omega(self, radius):

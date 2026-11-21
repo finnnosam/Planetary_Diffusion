@@ -7,7 +7,7 @@ from planet_landscape import graph_landscape as gl
 from planet_tectonics.crust_kernels import quantile_map
 from planet_tectonics.lithosphere import start_ages, start_ages_crust
 from planet_tectonics.graphops import components, nearest_label
-from planet_tectonics.isostasy import _solid_thickness
+from planet_tectonics.isostasy import _solid_thickness, loose_cap
 from planet_tectonics.params import (EARTH_STABLE_CRUST_KM, EARTH_STABLE_CRUST_Q, EARTH_STABLE_SED_BULK_M,
                                      EARTH_STABLE_SED_FIELD, EARTH_STABLE_SED_RHO, RIDGE)
 from planet_tectonics.plate import Plate
@@ -138,6 +138,11 @@ class StartMixin:
         age_o = np.clip(d_ridge/30e3*(1+.2*fields.random_field(xyz, 16, 2., rng)), 0, 180)
         if rule == 'all':                                # the floor's pelagic rain over its own age
             sed0[~cont] = p['pelagic_m_myr']*age_o[~cont]
+        rock0 = np.zeros(g.size)
+        if p['sediment_rock'] == 'burial':           # Earth's stable cover is rock; elsewhere what lies below the cap
+            rock0 = np.where(cont, sed0, np.maximum(sed0-loose_cap(cont, p), 0.))
+        elif p['sediment_rock'] != 'none':
+            raise ValueError(f"sediment_rock {p['sediment_rock']!r}: 'none' or 'burial'")
 
         for k in range(n_plates):
             own = plab == k
@@ -160,6 +165,7 @@ class StartMixin:
             pl.orog[:] = np.where(cont, orog_c, np.nan)
             pl.therm[:] = np.where(cont, therm_c, np.nan)
             pl.sed[:] = sed0
+            pl.rock[:] = rock0
 
 
     def _start_poles_from_forces(self):

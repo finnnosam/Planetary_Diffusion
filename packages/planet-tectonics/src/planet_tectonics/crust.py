@@ -311,6 +311,7 @@ class CrustMixin:
                 pl.orog[j] = w['orog'][i]
                 pl.therm[j] = w['therm'][i]
                 pl.sed[j] = 0.
+                pl.rock[j] = 0.
                 pl.under[j] = 0
                 pl.slab[j] = 0
                 self.area_ledger['backarc'] = self.area_ledger.get('backarc', 0.)+float(a[j])

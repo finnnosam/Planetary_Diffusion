@@ -32,7 +32,7 @@ from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import eclogite_loss, edge_spread
 from planet_tectonics import crust_flow
-from planet_tectonics.isostasy import sediment_column
+from planet_tectonics.isostasy import loose_cap, sediment_column
 from planet_tectonics.lithosphere import stretched_age, thickened_therm
 from planet_tectonics.mantle import Mantle
 from planet_tectonics.params import PARAMS
@@ -201,7 +201,16 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         conv_t, conv_s = self._sediment_basins_to_continent()
         dthick = dthick+conv_t
         dsed = dsed+conv_s
-        self._update_rasters(dthick, idx, dsed)
+        drock = None
+        if p['sediment_rock'] == 'burial':           # cuts took rock; sediment buried below the loose cap lithifies
+            r0 = w['rock']
+            r = getattr(self, 'rock_after_erosion', None) if p['erosion'] else None
+            sed = np.maximum(w['sed'], 0.)
+            r = np.minimum(r0 if r is None else r, sed)
+            r = np.maximum(r, sed-loose_cap(w['cont'], p))
+            drock = r-r0
+            w['rock'] = r
+        self._update_rasters(dthick, idx, dsed, drock)
         if p['backarc_extension']:
             self._backarc_strips()
         self.plates = [pl for pl in self.plates if pl.mask.any()]
@@ -259,6 +268,8 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
                 'dynamic_topography_m': self.dyn.astype(np.float32), 'new_crust': self.new_crust,
                 'sea_level_m': np.float32(getattr(self, 'sea_level', 0.)),
                 'tectonic_thickening_m': getattr(self, 'tectonic', np.zeros(self.g.size)).astype(np.float32)}
+        if self.p['sediment_rock'] != 'none':           # the sediment's lithified part, solid m
+            out['sediment_rock_m'] = w['rock'].astype(np.float32)
         fl = self.mantle.flow if self.mantle is not None else None
         if fl is None and self.mantle is not None and self.mantle.wet_loaded:     # 'measured'
             out['dynamic_topography_air_m'] = self.mantle.topography(self.t).astype(np.float32)   # no water factor

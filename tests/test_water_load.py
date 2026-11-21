@@ -24,8 +24,8 @@ def _surface(rule, solid_sed_m, thick_m=31e3):
     return sim, sim.elevation(), cont
 
 
-def test_default_is_parts():
-    assert P.PARAMS['water_load_rule'] == 'parts'
+def test_default_is_column():
+    assert P.PARAMS['water_load_rule'] == 'column'      # adopted pass 95 (journal 126)
     with pytest.raises(ValueError):
         _surface('nonsense', 0.)
 

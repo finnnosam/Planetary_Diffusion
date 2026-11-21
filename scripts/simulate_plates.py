@@ -61,6 +61,9 @@ def summary(sim, st):
             'continental_volume_km3': sim.continental_volume()/1e9,
             'continental_sediment_km3': sim.continental_sediment_volume()/1e9,
             'sediment_ledger_km3': {k: v/1e9 for k, v in sim.sed_ledger.items()},
+            # the plate layer's own crust-volume ledger (km^3; its sum is continental_volume_km3's change): merges,
+            # pieces, holes, new nodes and the raster increments, which crust_budget's terms cannot see (pass 95)
+            'crust_ledger_km3': {k: v/1e9 for k, v in sim.ledger.items()},
             'ocean_age_mean_myr': float((oa[ok]*w).sum()/w.sum()), 'ocean_age_max_myr': float(oa[ok].max()),
             'speeds_cm_yr': [round(r['speed_cm_yr'], 2) for r in sim.plate_table()],
             'pinholes': sim.pinholes(), 'new_crust_nodes': int(st['new_crust'].sum()), **boundary_lengths(g, st),

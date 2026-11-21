@@ -111,8 +111,10 @@ class CompositionMixin:
         worog = np.where(gap, np.nan, np.stack([pl.orog[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         wsed = np.where(gap, 0., np.stack([pl.sed[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         wtherm = np.where(gap, np.nan, np.stack([pl.therm[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
+        wrock = np.where(gap, 0., np.stack([pl.rock[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
+        wrock = np.clip(wrock, 0., np.maximum(wsed, 0.))         # sediment_rock: never more rock than sediment
         self.new_crust = gap
-        self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed, 'therm': wtherm}
+        self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed, 'therm': wtherm, 'rock': wrock}
         self.therm_changed = np.zeros(g.size, bool)      # C: world nodes whose thermal age changed this step
 
 
@@ -142,7 +144,7 @@ class CompositionMixin:
         return out
 
 
-    def _update_rasters(self, dthick, idx, dsed=None):
+    def _update_rasters(self, dthick, idx, dsed=None, drock=None):
         """Update every plate raster after a step.
 
         Ownership: forward lookup (plate node j -> world node). Overlapped crust stays hidden for hidden_steps before
@@ -249,6 +251,9 @@ class CompositionMixin:
             if dsed is not None:
                 d_sed = np.bincount(js, weights=dsed[ws], minlength=g.size)/np.maximum(nread, 1)
                 pl.sed[read] = np.maximum(pl.sed[read]+d_sed[read], 0).astype(np.float32)
+            if drock is not None:                       # sediment_rock: the rock layer's change, as the sediment's
+                d_rk = np.bincount(js, weights=drock[ws], minlength=g.size)/np.maximum(nread, 1)
+                pl.rock[read] = np.clip(pl.rock[read]+d_rk[read], 0., pl.sed[read]).astype(np.float32)
             self.ledger['increments'] += float((pl.thick*a*(pl.mask & pl.cont)).sum())-before_v
             vs1 = self._plate_cont_sed(pl)
             self.sed_ledger['increments'] += vs1-vs
@@ -269,6 +274,7 @@ class CompositionMixin:
             pl.orog[new] = w['orog'][wn[new]]
             pl.therm[new] = w['therm'][wn[new]]
             pl.sed[new] = w['sed'][wn[new]]
+            pl.rock[new] = w['rock'][wn[new]]
             pl.under[new] = 0
             pl.slab[new] = 0
             self.ledger['new_nodes'] += float((pl.thick[new]*a[new]*pl.cont[new]).sum())
@@ -292,7 +298,7 @@ class CompositionMixin:
             if hole.any():
                 hs = src[hole]
                 pl.mask[hole] = True
-                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed, pl.slab, pl.therm):
+                for arr in (pl.cont, pl.thick, pl.born, pl.orog, pl.sed, pl.slab, pl.therm, pl.rock):
                     arr[hole] = arr[hs]
                 self.ledger['holes'] += float((pl.thick[hole]*a[hole]*pl.cont[hole]).sum())
                 self.area_ledger['holes'] = self.area_ledger.get('holes', 0.)+float(a[hole & pl.cont].sum())

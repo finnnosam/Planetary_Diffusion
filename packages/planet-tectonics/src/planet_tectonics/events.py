@@ -29,7 +29,7 @@ class EventsMixin:
         lab = part[wn] & pl.mask
         new = self._new_plate(pl.axis, pl.speed)
         new.Q = pl.Q.copy()
-        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed', 'slab', 'therm'):
+        for name in ('mask', 'cont', 'thick', 'born', 'orog', 'under', 'sed', 'slab', 'therm', 'rock'):
             arr = getattr(pl, name)
             na = getattr(new, name)
             na[lab] = arr[lab]
@@ -94,7 +94,7 @@ class EventsMixin:
         ok = small.mask[j]
         k, j = k[ok], j[ok]
         free = ~big.mask[k]
-        for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm'):
+        for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm', 'rock'):
             getattr(big, name)[k[free]] = getattr(small, name)[j[free]]
         big.under[k[free]] = 0
         big.mask[k[free]] = True
@@ -106,13 +106,14 @@ class EventsMixin:
             near, _ = nearest_label(src_lab, g.nbr, g.dist)
             src = near[need]
             big.mask[need] = True
-            for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm'):
+            for name in ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm', 'rock'):
                 arr = getattr(big, name); arr[need] = arr[src]
         both = ~free & small.cont[j] & big.cont[k]
         self.area_ledger['merge'] = self.area_ledger.get('merge', 0.)-float(g.area[k[both]].sum())
         np.add.at(big.thick, k[both], small.thick[j[both]])
         if self.p['continental_sediment']:
             np.add.at(big.sed, k[both], small.sed[j[both]])
+            np.add.at(big.rock, k[both], small.rock[j[both]])
         a_big, a_small = g.area[self.owner == big.id].sum(), g.area[self.owner == small.id].sum()
         self._set_omega(big, (self._omega_vec(big)*a_big+self._omega_vec(small)*a_small)/(a_big+a_small))
         self.owner = np.where(self.owner == small.id, big.id, self.owner)
@@ -207,7 +208,7 @@ class EventsMixin:
 
         def vol(pl, r, f):
             return float((f[r].astype(np.float64)*a[r]*(pl.mask[r] & pl.cont[r])).sum())
-        names = ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm')
+        names = ('cont', 'thick', 'born', 'orog', 'sed', 'slab', 'therm', 'rock')
         v0 = vol(src, ro, src.thick)+vol(dst, k, dst.thick)
         s0 = vol(src, ro, src.sed)+vol(dst, k, dst.sed)
         if k.size:
@@ -226,6 +227,7 @@ class EventsMixin:
             np.add.at(dst.thick, ks, src.thick[js])
             if self.p['continental_sediment']:
                 np.add.at(dst.sed, ks, src.sed[js])
+                np.add.at(dst.rock, ks, src.rock[js])
             for _ in range(3):                           # cracks: copy from a set neighbour (as merge's seam fill)
                 need = k[~dst.mask[k]]
                 if not need.size:

@@ -129,6 +129,22 @@ def bulk_thickness(S, phi0, c_per_km):
 
 
 
+def solid_above(depth_m, phi0, c_per_km):
+    """Solid thickness (m) in the top depth_m of bulk sediment whose porosity falls as phi0 exp(-c z) (Athy 1930;
+    bulk_thickness's inverse): depth - phi0 / c (1 - exp(-c depth))."""
+    c = np.asarray(c_per_km, np.float64)/1e3
+    return depth_m-np.asarray(phi0, np.float64)/c*(1-np.exp(-c*depth_m))
+
+
+def loose_cap(cont, p=PARAMS):
+    """sediment_rock 'burial': the most solid sediment a column keeps loose, the solid in its top rock_depth_m of bulk
+    (by the continental or oceanic compaction law; without sediment_compaction the depth itself)."""
+    if not p.get('sediment_compaction'):
+        return np.full(np.shape(cont), float(p['rock_depth_m']))
+    return solid_above(p['rock_depth_m'], np.where(cont, p['phi0_continent'], p['phi0_ocean']),
+                       np.where(cont, p['compaction_c_continent_per_km'], p['compaction_c_ocean_per_km']))
+
+
 def sediment_column(sed, cont, p=PARAMS):
     """Sediment column of every node: (surface height, mass per area dry, mass per area submerged minus the water it
     displaces). With sediment_compaction, sed is solid thickness: bulk height from bulk_thickness (shale law on oceanic

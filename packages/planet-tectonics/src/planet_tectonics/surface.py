@@ -39,6 +39,14 @@ class SurfaceMixin:
         if rule not in ('bedrock', 'cover'):
             raise ValueError(f"sediment_entrainment {rule!r}: 'bedrock' or 'cover'")
         cover = np.maximum(w['sed'], 0.) if rule == 'cover' else None    # loose sediment (journal 110)
+        rock = None
+        if p['sediment_rock'] == 'burial':          # only the loose top is cover; rock erodes by the bedrock law
+            if rule != 'cover':
+                raise ValueError("sediment_rock 'burial' needs sediment_entrainment 'cover'")
+            rock = np.clip(w['rock'], 0., np.maximum(w['sed'], 0.))
+            cover = np.maximum(w['sed'], 0.)-rock
+        elif p['sediment_rock'] != 'none':
+            raise ValueError(f"sediment_rock {p['sediment_rock']!r}: 'none' or 'burial'")
         for _ in range(p['erosion_substeps']):
             zs = z
             r = gl.surface_step(g, z, seed, None, fallback, K, lp, dt, self.h_min, self.bound, keep_deep=keep,
@@ -63,8 +71,11 @@ class SurfaceMixin:
                                                  p['cliff_retreat_m_yr'], dt)
                 self.erosion_totals['shelf_off_land_m3'] = self.erosion_totals.get('shelf_off_land_m3', 0.)+off
             if cover is not None:                    # the cover follows the surface: deposits add, erosion takes it first
+                if rock is not None:                 # a cut below the loose cover takes the rock next
+                    rock = np.maximum(rock-np.maximum(-(cover+z-zs), 0.), 0.)
                 cover = np.maximum(cover+z-zs, 0.)
         self.erosion_totals['deep_sea_sediment_m3'] = self.erosion_totals.get('deep_sea_sediment_m3', 0.)+float(deep.sum())
+        self.rock_after_erosion = rock                 # sediment_rock: the rock left by this step's cuts (None if off)
         dz = z-z0
         cont = w['cont']
         a = g.area
