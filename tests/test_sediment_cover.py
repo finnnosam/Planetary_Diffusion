@@ -63,7 +63,8 @@ def test_plate_layer_cover_exports_more_and_keeps_the_ledger():
     g = CubeSphere(48)
     out = {}
     for rule in ('bedrock', 'cover'):
-        sim = P.PlateSim(g, seed=5, params={'sediment_entrainment': rule, 'threads': 1})
+        sim = P.PlateSim(g, seed=5, params={'sediment_entrainment': rule, 'threads': 1,   # burial needs 'cover'
+                                            'sediment_rock': 'burial' if rule == 'cover' else 'none'})
         sim.state()
         v0 = sim.continental_volume()
         for _ in range(12):

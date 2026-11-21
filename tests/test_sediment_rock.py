@@ -9,9 +9,9 @@ from planet_tectonics import plates as P
 from planet_tectonics.isostasy import bulk_thickness, loose_cap, solid_above
 
 
-def test_default_is_none_and_the_rock_layer_stays_empty():
-    assert P.PARAMS['sediment_rock'] == 'none'
-    sim = P.PlateSim(CubeSphere(48), seed=3, params={'threads': 1})
+def test_default_is_burial_and_none_keeps_the_rock_layer_empty():
+    assert P.PARAMS['sediment_rock'] == 'burial'           # the Rock Cover Sweep (journal 129)
+    sim = P.PlateSim(CubeSphere(48), seed=3, params={'threads': 1, 'sediment_rock': 'none'})
     sim.state()
     for _ in range(4):
         sim.step()

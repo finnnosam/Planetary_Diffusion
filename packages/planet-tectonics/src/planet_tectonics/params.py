@@ -93,8 +93,11 @@ PARAMS = {
     # rock layer (solid m, <= its sediment): sediment buried deeper than rock_depth_m (bulk, below the column's top)
     # turns to rock (lithification), and the start's continental cover is rock (Earth's stable cover is Palaeozoic-
     # Mesozoic sedimentary rock); only the loose top is the cover the 'cover' law entrains at theta 0, rock erodes by
-    # the bedrock law (theta, K as crystalline: no new erosion number). Needs sediment_entrainment 'cover'
-    'sediment_rock': 'none',
+    # the bedrock law (theta, K as crystalline: no new erosion number). Needs sediment_entrainment 'cover'. Default
+    # 'burial' since the Rock Cover Sweep (sweep-20261120-190819, ninety-sixth pass, journal 129: every veto passes;
+    # the continents on the datum p25 / p50 / p75 -143 / 192 / 603 -> -17 / 349 / 796 m against Earth's 109 / 328 /
+    # 744; land 22.8 -> 26.0%; level_split's sediment gap -194 -> -75 m; export 9.0 -> 6.8 km^3/yr)
+    'sediment_rock': 'burial',
     # rock_depth_m: bulk burial depth at which sediment is rock: the onset of quartz cementation, 70-80 C (Walderhaug
     # 1994; Bjorlykke 1999: mechanical compaction to 2-3 km, chemical below), at Earth's mean sedimentary-basin gradient
     # ~30 C/km from a 10 C surface: 2.0 km (measured onset, assumed gradient; mudrocks are compacted to rock by then)
@@ -502,6 +505,17 @@ PARAMS = {
     # the Start Sediment Sweep, sweep-20261117-195758; every veto passes; land p50 503 -> 456 m, the continents' share
     # under the datum 0.34 -> 0.31, sediment on land above the sea 88 -> 107 Mkm^3 against Earth's 176)
     'start_sediment': 'all',
+    # where the start's cover lies (ninety-sixth pass, journal 129). 'copula' (as built): Earth's stable-cover
+    # distribution by a Gaussian copula of the crust (EARTH_STABLE_SED_RHO) and a random field, blind to the start's
+    # surface: the supercontinent's lows begin starved (the cover's partial rank correlation with the bare level, given
+    # the crust, +0.20 at -250 Myr against Earth's -0.76; precheck-p96-spread/cover_accommodation.py). 'accommodation':
+    # the copula of the crust and the start's bare level (the column without its cover: Airy line of the crust before
+    # the rim is thinned, C's term of its lithosphere age, the air-loaded dynamic topography at the start), with
+    # Earth's correlations of the cover with both on its stable domain (EARTH_STABLE_SED_BARE) and the start's own
+    # correlation between them; the rest is the same random field. Sediment lies where its column has room for it. The
+    # distribution, the volume and every other draw of the start are unchanged. No fitted number. Needs start_sediment
+    # 'continent' or 'all'
+    'start_cover': 'copula',
     # the start's plate geometry (thirty-eighth pass). 'voronoi' (as built): plates are Voronoi cells of the whole
     # sphere, n_cont_plates seeded inside the supercontinent, so its plates reach into the ocean and its coast is a
     # passive margin inside plates (continental-side trench at -250 Myr 0.2-0.7k km); a closed sphere consumes what it
@@ -657,6 +671,11 @@ EARTH_STABLE_CRUST_KM = (25.65, 30.54, 32.91, 34.36, 35.2, 35.9, 36.43, 36.9, 37
 EARTH_STABLE_SED_BULK_M = (0., 0., 0., 10., 10., 100., 200., 200., 300., 410., 600., 700., 900., 1000., 1500., 1810., 2300.,
                            3000., 3800., 5100., 9000.)
 EARTH_STABLE_SED_RHO = -0.309
+# start_cover 'accommodation' (ninety-sixth pass, journal 129; tests/test_start_cover.py recomputes them): on the same
+# domain without the ice sheets (whose surface is not the column's), the area-weighted correlations of the cover's
+# normal scores with the crystalline crust's and with the bare level's, b = ETOPO z - S (1 - rho_sediment /
+# rho_mantle) (bulk S; b keeps Earth's C, dynamic topography and residual): (r(S, Tc), r(S, b)); r(Tc, b) is +0.405
+EARTH_STABLE_SED_BARE = (-0.333, -0.787)
 EARTH_STABLE_SED_FIELD = (100, 1.5)
 # Earth's back-arc band (backarc_extension; ninety-second pass, journal 119): the excess of Earth's thin continental
 # crust (CRUST1.0 total 20-30 km, non-oceanic, ice-free) over its share beyond 1,500 km of subduction, by distance to

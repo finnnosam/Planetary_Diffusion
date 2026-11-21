@@ -5,11 +5,11 @@ from planet_grid import fields
 from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import quantile_map
-from planet_tectonics.lithosphere import start_ages, start_ages_crust
+from planet_tectonics.lithosphere import elevation_term, start_ages, start_ages_crust
 from planet_tectonics.graphops import components, nearest_label
 from planet_tectonics.isostasy import _solid_thickness, loose_cap
 from planet_tectonics.params import (EARTH_STABLE_CRUST_KM, EARTH_STABLE_CRUST_Q, EARTH_STABLE_SED_BULK_M,
-                                     EARTH_STABLE_SED_FIELD, EARTH_STABLE_SED_RHO, RIDGE)
+                                     EARTH_STABLE_SED_BARE, EARTH_STABLE_SED_FIELD, EARTH_STABLE_SED_RHO, RIDGE)
 from planet_tectonics.plate import Plate
 
 
@@ -22,14 +22,31 @@ def _nscore(x, w):
     return np.array([inv(v) for v in np.clip(u, 1e-6, 1-1e-6)])
 
 
-def start_sediment(crust, area, xyz, cont, rng, p):
+def _wcorr(x, y, w):
+    return float(np.sum(w*x*y)/np.sqrt(np.sum(w*x*x)*np.sum(w*y*y)))
+
+
+def start_sediment(crust, area, xyz, cont, rng, p, bare=None):
     """start_sediment: solid sediment thickness (m) on the start's continental nodes (crust, area: theirs; xyz, cont:
     the whole graph's). Earth's stable cover (EARTH_STABLE_SED_BULK_M) by area-weighted rank of a Gaussian copula,
-    rho z(crust) + sqrt(1 - rho^2) z(field), with Earth's rho and Earth's spatial correlation (PARAMS text)."""
+    rho z(crust) + sqrt(1 - rho^2) z(field), with Earth's rho and Earth's spatial correlation (PARAMS text).
+    With bare (start_cover 'accommodation': the bare level of the same nodes), b1 z(crust) + b2 z(bare) +
+    sqrt(1 - R^2) z(field): the regression weights that give the score Earth's correlations with the crust and the
+    bare level (EARTH_STABLE_SED_BARE) under the start's own correlation between them; R^2 = b . r (capped at 0.99)."""
     lmax, slope = EARTH_STABLE_SED_FIELD
     f = fields.random_field(xyz, lmax, slope, rng)[cont]
-    rho = EARTH_STABLE_SED_RHO
-    z = rho*_nscore(crust, area)+np.sqrt(1.-rho**2)*_nscore(f, area)
+    if bare is None:
+        rho = EARTH_STABLE_SED_RHO
+        z = rho*_nscore(crust, area)+np.sqrt(1.-rho**2)*_nscore(f, area)
+    else:
+        x1, x2 = _nscore(crust, area), _nscore(bare, area)
+        r12 = _wcorr(x1, x2, area)
+        s1, s2 = EARTH_STABLE_SED_BARE
+        b1, b2 = (s1-r12*s2)/(1.-r12**2), (s2-r12*s1)/(1.-r12**2)
+        R2 = b1*s1+b2*s2
+        if R2 > .99:
+            b1, b2, R2 = b1*np.sqrt(.99/R2), b2*np.sqrt(.99/R2), .99
+        z = b1*x1+b2*x2+np.sqrt(1.-R2)*_nscore(f, area)
     bulk = quantile_map(z, area, q=EARTH_STABLE_CRUST_Q, target=EARTH_STABLE_SED_BULK_M)
     if not p['sediment_compaction']:
         return bulk
@@ -83,9 +100,14 @@ class StartMixin:
         rule = p['start_sediment']
         if rule not in ('none', 'continent', 'all'):
             raise ValueError(f"start_sediment {rule!r}: 'none', 'continent' or 'all'")
+        if p['start_cover'] not in ('copula', 'accommodation'):
+            raise ValueError(f"start_cover {p['start_cover']!r}: 'copula' or 'accommodation'")
+        if p['start_cover'] == 'accommodation' and rule == 'none':
+            raise ValueError("start_cover 'accommodation' needs start_sediment 'continent' or 'all'")
         sed0 = np.zeros(g.size)
         if rule != 'none':                               # Earth's stable cover, joined to the crust before the rim
             sed0[cont] = start_sediment(thick[cont], g.area[cont], xyz, cont, np.random.default_rng([self.seed, 9]), p)
+        thick_stable = thick                             # the crust before the rim (start_cover 'accommodation')
         thick = thick-(p['cont_ref_thick_m']-28000.)*np.clip(1-d_coast/200e3, 0, 1)   # thinned rim at the margins
         born_c = self.t-craton_age[np.clip(clab, 0, None)]
         # old orogen age: from the two cratons it welds (nearest other-craton label across the suture)
@@ -102,6 +124,13 @@ class StartMixin:
             therm_c[cont] = self.t-start_ages_crust(d_coast[cont], thick[cont], g.area[cont], v_cr)
         else:
             raise ValueError(f"start_lithosphere {p['start_lithosphere']!r}: 'distance' or 'crust'")
+        if p['start_cover'] == 'accommodation':          # the cover where its column has room (journal 129)
+            bare = (p['cont_ref_elev_m']+(thick_stable-p['cont_ref_thick_m'])*(1.-p['rho_crust']/p['rho_mantle'])
+                    + np.asarray(self.dyn, float))
+            if p['lithosphere'] == 'thermal_age':
+                bare = bare+elevation_term(self.t-therm_c, p)
+            sed0[cont] = start_sediment(thick_stable[cont], g.area[cont], xyz, cont,
+                                        np.random.default_rng([self.seed, 9]), p, bare=bare[cont])
 
         # plates: Voronoi with wiggled distances; n_cont_plates seeds inside the continent
         oids = np.flatnonzero(~cont)

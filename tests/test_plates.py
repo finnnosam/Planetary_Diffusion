@@ -244,6 +244,10 @@ def test_edge_collapse_run_keeps_the_ledger():
     assert abs((sim.continental_volume()-v0)-sum(sim.ledger.values())) < 2e-3*v0
 
 
+# sediment_rock 'burial' (the default since journal 129) needs the cover law: under 'bedrock' the layer is all loose
+_ROCK = {'cover': {}, 'bedrock': {'sediment_rock': 'none'}}
+
+
 @pytest.mark.parametrize('rule', ['cover', 'bedrock'])
 def test_ocean_floor_eroded_below_its_sediment_loses_crust(monkeypatch, rule):
     # eighteenth pass: the clamp dsed >= -sed dropped erosion below the sediment from the ledger while the material
@@ -264,7 +268,7 @@ def test_ocean_floor_eroded_below_its_sediment_loses_crust(monkeypatch, rule):
     out = {}
     for flag in (True, False):
         sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'ocean_crust_erosion': flag,
-                                            'sediment_entrainment': rule})
+                                            'sediment_entrainment': rule, **_ROCK[rule]})
         for _ in range(3):
             sim.step()
         w = sim.world
@@ -326,7 +330,7 @@ def test_continental_sediment_layer_keeps_both_ledgers(monkeypatch, rule):
     from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True,
-                                        'sediment_entrainment': rule})
+                                        'sediment_entrainment': rule, **_ROCK[rule]})
     a = g.area
     # erode_and_deposit is not exactly closed: now and then (both modes; ~2e-5 of the gross at n = 48) it sends a
     # little more to the sea than it erodes. The partition must reproduce the kernels' total, residual included
@@ -679,7 +683,7 @@ def test_compaction_run_keeps_both_ledgers(monkeypatch, rule):
     from planet_landscape import graph_landscape as gl
     g = CubeSphere(48)
     sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True,
-                                        'sediment_compaction': True, 'sediment_entrainment': rule})
+                                        'sediment_compaction': True, 'sediment_entrainment': rule, **_ROCK[rule]})
     a = g.area
     kernel = []
     name = 'erode_and_deposit_cover' if rule == 'cover' else 'erode_and_deposit'   # the rule's kernel (journal 111)
