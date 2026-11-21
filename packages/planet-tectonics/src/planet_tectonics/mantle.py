@@ -11,6 +11,12 @@ passes over them; a new plume starts with a large igneous province (a burst of c
 
 With dyn_rule 'slabs' (D, journal 66) the knot field is replaced by the free-slip flow of the planet's own slab record
 (planet_tectonics.mantle_flow); the knots are still drawn, so the hotspots take the same random numbers in both rules.
+With flow_power 'measured' (ninety-ninth pass, journal 132) the flow keeps its pattern and takes Earth's measured power
+per degree (VD2020_POWER_KM2 below, air-loaded): the measured field placed by the plates' own slab history. The record
+starts empty, so the start's mantle is dyn_rule 'measured''s own field (the same stream, so the start is the control's)
+and it hands over to the placed field at constant variance over one knot interval (dt_knot_myr), the measured field's
+own decorrelation step: no new number. (Without it the start had no field, and start_cover 'accommodation''s regression
+on a bare level nearly collinear with the crust put Earth's thickest cover on thick crust: a 9.5 km start node.)
 
 With dyn_rule 'measured' (fifty-eighth pass, journal 80) the knots are random fields with Earth's measured residual-
 topography spectrum per degree (VD2020_POWER_KM2: Valentine & Davies 2020), drawn from their own stream (field_rng)
@@ -51,7 +57,7 @@ PARAMS = {
     'lip_volume_km3': (5e5, 4e6), 'lip_radius_km': 600., 'lip_duration_myr': 2.,
     'dyn_rule': 'random', 'rho_mantle': 3300., 'rho_water': 1030., 'threads': None,
     'slab_dip_deg': 58., 'lm_sink_mm_yr': 12., 'flow_z_cut_km': 300., 'flow_lmax': 31, 'viscosity_file': None,
-    'slab_alpha': 'thermo',
+    'slab_alpha': 'thermo', 'flow_power': 'flow',
 }
 
 
@@ -60,6 +66,7 @@ class Mantle:
         self.g, self.rng = graph, rng
         self.p = {**PARAMS, **(params or {})}
         p = self.p
+        self.t0 = float(t0)
         self.knots_t = np.arange(t0-p['dt_knot_myr'], t_end+2*p['dt_knot_myr'], p['dt_knot_myr'])
         self.knots = [p['dyn_std_m']*fields.random_field(graph.xyz, p['dyn_lmax'], p['dyn_slope'], rng)
                       for _ in self.knots_t]
@@ -67,6 +74,11 @@ class Mantle:
         if p['dyn_rule'] == 'slabs':
             from planet_tectonics.mantle_flow import MantleFlow
             self.flow = MantleFlow(graph, p)
+            if p.get('flow_power', 'flow') == 'measured':   # the start's mantle: 'measured''s field, handed over
+                if field_rng is None:
+                    raise ValueError("flow_power 'measured' needs its own field_rng (the start's measured field)")
+                pw = measured_power_air_m2()
+                self.measured = [fields.spectrum_field(graph.xyz, pw, field_rng) for _ in self.knots_t]
         elif p['dyn_rule'] in ('random', 'measured'):
             self.flow = None
             if p['dyn_rule'] == 'measured':
@@ -136,9 +148,19 @@ class Mantle:
         return out
 
     def air(self, t):
-        """The air-loaded field without swells (dyn_rule 'slabs' or 'measured')."""
+        """The air-loaded field without swells (dyn_rule 'slabs' or 'measured'). With flow_power 'measured' the start's
+        measured field hands over to the placed flow at constant variance over the first knot interval."""
         if self.flow is not None:
-            return self.flow.h_air
+            if self.measured is None:
+                return self.flow.h_air
+            f = float(np.clip((t-self.t0)/self.p['dt_knot_myr'], 0, 1))
+            if f >= 1.:
+                return self.flow.h_air
+            a = .5*np.pi*f*f*(3-2*f)
+            return np.cos(a)*self._measured_at(t)+np.sin(a)*self.flow.h_air
+        return self._measured_at(t)
+
+    def _measured_at(self, t):
         k = np.clip(np.searchsorted(self.knots_t, t)-1, 0, len(self.knots_t)-2)
         f = np.clip((t-self.knots_t[k])/(self.knots_t[k+1]-self.knots_t[k]), 0, 1)
         a = .5*np.pi*f*f*(3-2*f)                          # constant variance: cos^2 + sin^2 = 1, smooth at the knots

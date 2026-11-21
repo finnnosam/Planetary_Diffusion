@@ -28,6 +28,14 @@ Three parts:
 
 Nothing here is fitted: the viscosity and the slab kinematics are Earth measurements, the mass is the planet's own
 age-depth curve.
+
+flow_power (ninety-ninth pass, journal 132): 'flow' keeps the flow's own amplitude (as built; 3.3x Earth's whole
+observed signal, journal 68). 'measured' keeps the flow's pattern and takes each degree's power from Earth's measured
+residual-topography spectrum (mantle.measured_power_air_m2: Valentine & Davies 2020, air-loaded, l 1-30): every
+coefficient of degree l is multiplied by sqrt(P_measured(l) / P_flow(l)), so the shape within a degree (where the lows
+lie) is the slab record's and the power per degree is Earth's. Degrees beyond the measurement (l > 30) and a degree
+the record does not yet load (P_flow 0, before the first parcel passes the cut) are zero. The surface velocity V is
+the flow's own (basal traction only). No number fitted.
 """
 import numpy as np
 
@@ -408,7 +416,8 @@ def thermal_mass_excess(age_myr, rho_mantle, rho_water):
 class MantleFlow:
     """The record, the kernels and the current flow on a graph. p: rho_mantle, flow_lmax, flow_z_cut_km, slab_dip_deg,
     lm_sink_mm_yr, viscosity_file (path), threads, slab_alpha ('constant': the surface expansivity at all depths;
-    'depth': alpha_ratio; 'thermo': thermo_ratio)."""
+    'depth': alpha_ratio; 'thermo': thermo_ratio), flow_power ('flow': the flow's own amplitude; 'measured': its
+    pattern at Earth's measured power per degree)."""
 
     def __init__(self, graph, p):
         from planet_grid.paths import DATA
@@ -431,6 +440,19 @@ class MantleFlow:
         else:
             raise ValueError(f"slab_alpha {sa!r}: 'thermo', 'depth' or 'constant'")
         self.record = SlabRecord(p['slab_dip_deg'], p['lm_sink_mm_yr'])
+        fp = p.get('flow_power', 'flow')
+        if fp == 'measured':                              # Earth's power per degree, air-loaded (m^2, sum over m)
+            from planet_tectonics.mantle import measured_power_air_m2
+            pw = measured_power_air_m2()
+            self.target_power = np.zeros(self.lmax+1)
+            n = min(pw.size, self.lmax+1)
+            self.target_power[:n] = pw[:n]
+            self.target_power[0] = 0.
+        elif fp == 'flow':
+            self.target_power = None
+        else:
+            raise ValueError(f"flow_power {fp!r}: 'flow' or 'measured'")
+        self.raw_power = np.zeros(self.lmax+1)            # the flow's own air-loaded power per degree (m^2, sum over m)
         nalm = (self.lmax+1)*(self.lmax+2)//2
         self.H = np.zeros(nalm, np.complex128)            # air-loaded dynamic topography (m)
         self.V = np.zeros(nalm, np.complex128)            # surface-velocity potential (m/yr on the unit sphere)
@@ -441,7 +463,14 @@ class MantleFlow:
         """The flow of the current record."""
         loads = self.record.layer_loads(self.z_cut, len(self.radii), self.g.radius, self.lmax, self.nthreads, self.factor)
         H, V = self.kernels.surface(loads)
-        self.H = H/self.rho_m
+        H = H/self.rho_m
+        self.raw_power = spectrum(H, self.lmax)*4*np.pi
+        if self.target_power is not None:                 # the record's pattern at Earth's power per degree
+            ok = self.raw_power > 0.
+            s = np.zeros(self.lmax+1)
+            s[ok] = np.sqrt(self.target_power[ok]/self.raw_power[ok])
+            H = H*s[alm_l(self.lmax)]
+        self.H = H
         self.V = V*3.15576e7
         self.h_air = synthesis(self.H, self.lmax, self.g.xyz, self.nthreads)
         self.v_xyz = gradient(self.V, self.lmax, self.g.xyz, self.nthreads)

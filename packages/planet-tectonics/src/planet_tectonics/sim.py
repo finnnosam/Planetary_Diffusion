@@ -68,9 +68,11 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         if self.p['dyn_rule'] != 'random':           # D: the slab flow (planet_tectonics.mantle_flow); or 'measured'
             mp.update({k: self.p[k] for k in ('dyn_rule', 'rho_mantle', 'rho_water', 'threads', 'slab_dip_deg',
                                               'lm_sink_mm_yr', 'flow_z_cut_km', 'flow_lmax', 'viscosity_file',
-                                              'slab_alpha')})
+                                              'slab_alpha', 'flow_power')})
         # 'measured' draws its fields from their own stream, so the hotspots take the same numbers in every rule
-        frng = np.random.default_rng([seed, 8]) if self.p['dyn_rule'] == 'measured' else None
+        # (flow_power 'measured' starts from that same field and hands it over to the placed flow; journal 132)
+        frng = (np.random.default_rng([seed, 8]) if self.p['dyn_rule'] == 'measured' or
+                (self.p['dyn_rule'] == 'slabs' and self.p['flow_power'] == 'measured') else None)
         self.mantle = Mantle(graph, np.random.default_rng([seed, 7]), t0, params=mp, field_rng=frng) if self.p['mantle'] else None
         self.dyn = self.mantle.topography(t0) if self.mantle else np.zeros(graph.size)
         self.next_id = 0
@@ -285,6 +287,8 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
                         'slab_mass_young_kg': near,
                         'slab_mass_by_layer_kg': rec.mass_by_layer(fl.z_cut, len(fl.radii)),
                         'slab_record_kg': np.array([rec.deposited_kg, rec.total_mass(), rec.exited_kg])})
+            if fl.target_power is not None:          # flow_power 'measured': the flow's own power before the rescale
+                out['flow_power_raw_m2'] = fl.raw_power.copy()
         return out
 
 

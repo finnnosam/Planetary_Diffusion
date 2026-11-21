@@ -335,6 +335,12 @@ PARAMS = {
     # SLB2011 (mantle_flow.thermo_ratio): its entropy deficit is kept, so its temperature deficit grows along the
     # adiabat; 1.09x 'depth' at 825 km, 1.6x at 2,825 km; Earth's record (E3) 645 m against 'depth' 516 m
     'slab_alpha': 'thermo',
+    # the slab flow's amplitude (dyn_rule 'slabs' only; ninety-ninth pass, journal 132): 'flow' keeps the flow's own
+    # (as built: 727 m rms air-loaded on six seeds, 3.3x Earth's whole observed signal, journal 68; the instantaneous-
+    # flow gap, Hoggard et al. 2016, parked). 'measured': the flow's pattern, each degree rescaled to Earth's measured
+    # residual-topography power (Valentine & Davies 2020, as dyn_rule 'measured' reads it, l 1-30, air-loaded): the
+    # measured field placed by the planet's own slab history. No number fitted
+    'flow_power': 'flow',
     # basal traction (with force_law 'torque' and dyn_rule 'slabs'): basal drag acts on the plate's velocity relative
     # to the free-slip flow, C_b (1 + (keel - 1) c)(v_flow - v_plate), so it uses the existing drag coefficients and
     # adds none (journal 66, section 2). Swept only after its paired probe passes (P-h)
