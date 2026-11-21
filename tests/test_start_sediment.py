@@ -33,7 +33,7 @@ def test_start_sediment_leaves_the_rest_of_the_start_unchanged():
 
 def test_start_cover_takes_earths_distribution_and_correlation():
     g = CubeSphere(96)
-    sim = P.PlateSim(g, seed=5, params={'start_sediment': 'continent'})
+    sim = P.PlateSim(g, seed=5, params={'start_sediment': 'continent', 'start_cover': 'copula'})   # the copula as built
     w = sim.world; c = w['cont']; a = g.area
     h = sediment_column(w['sed'], c, sim.p)[0][c]
     o = np.argsort(h); cw = np.cumsum(a[c][o]); cw /= cw[-1]

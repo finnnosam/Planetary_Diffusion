@@ -267,6 +267,16 @@ PARAMS = {
     # erosion substep. shelf_kappa_m2_yr = 0 turns it off. On since 22 Oct (sweep-20261022-194148: 3e4 / 0.003 with
     # breakup 17.5 km; on one-cell margins it had no effect, sweep-20261021-182714)
     'shelf_kappa_m2_yr': 3e4, 'shelf_wave_base_m': 50., 'cliff_retreat_m_yr': .003,
+    # marine diffusion of the landscape kernel (graph_landscape.surface_step: Kd_marine, 2e3 m^2/yr, on every sea node
+    # shallower than 1,000 m, at every depth alike; tuned in the 11.5 km test bed). 'uniform' (as built): the plate
+    # layer runs it as the kernel does. 'none': off on the plate grid; marine transport is the shelf law (wave
+    # transport decaying with depth, Kaufman et al. 1991) and the gravity paths (deltas and graded shelves, the margin
+    # wedge, fill_and_spill's turbidites). On the 46 km grid the uniform term moves ~400 m/Myr across a 450 m step
+    # between neighbours, below wave base as above it, and cuts the drowned continent's crust where its cover is gone:
+    # the planet's submerged continent deepens with distance from land as a diffusive ramp (p50 -150 / -249 / -356 /
+    # -467 / -585 m at 0-50 / -100 / -150 / -200 / -300 km) where Earth's is a shelf (-51 / -147 / -212 / -236 / -293;
+    # precheck-p97-tail/shelf_profile.py). No new number (ninety-seventh pass, journal 130)
+    'marine_diffusion': 'uniform',
     # deep-sea sediment: the landscape kernels' marine step places sediment only on shelves (within 150 km of land) and
     # drops the rest ("to the deep sea", right for a regional window). On the planet that deleted ~7 km^3/yr, more
     # than the continents' net loss (step 8 follow-up 1). Kept, the rest ponds where its path ended and fills the
@@ -513,9 +523,11 @@ PARAMS = {
     # the rim is thinned, C's term of its lithosphere age, the air-loaded dynamic topography at the start), with
     # Earth's correlations of the cover with both on its stable domain (EARTH_STABLE_SED_BARE) and the start's own
     # correlation between them; the rest is the same random field. Sediment lies where its column has room for it. The
-    # distribution, the volume and every other draw of the start are unchanged. No fitted number. Needs start_sediment
-    # 'continent' or 'all'
-    'start_cover': 'copula',
+    # distribution, the volume and every other draw of the start are unchanged. No fitted number. With start_sediment
+    # 'none' there is no cover and the rule is moot. 'accommodation' adopted 20 Nov (ninety-seventh pass, journal 130: the Start Cover Sweep,
+    # sweep-20261120-212152; every veto passes; the continents under the datum 0.245 -> 0.197, the drowned band
+    # -1,000 ... -200 m 7.9 -> 6.6% of the surface, land 26.0 -> 26.6%, land p50 469 -> 522 m)
+    'start_cover': 'accommodation',
     # the start's plate geometry (thirty-eighth pass). 'voronoi' (as built): plates are Voronoi cells of the whole
     # sphere, n_cont_plates seeded inside the supercontinent, so its plates reach into the ocean and its coast is a
     # passive margin inside plates (continental-side trench at -250 Myr 0.2-0.7k km); a closed sphere consumes what it

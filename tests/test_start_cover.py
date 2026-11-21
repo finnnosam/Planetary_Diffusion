@@ -29,17 +29,18 @@ def _scores(sim):
     return a, _nscore(w['sed'][inner].astype(float), a), _nscore(T[inner], a), _nscore(bare[inner], a)
 
 
-def test_default_is_copula_and_unknown_rules_raise():
-    assert P.PARAMS['start_cover'] == 'copula'
+def test_default_is_accommodation_and_unknown_rules_raise():
+    # 'accommodation' adopted 20 Nov (ninety-seventh pass, journal 130)
+    assert P.PARAMS['start_cover'] == 'accommodation'
     with pytest.raises(ValueError):
         P.PlateSim(CubeSphere(48), seed=3, params={'start_cover': 'basins'})
-    with pytest.raises(ValueError):
-        P.PlateSim(CubeSphere(48), seed=3, params={'start_cover': 'accommodation', 'start_sediment': 'none'})
+    bare = P.PlateSim(CubeSphere(48), seed=3, params={'start_cover': 'accommodation', 'start_sediment': 'none'})
+    assert not bare.world['sed'][bare.world['cont']].any()       # a bare start: start_cover is moot (journal 130)
 
 
 def test_accommodation_moves_only_the_cover():
     g = CubeSphere(48)
-    a = P.PlateSim(g, seed=3, params={'threads': 1})
+    a = P.PlateSim(g, seed=3, params={'threads': 1, 'start_cover': 'copula'})
     b = P.PlateSim(g, seed=3, params={'threads': 1, 'start_cover': 'accommodation'})
     for k in ('cont', 'thick', 'born', 'orog', 'therm'):
         assert np.array_equal(a.world[k], b.world[k], equal_nan=True), k

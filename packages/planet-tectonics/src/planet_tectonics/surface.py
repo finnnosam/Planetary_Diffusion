@@ -24,6 +24,10 @@ class SurfaceMixin:
         self.z_last = z0                                 # dyn_rule 'slabs' water-loads the flow where this is < 0
         lp = {**gl.DEFAULTS, 'K': gl.DEFAULTS['K']*p['erosion_K_factor'], 'Sc': p['erosion_Sc'],
               'Kd': gl.DEFAULTS['Kd']*p['erosion_Kd_factor'], 'open_edges': False, 'theta': p['erosion_theta']}
+        if p['marine_diffusion'] == 'none':          # the kernel's uniform marine diffusion off (journal 130)
+            lp['Kd_marine'] = 0.
+        elif p['marine_diffusion'] != 'uniform':
+            raise ValueError(f"marine_diffusion {p['marine_diffusion']!r}: 'uniform' or 'none'")
         since = np.where(np.isnan(w['orog']), np.inf, self.t-w['orog'])
         erod = p['stable_erodibility']+(1-p['stable_erodibility'])*np.exp(-np.clip(since, 0, None)/p['orogen_erodibility_tau_myr'])
         K = lp['K']*np.where(w['cont'], erod, 1.)

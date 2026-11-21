@@ -102,8 +102,6 @@ class StartMixin:
             raise ValueError(f"start_sediment {rule!r}: 'none', 'continent' or 'all'")
         if p['start_cover'] not in ('copula', 'accommodation'):
             raise ValueError(f"start_cover {p['start_cover']!r}: 'copula' or 'accommodation'")
-        if p['start_cover'] == 'accommodation' and rule == 'none':
-            raise ValueError("start_cover 'accommodation' needs start_sediment 'continent' or 'all'")
         sed0 = np.zeros(g.size)
         if rule != 'none':                               # Earth's stable cover, joined to the crust before the rim
             sed0[cont] = start_sediment(thick[cont], g.area[cont], xyz, cont, np.random.default_rng([self.seed, 9]), p)
@@ -124,7 +122,8 @@ class StartMixin:
             therm_c[cont] = self.t-start_ages_crust(d_coast[cont], thick[cont], g.area[cont], v_cr)
         else:
             raise ValueError(f"start_lithosphere {p['start_lithosphere']!r}: 'distance' or 'crust'")
-        if p['start_cover'] == 'accommodation':          # the cover where its column has room (journal 129)
+        if p['start_cover'] == 'accommodation' and rule != 'none':   # the cover where its column has room (journal 129;
+            # a bare start, start_sediment 'none', has no cover to place: start_cover is moot there, journal 130)
             bare = (p['cont_ref_elev_m']+(thick_stable-p['cont_ref_thick_m'])*(1.-p['rho_crust']/p['rho_mantle'])
                     + np.asarray(self.dyn, float))
             if p['lithosphere'] == 'thermal_age':
