@@ -107,6 +107,102 @@ def shortest_paths(src, nbr, dist):
 
 
 @njit(cache=True)
+def _root(par, i):
+    while par[i] != i:
+        par[i] = par[par[i]]
+        i = par[i]
+    return i
+
+
+@njit(cache=True)
+def two_big_pieces(blocked, nbr, area, floor):
+    """Whether the unblocked nodes may hold two connected pieces of area >= floor: an exact screen for _chord_line,
+    counting the pieces that touch a blocked node (the caller makes sure no other piece can reach floor). The unblocked nodes beside the blocked ones are
+    grouped into strips (connected among themselves, so each lies in one piece); one breadth-first fill grows from all
+    strips at once, and strips whose fills meet are merged (union-find). A merged class whose frontier is empty holds
+    its whole piece. Returns False as soon as at most one class can still be a big piece (the others exhausted below
+    floor): then the exact labelling has at most one piece >= floor and rejects the cut. Returns True when two
+    exhausted classes reach floor, or when half the nodes are reached with two classes at floor (the caller then
+    labels the pieces exactly). Exhausted pieces count as small only below floor (1 - 1e-9), so summation order never
+    turns a piece the exact count calls big into a small one."""
+    n = blocked.shape[0]
+    m = nbr.shape[1]
+    small = floor*(1.-1e-9)
+    seed = np.zeros(n, np.bool_)
+    seeds = np.empty(n, np.int64); ns = 0
+    for i in range(n):
+        if blocked[i]:
+            for k in range(m):
+                j = nbr[i, k]
+                if j >= 0 and not blocked[j] and not seed[j]:
+                    seed[j] = True; seeds[ns] = j; ns += 1
+    cls = np.full(n, -1, np.int64)
+    queue = np.empty(n, np.int64)
+    stack = np.empty(n, np.int64)
+    tail = 0
+    nc = 0
+    for q in range(ns):                                  # the strips: one class each
+        s0 = seeds[q]
+        if cls[s0] >= 0:
+            continue
+        cls[s0] = nc; stack[0] = s0; sp = 1
+        while sp > 0:
+            sp -= 1; i = stack[sp]
+            queue[tail] = i; tail += 1
+            for k in range(m):
+                j = nbr[i, k]
+                if j >= 0 and seed[j] and cls[j] < 0:
+                    cls[j] = nc; stack[sp] = j; sp += 1
+        nc += 1
+    par = np.arange(nc)
+    acc = np.zeros(nc)
+    live = np.zeros(nc, np.int64)
+    for t in range(tail):
+        live[cls[queue[t]]] += 1
+    head = 0
+    while head < tail:
+        i = queue[head]; head += 1
+        ri = _root(par, cls[i])
+        acc[ri] += area[i]
+        live[ri] -= 1
+        for k in range(m):
+            j = nbr[i, k]
+            if j < 0 or blocked[j]:
+                continue
+            if cls[j] < 0:
+                cls[j] = ri; queue[tail] = j; tail += 1
+                live[ri] += 1
+            else:
+                rj = _root(par, cls[j])
+                if rj != ri:                             # the same piece: merge the classes
+                    par[rj] = ri
+                    acc[ri] += acc[rj]; live[ri] += live[rj]
+        if (head & 63) == 0 or head == tail:
+            nlive = 0; nbig_done = 0; nbig = 0
+            for c in range(nc):
+                if par[c] != c:
+                    continue
+                if live[c] > 0:
+                    nlive += 1
+                    if acc[c] >= small:
+                        nbig += 1
+                elif acc[c] >= small:
+                    nbig_done += 1; nbig += 1
+            if nlive+nbig_done <= 1:
+                return False
+            if nbig_done >= 2:
+                return True
+            if nbig >= 2 and 2*head >= n:
+                return True
+    nbig = 0
+    for c in range(nc):
+        if par[c] == c and acc[c] >= small:
+            nbig += 1
+    return nbig >= 2
+
+
+
+@njit(cache=True)
 def trace_cut(cut, pred, s, e, nbr, axis):
     """Mark on cut the cheapest path e -> s (pred from shortest_paths), filling each diagonal step with a node both
     ends reach along an axis, so the marked nodes close against an 8-neighbour fill."""

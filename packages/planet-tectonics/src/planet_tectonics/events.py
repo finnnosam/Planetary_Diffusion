@@ -4,7 +4,7 @@ import numpy as np
 
 from planet_grid import fields
 
-from planet_tectonics.graphops import components, nearest_label, shortest_paths, trace_cut
+from planet_tectonics.graphops import components, nearest_label, shortest_paths, trace_cut, two_big_pieces
 from planet_tectonics.params import COLLISION, RIDGE, SUBDUCTION
 
 SPLIT_L_MIN_KM = 200.   # split_rule 'earth': margins shorter than this (~2 nodes a side) count as this long
@@ -325,9 +325,10 @@ class EventsMixin:
         """Continental margin a split would make (km, both sides): continental nodes of the plate with a neighbour of
         the plate on the other side of the line, x the graph spacing (the instrument of planet_reviews.rift_production)."""
         g, w = self.g, self.world
-        nb = g.nbr; ok = (nb >= 0) & own[np.maximum(nb, 0)]
-        other = ok & (lab[np.maximum(nb, 0)] != lab[:, None])
-        return float((own & w['cont'] & other.any(1)).sum())*float(np.sqrt(g.area.mean()))/1e3
+        idx = np.flatnonzero(own)                        # the plate's rows only: the same count
+        nb = g.nbr[idx]; ok = (nb >= 0) & own[np.maximum(nb, 0)]
+        other = ok & (lab[np.maximum(nb, 0)] != lab[idx][:, None])
+        return float((w['cont'][idx] & other.any(1)).sum())*float(np.sqrt(g.area.mean()))/1e3
 
 
     def _rift_speed(self, margin_km):
@@ -395,19 +396,26 @@ class EventsMixin:
         when none is in tension (a plate without boundary forces pulling it apart: an overriding continent under the
         fit's zero slab suction), the cheapest cut as 'chord' (kind 'chord')."""
         g, p, rng, w = self.g, self.p, self.rng, self.world
-        nbc = np.clip(g.nbr, 0, None); okn = g.nbr >= 0
-        inside = own & np.all(~okn | own[nbc], 1)
+        # the plate's own rows only (journal 133: the same numbers, element by element, as on the whole graph; rows
+        # of other nodes are never read, since every edge leaving the plate is closed)
+        idx = np.flatnonzero(own)
+        nbo = g.nbr[idx]; okn = nbo >= 0; nbc = np.clip(nbo, 0, None)
+        inside = np.zeros(g.size, bool)
+        inside[idx] = np.all(~okn | own[nbc], 1)
         cand = np.flatnonzero(inside & w['cont'])
         if cand.size == 0:
             return None
         s = cand[rng.integers(cand.size)]
         weak = np.where(np.isnan(w['orog']), 0., p['suture_weakness'])
         wig = 1+.3*rng.standard_normal(g.size)
-        belt = 1-.5*(weak[:, None]+weak[nbc])
+        belt = 1-.5*(weak[idx][:, None]+weak[nbc])
         st = self._line_strength()
-        cost = np.clip(.5*(wig[:, None]+wig[nbc]), .3, None)/(belt*.5*(st[:, None]+st[nbc]))
-        cost = np.where(okn & own[:, None] & own[nbc], g.dist*cost, 1e30)
-        d, pred = shortest_paths(int(s), g.nbr, cost)
+        co = np.clip(.5*(wig[idx][:, None]+wig[nbc]), .3, None)/(belt*.5*(st[idx][:, None]+st[nbc]))
+        buf = getattr(self, '_chord_cost_buf', None)
+        if buf is None or buf.shape != g.nbr.shape:
+            buf = self._chord_cost_buf = np.full(g.nbr.shape, 1e30)
+        buf[idx] = np.where(okn & own[nbc], g.dist[idx]*co, 1e30)
+        d, pred = shortest_paths(int(s), g.nbr, buf)
         ends = np.flatnonzero(own & ~inside & (d < 1e29))
         if ends.size < 2:
             return None
@@ -424,7 +432,6 @@ class EventsMixin:
         da = np.abs(ang[ks[ia]]-ang[ks[ib]]); da = np.minimum(da, 2*np.pi-da)
         keep = da > np.pi/2
         ia, ib = ia[keep], ib[keep]
-        idx = np.flatnonzero(own)
         cheap = np.argsort(d[ends[ks[ia]]]+d[ends[ks[ib]]], kind='stable')
         if p['rift_line'] == 'force':
             first = self._force_order(idx, s, u, v, ang[ks[ia]], ang[ks[ib]], d[ends[ks[ia]]]+d[ends[ks[ib]]])
@@ -433,9 +440,15 @@ class EventsMixin:
             passes = (('chord', cheap),)
         floor = p['piece_min_area_mkm2']*1e12
         loc = np.full(g.size, -1, np.int64); loc[idx] = np.arange(idx.size)
-        lnbr = np.where(okn[idx], loc[nbc[idx]], -1)          # the plate's own subgraph
+        lnbr = np.where(okn, loc[nbc], -1)                    # the plate's own subgraph
         Al = g.area[idx]; Aown = Al.sum()
         cut = np.zeros(g.size, bool)
+        # the screen (two_big_pieces) sees only pieces that touch the cut: exact when every piece of the uncut plate
+        # that could reach floor is crossed by the cut, i.e. at most one such piece and the nucleus in it (the
+        # plate's other pieces are crumbs that stay whole)
+        comp0 = components(np.ones(idx.size, bool), lnbr)
+        big0 = np.flatnonzero(np.bincount(comp0, weights=Al) >= floor*(1.-1e-9))
+        screened = big0.size == 0 or (big0.size == 1 and comp0[loc[s]] == big0[0])
         self._chord_tries = 0
         for kind, order in passes:
             self._chord_kind = kind
@@ -444,7 +457,10 @@ class EventsMixin:
                 cut[:] = False
                 trace_cut(cut, pred, int(s), int(ends[ks[ia[t]]]), g.nbr, g.axis)
                 trace_cut(cut, pred, int(s), int(ends[ks[ib[t]]]), g.nbr, g.axis)
-                comp = components(~cut[idx], lnbr)
+                bl = cut[idx]
+                if screened and not two_big_pieces(bl, lnbr, Al, floor):
+                    continue                             # at most one piece reaches floor: the exact test rejects it too
+                comp = components(~bl, lnbr)
                 n = comp.max()+1
                 if n < 2:
                     continue
@@ -453,7 +469,7 @@ class EventsMixin:
                 if area[b] < floor or Aown-area[b] < floor:
                     continue
                 lab = np.zeros(g.size, np.int64); lab[idx[comp == b]] = 1
-                if kind == 'force' and self._cut_tension(own, lab == 1) <= 0:
+                if kind == 'force' and self._cut_tension(own, lab == 1, self._chord_F) <= 0:
                     continue
                 return lab
         return None
@@ -523,12 +539,14 @@ class EventsMixin:
         return np.where(n > 0, (net*dd).sum(-1)/np.where(n > 0, n, 1.), 0.)/R
 
 
-    def _cut_tension(self, own, part):
-        """rift_line 'force': the exact opening force (N) across the cut between part and the rest of the plate own."""
+    def _cut_tension(self, own, part, F=None):
+        """rift_line 'force': the exact opening force (N) across the cut between part and the rest of the plate own.
+        F: the plate's force features, when the caller has them (_force_order's, on the same nodes)."""
         g = self.g
-        tau, w, qt, cb, cs = self._cut_forces()
         idx = np.flatnonzero(own)
-        F = self._force_feats(g.xyz[idx], g.area[idx], tau[idx], w[idx], qt[idx], cb, cs)
+        if F is None:
+            tau, w, qt, cb, cs = self._cut_forces()
+            F = self._force_feats(g.xyz[idx], g.area[idx], tau[idx], w[idx], qt[idx], cb, cs)
         return float(self._force_open(F[part[idx]].sum(0), F.sum(0), g.radius))
 
 
@@ -539,7 +557,7 @@ class EventsMixin:
         the cut's sides, used to rank only). Candidates not in tension by this reading are left out."""
         g = self.g
         tau, w, qt, cb, cs = self._cut_forces()
-        F = self._force_feats(g.xyz[idx], g.area[idx], tau[idx], w[idx], qt[idx], cb, cs)
+        F = self._chord_F = self._force_feats(g.xyz[idx], g.area[idx], tau[idx], w[idx], qt[idx], cb, cs)
         an = np.arctan2(g.xyz[idx]@v, g.xyz[idx]@u)
         o = np.argsort(an, kind='stable')
         C = np.vstack([np.zeros(F.shape[1]), np.cumsum(F[o], 0)])
