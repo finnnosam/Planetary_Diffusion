@@ -14,8 +14,8 @@ def _sim(rule, **kw):
     return sim
 
 
-def test_default_is_uniform_and_unknown_rules_raise():
-    assert P.PARAMS['marine_diffusion'] == 'uniform'
+def test_default_is_none_and_unknown_rules_raise():
+    assert P.PARAMS['marine_diffusion'] == 'none'        # adopted in pass 98 (journal 131)
     sim = _sim('wave')
     with pytest.raises(ValueError):
         sim._erode(sim.world['thick'].astype(float))

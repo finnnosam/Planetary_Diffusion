@@ -275,8 +275,10 @@ PARAMS = {
     # between neighbours, below wave base as above it, and cuts the drowned continent's crust where its cover is gone:
     # the planet's submerged continent deepens with distance from land as a diffusive ramp (p50 -150 / -249 / -356 /
     # -467 / -585 m at 0-50 / -100 / -150 / -200 / -300 km) where Earth's is a shelf (-51 / -147 / -212 / -236 / -293;
-    # precheck-p97-tail/shelf_profile.py). No new number (ninety-seventh pass, journal 130)
-    'marine_diffusion': 'uniform',
+    # precheck-p97-tail/shelf_profile.py). No new number (ninety-seventh pass, journal 130). 'none' since 21 Nov
+    # (ninety-eighth pass, journal 131; Marine Diffusion Sweep, sweep-20261121-095209: passes every veto; continents on
+    # the datum p50 417 -> 379 m, land 26.6 -> 27.2%, the drowned band 6.6 -> 5.8% of the surface)
+    'marine_diffusion': 'none',
     # deep-sea sediment: the landscape kernels' marine step places sediment only on shelves (within 150 km of land) and
     # drops the rest ("to the deep sea", right for a regional window). On the planet that deleted ~7 km^3/yr, more
     # than the continents' net loss (step 8 follow-up 1). Kept, the rest ponds where its path ended and fills the
