@@ -14,6 +14,12 @@ into <sweep>/reviews/<review>.txt, and .json where it writes one). The console s
 and a line per finished run or review. The prediction comes from outputs/planet-calibration/timings.jsonl (every
 step's, run's and review's time, written as they finish; scripts.progress), so it follows the machine. At the end
 <sweep>/reviews/timings.txt lists each step's predicted and actual time. Exit status 1 on any failure.
+
+--borrow-control (the hundredth pass, journal 134; the working rule since then): the control's runs are the
+--identity arm's (the previous sweep's adopted arm: runs are deterministic, so re-running it repeats data already on
+disk). The control runs only --check-seeds (default the first seed), compared field by field with the reference;
+identical, its other seeds are borrowed (hard links, no extra disk); different, the sweep runs them itself
+(scripts.sweep_plates --borrow). The reviews read the control as an ordinary arm.
 """
 import argparse
 import shutil
@@ -32,7 +38,8 @@ PLANET_TESTS = ('test_shelf', 'test_plates', 'test_sphere_graph', 'test_graph_la
                 'test_init_site', 'test_progress', 'test_rift_speed', 'test_rift_line', 'test_pelagic', 'test_deep_crust',
                 'test_collision_lithosphere', 'test_lith_frame', 'test_lt_link', 'test_ocean_depth',
                 'test_crust_flow', 'test_sediment_cover', 'test_start_sediment', 'test_backarc',
-                'test_water_load', 'test_sediment_rock', 'test_crust_ledger_series', 'test_start_cover', 'test_marine_diffusion')
+                'test_water_load', 'test_sediment_rock', 'test_crust_ledger_series', 'test_start_cover', 'test_marine_diffusion',
+                'test_borrow_control')
 # (name, module or script, arguments; {SW} sweep folder, {CTL} control folder, {CTLNAME} its name, {REF} identity
 # reference, {OUT} the review's json path): as the sweep .cmd files ran them since pass 67
 REVIEWS = (
@@ -99,7 +106,12 @@ def main(argv=None):
     ap.add_argument('--control', default=None, help="the control arm's folder name")
     ap.add_argument('--identity', default=None, help='folder the control must equal (tools/compare_runs.py)')
     ap.add_argument('--reviews', nargs='*', default=None, help='review names (default: all of REVIEWS that apply)')
+    ap.add_argument('--borrow-control', action='store_true',
+                    help="take the control's runs from --identity, re-running only --check-seeds (see above)")
+    ap.add_argument('--check-seeds', default=None, help='with --borrow-control: seeds re-run and compared (default: the first)')
     a = ap.parse_args(argv)
+    if a.borrow_control and not (a.control and a.identity):
+        raise SystemExit('--borrow-control needs --control and --identity')
     from scripts import sweep_plates as spl
     cal = OUTPUTS/'planet-calibration'
     cal.mkdir(parents=True, exist_ok=True)
@@ -110,18 +122,26 @@ def main(argv=None):
         sweep_argv += ['--grid', gspec]
     if a.workers:
         sweep_argv += ['--workers', a.workers]
+    if a.borrow_control:
+        sweep_argv += ['--borrow', f'{a.control}={a.identity}']
+        if a.check_seeds:
+            sweep_argv += ['--check-seeds', a.check_seeds]
     workers = int(a.workers) if a.workers else max(1, min(8, (__import__('os').cpu_count() or 2)//2))
     n_settings = 1
     for gspec in a.grid:
         n_settings *= len(gspec.split('=', 1)[1].split(','))
-    n_runs = n_settings*len(a.seeds.split(','))
+    n_seeds = len(a.seeds.split(','))
+    n_runs = n_settings*n_seeds                       # runs in the sweep (the reviews read them all)
+    n_borrowed = n_seeds-(len(a.check_seeds.split(',')) if a.check_seeds else 1) if a.borrow_control else 0
     reviews = [r for r in REVIEWS if a.reviews is None or r[0] in a.reviews]
     per_run = pg.predict_run(workers, float(a.years))
     pred = {'tests': pg.predict('pytest') if tests else 0.,
-            'sweep': pg.schedule_left([], n_runs, per_run, workers),
+            'sweep': pg.schedule_left([], n_runs-n_borrowed, per_run, workers),
             'reviews': sum(pg.predict('review', r[0], per='runs')*n_runs for r in reviews)}
     tr = pg.Tracker([('tests', pred['tests']), ('sweep', pred['sweep']), ('reviews', pred['reviews'])])
-    tr.log(f"{a.name}: {n_runs} runs ({n_settings} settings x {len(a.seeds.split(','))} seeds) on {workers} workers; "
+    tr.log(f"{a.name}: {n_runs} runs ({n_settings} settings x {n_seeds} seeds"
+           + (f"; {n_borrowed} of the control's borrowed from {a.identity} if its check seed is identical" if n_borrowed else '')
+           + f") on {workers} workers; "
            f"predicted ~{pg.fmt(sum(pred.values()))} (tests ~{pg.fmt(pred['tests'])}, runs ~{pg.fmt(pred['sweep'])}, "
            f"reviews ~{pg.fmt(pred['reviews'])})")
     # 1 tests

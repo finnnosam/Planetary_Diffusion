@@ -34,11 +34,23 @@ against predicted time, runs done and running, the step's share), and one line p
 settings 1 of 4 (...), seed 1003 (3 of 6), 18.2 min'). Each run's own printout goes to <combo>/seed<s>/run.log; the
 score tables to <sweep>/summary.txt. Every run's time and the sweep's go to outputs/planet-calibration/timings.jsonl,
 from which the next sweep's prediction is made. scripts.run_sweep runs tests, sweep and reviews under one line.
+
+Borrowed control (the hundredth pass, journal 134): --borrow NAME=FOLDER takes the combination NAME's runs from an
+earlier sweep's arm FOLDER that ran the same model (runs are deterministic, so re-running it repeats data already on
+disk). Only --check-seeds (default the first seed) are run; each is compared with FOLDER's run of that seed field by
+field (tools/compare_runs.py, written to <NAME>/borrowed.txt). Identical on every check seed: the other seeds are
+placed in <NAME>/seed<s> from FOLDER (snapshots and stats.json as hard links, files that are never rewritten, so no
+extra disk; the rest copied; a copy wherever a link fails). Different on any: the sweep runs the other seeds itself,
+as it did before. <NAME>/borrowed.json and sweep.json record which. FOLDER must hold every seed and have been run for
+the same years and snapshot cadence. Every review then reads <NAME> as an ordinary arm.
 """
 import argparse
+import importlib.util
+import io
 import itertools
 import json
 import os
+import shutil
 import time
 from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from contextlib import redirect_stderr, redirect_stdout
@@ -129,6 +141,67 @@ def run_jobs(jobs, workers, years, tracker, label):
                                left=pg.schedule_left(left, queued, d, workers))
 
 
+LINKED_SUFFIXES = ('.npz', '.json')         # a run's data files: written once by the run, never rewritten
+
+
+def plan_jobs(combos, names, seeds, borrow=None, check_seeds=None):
+    """(combination, seed) pairs to run. With borrow (a combination's folder name) that combination runs only its
+    check seeds (default: the first seed), placed first so the check finishes as early as possible."""
+    if borrow is None:
+        return [(c, s) for c in combos for s in seeds]
+    check = list(check_seeds or seeds[:1])
+    bc = combos[names.index(borrow)]
+    return [(bc, s) for s in seeds if s in check]+[(c, s) for c in combos if c is not bc for s in seeds]
+
+
+def borrow_seed(src, dst):
+    """Every file of the seed folder src into dst: a run's data files (LINKED_SUFFIXES) as hard links, the rest (run
+    log, pictures) as copies, a copy wherever a link fails (another volume). Returns (linked, copied)."""
+    src, dst = Path(src), Path(dst)
+    n_link = n_copy = 0
+    for f in sorted(src.rglob('*')):
+        if not f.is_file():
+            continue
+        t = dst/f.relative_to(src)
+        t.parent.mkdir(parents=True, exist_ok=True)
+        if f.suffix in LINKED_SUFFIXES:
+            try:
+                os.link(f, t)
+                n_link += 1
+                continue
+            except OSError:
+                pass
+        shutil.copy2(f, t)
+        n_copy += 1
+    return n_link, n_copy
+
+
+def same_run(a, b):
+    """(identical, printout): tools/compare_runs.py's verdict on two seed folders (every shared snapshot field and
+    stats.json value; a parameter only one side has is listed, not counted, as in the sweeps' identity review)."""
+    spec = importlib.util.spec_from_file_location('compare_runs', Path(__file__).resolve().parents[1]/'tools'/'compare_runs.py')
+    cr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(cr)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        ok = cr.compare(Path(a), Path(b))
+    return bool(ok), buf.getvalue()
+
+
+def check_borrow_source(src, seeds, years, save_every):
+    """Refuses a borrow source that cannot stand in for the control: a missing seed, other years or cadence."""
+    src = Path(src)
+    missing = [s for s in seeds if not (src/f'seed{s}'/'stats.json').is_file()]
+    if missing:
+        raise SystemExit(f'--borrow: {src} has no finished run of seed(s) {missing}')
+    sj = src.parent/'sweep.json'
+    if sj.is_file():
+        meta = json.loads(sj.read_text())
+        if float(meta.get('years', years)) != float(years) or int(meta.get('save_every', save_every)) != int(save_every):
+            raise SystemExit(f"--borrow: {src.parent.name} ran {meta.get('years')} Myr saving every {meta.get('save_every')}; "
+                             f"this sweep runs {years} saving every {save_every}")
+
+
 def statistics_median(xs):
     return float(np.median(xs))
 
@@ -191,6 +264,9 @@ def main(argv=None, tracker=None):
     p.add_argument('--workers', type=int, default=max(1, min(8, (os.cpu_count() or 2)//2)))
     p.add_argument('--save-every', type=int, default=5,
                    help='snapshot cadence (Myr) over the last 40 Myr (1 for a sweep whose runs feed the landscape stage)')
+    p.add_argument('--borrow', default=None, metavar='NAME=FOLDER',
+                   help="take combination NAME's runs from an earlier arm FOLDER of the same model (see above)")
+    p.add_argument('--check-seeds', default=None, help='with --borrow: the seeds re-run and compared (default: the first)')
     a = p.parse_args(argv)
     from planet_tectonics.plates import PARAMS
     from planet_grid.sphere_graph import CubeSphere
@@ -209,24 +285,39 @@ def main(argv=None, tracker=None):
         keys.append(ks); values.append(tuples)
     combos = [{kk: vv for ks, t in zip(keys, c) for kk, vv in zip(ks, t)} for c in itertools.product(*values)] or [{}]
     seeds = [int(s) for s in a.seeds.split(',')]
-    out = OUTPUTS/'planet-calibration'/f"sweep-{time.strftime('%Y%m%d-%H%M%S')}"
-    out.mkdir(parents=True, exist_ok=True)
     dirnames = combo_names(combos)
     name = lambda c: dirnames[combos.index(c)]
+    borrow = src = None
+    check = []
+    if a.borrow:
+        borrow, src = a.borrow.split('=', 1)
+        src = Path(src)
+        if borrow not in dirnames:
+            raise SystemExit(f'--borrow: no combination named {borrow!r} (combinations: {", ".join(dirnames)})')
+        check = [int(s) for s in a.check_seeds.split(',')] if a.check_seeds else seeds[:1]
+        if any(s not in seeds for s in check):
+            raise SystemExit(f'--check-seeds {check}: not all among the seeds {seeds}')
+        check_borrow_source(src, seeds, a.years, a.save_every)
+    out = OUTPUTS/'planet-calibration'/f"sweep-{time.strftime('%Y%m%d-%H%M%S')}"
+    out.mkdir(parents=True, exist_ok=True)
     fixed = {k: v for k, v in combos[0].items() if all(c.get(k) == v for c in combos)} if len(combos) > 1 else {}
-    (out/'sweep.json').write_text(json.dumps({'fixed': fixed, 'combos': dict(zip(dirnames, combos)), 'seeds': seeds,
-                                              'years': a.years, 'rule': a.rule, 'save_every': a.save_every}, indent=1))
+    meta = {'fixed': fixed, 'combos': dict(zip(dirnames, combos)), 'seeds': seeds, 'years': a.years, 'rule': a.rule,
+            'save_every': a.save_every}
+    if borrow:
+        meta['borrow'] = {'combo': borrow, 'source': str(src), 'check_seeds': check}
+    (out/'sweep.json').write_text(json.dumps(meta, indent=1))
     for c in combos:
         (out/name(c)).mkdir(parents=True, exist_ok=True)
         (out/name(c)/'params.json').write_text(json.dumps(c, indent=1))
     from scripts import progress as pg
-    jobs = [(c, s, out/name(c), a.years, a.save_every) for c in combos for s in seeds]
+    jobs = [(c, s, out/name(c), a.years, a.save_every) for c, s in plan_jobs(combos, dirnames, seeds, borrow, check)]
     own = tracker is None
     if own:
         per = pg.predict_run(a.workers, a.years)
         tracker = pg.Tracker([('sweep', pg.schedule_left([], len(jobs), per, a.workers))])
         tracker.start_step()
-    tracker.log(f'Sweep: {len(combos)} settings x {len(seeds)} seeds = {len(jobs)} runs on {a.workers} workers -> {out}')
+    tracker.log(f'Sweep: {len(combos)} settings x {len(seeds)} seeds = {len(jobs)} runs on {a.workers} workers -> {out}'
+                + (f'; {borrow} re-runs seed(s) {check} and borrows the rest from {src}' if borrow else ''))
     for k, c in enumerate(combos):
         tracker.log(f'  settings {k+1}: {name(c)}')
     g = CubeSphere(217)
@@ -241,6 +332,44 @@ def main(argv=None, tracker=None):
                     f"seed {r['seed']} ({seeds.index(r['seed'])+1} of {len(seeds)}), {r['seconds']/60:.1f} min")
         pg.record('run', name(r['params']), r['seconds'], workers=a.workers, years=a.years, n=217, seed=r['seed'],
                   sweep=out.name)
+        (out/'results.json').write_text(json.dumps({'runs': runs}, indent=1, default=float))
+    if borrow:
+        bc = combos[dirnames.index(borrow)]
+        rest = [s for s in seeds if s not in check]
+        texts, ok = [], True
+        for s in check:
+            same, txt = same_run(out/borrow/f'seed{s}', src/f'seed{s}')
+            texts.append(txt)
+            ok = ok and same
+        (out/borrow/'borrowed.txt').write_text(f'{borrow}: check seed(s) {check} re-run and compared with {src}\n'
+                                               + ''.join(texts)+('IDENTICAL' if ok else 'DIFFERENT')+'\n', encoding='utf-8')
+        info = {'source': str(src), 'check_seeds': check, 'identical': ok, 'borrowed_seeds': [], 'linked_files': 0,
+                'copied_files': 0}
+        if ok:
+            for s in rest:
+                nl, nc = borrow_seed(src/f'seed{s}', out/borrow/f'seed{s}')
+                info['linked_files'] += nl
+                info['copied_files'] += nc
+                r = {'params': bc, 'seed': s, 'dir': str(out/borrow/f'seed{s}'), 'seconds': None,
+                     'borrowed_from': str(src/f'seed{s}')}
+                r.update(score(r['dir'], earth_tex, earth_hyp, g))
+                runs.append(r)
+                info['borrowed_seeds'].append(s)
+            tracker.log(f"{borrow}: seed(s) {check} identical to {src.parent.name}\\{src.name}; seeds {rest} borrowed "
+                        f"({info['linked_files']} files linked, {info['copied_files']} copied)")
+        else:
+            tracker.log(f"{borrow}: seed(s) {check} DIFFER from {src.parent.name}\\{src.name} (see "
+                        f"{out/borrow/'borrowed.txt'}): running its other {len(rest)} seeds here")
+            more = [(bc, s, out/borrow, a.years, a.save_every) for s in rest]
+            for k, (i, r) in enumerate(run_jobs(more, a.workers, a.years, tracker, 'control runs')):
+                r.update(score(r['dir'], earth_tex, earth_hyp, g))
+                runs.append(r)
+                tracker.log(f"control run {k+1} of {len(more)} done: seed {r['seed']}, {r['seconds']/60:.1f} min")
+                pg.record('run', borrow, r['seconds'], workers=a.workers, years=a.years, n=217, seed=r['seed'],
+                          sweep=out.name)
+        (out/borrow/'borrowed.json').write_text(json.dumps(info, indent=1))
+        meta['borrow'].update(identical=ok, borrowed_seeds=info['borrowed_seeds'])
+        (out/'sweep.json').write_text(json.dumps(meta, indent=1))
         (out/'results.json').write_text(json.dumps({'runs': runs}, indent=1, default=float))
     pg.record('sweep', out.name, time.time()-t_sweep, runs=len(jobs), workers=a.workers, years=a.years)
     table = []
