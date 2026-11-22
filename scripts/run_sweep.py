@@ -33,7 +33,7 @@ from scripts import progress as pg
 
 PLANET_TESTS = ('test_shelf', 'test_plates', 'test_sphere_graph', 'test_graph_landscape', 'test_coupling',
                 'test_boundary_lengths', 'test_erosion_law_check', 'test_crust_reviews', 'test_trench_pairs',
-                'test_mantle_flow', 'test_flow_power', 'test_split_screen', 'test_flow_reference', 'test_save_cadence', 'test_lithosphere', 'test_dyn_measured',
+                'test_mantle_flow', 'test_flow_power', 'test_flow_placed', 'test_split_screen', 'test_flow_reference', 'test_save_cadence', 'test_lithosphere', 'test_dyn_measured',
                 'test_margin_wedge', 'test_collision_spread', 'test_breakup_match', 'test_start_breakup',
                 'test_init_site', 'test_progress', 'test_rift_speed', 'test_rift_line', 'test_pelagic', 'test_deep_crust',
                 'test_collision_lithosphere', 'test_lith_frame', 'test_lt_link', 'test_ocean_depth',

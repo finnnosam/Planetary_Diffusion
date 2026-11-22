@@ -65,9 +65,9 @@ Runs with the default random field do not; readers must not require them.
 
 | Field | dtype | Unit | Meaning |
 |---|---|---|---|
-| `dynamic_topography_air_m` | f4 | m | the flow's air-loaded field plus the hotspot swells (`dynamic_topography_m` is it with the flow part x rho_m / (rho_m - rho_w) where the node was under the sea) |
+| `dynamic_topography_air_m` | f4 | m | the flow's air-loaded field plus the hotspot swells (`dynamic_topography_m` is it with the flow part x rho_m / (rho_m - rho_w) where the node was under the sea); with `flow_placed` 'earth_corr' (from 21 Nov 2026) the flow part is the placed flow plus the plate-blind rest |
 | `flow_lmax` | i4 scalar | – | spherical-harmonic truncation of the two fields below |
-| `flow_topography_alm_m` | c8 | m | the flow's air-loaded dynamic topography: ducc0 alm (m-major, orthonormal harmonics), degrees 0..flow_lmax (with `flow_power` 'measured': after the rescale below) |
+| `flow_topography_alm_m` | c8 | m | the flow's air-loaded dynamic topography: ducc0 alm (m-major, orthonormal harmonics), degrees 0..flow_lmax (with `flow_power` 'measured': after the rescale below; with `flow_placed` 'earth_corr': only the placed share of each degree's power, the plate-blind rest is in `dynamic_topography_air_m` alone) |
 | `flow_velocity_alm_m_yr` | c8 | m/yr | potential V of the free-slip surface velocity, v = grad_1 V (unit-sphere gradient), same layout |
 | `slab_mass_young_kg` | f4 | kg | slab-record mass below the flow cut from parcels younger than 100 Myr, summed onto the node under each parcel |
 | `slab_mass_by_layer_kg` | f8 | kg | slab-record mass below the cut per 50 km layer (from `flow_z_cut_km` down to 2,850 km) |

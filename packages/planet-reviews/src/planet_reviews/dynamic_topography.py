@@ -14,7 +14,10 @@ Bands (fixed 31 Oct, before the runs):
   P-e  surface flow rms within 0.5-2x the proxy (0.7-2.7 cm/yr)
 Runs with dyn_rule 'slabs' are scored on the flow's own coefficients (air-loaded, no swells: the proxy's
 counterpart); the applied field (water-loaded, with swells) is reported beside them. Runs with the random field (the
-control) are read from dynamic_topography_m by quadrature and are not scored for P-b / P-e.
+control) are read from dynamic_topography_m by quadrature and are not scored for P-b / P-e. With flow_placed
+'earth_corr' (pass 101) the flow's coefficients are only the placed share of the field, so the spectrum and P-b are read
+on the whole air-loaded field (dynamic_topography_air_m, with the swells, by quadrature) and P-b of the placed part
+alone is printed beside it.
 
 Runs with dyn_rule 'measured' (journal 80) are checked against Earth's observed spectrum itself (OBSERVED: Valentine &
 Davies 2020's coefficients, expected posterior power to l 30, converted to air loading), on dynamic_topography_air_m
@@ -68,6 +71,17 @@ def _ok(v, band):
     return hi is None or v <= hi
 
 
+def _wcorr_dist(h, coarse, g, young):
+    """Area-weighted correlation of h (on the coarse graph) with the distance to the young record's nodes."""
+    src = np.unique(fields.nearest_nodes(coarse, g.xyz[young]))
+    d = np.full(coarse.size, np.inf)
+    for i in range(0, src.size, 512):
+        d = np.minimum(d, np.arccos(np.clip(coarse.xyz@coarse.xyz[src[i:i+512]].T, -1, 1)).min(1))
+    w = coarse.area
+    hm, dm = np.average(h, weights=w), np.average(d, weights=w)
+    return np.average((h-hm)*(d-dm), weights=w)/np.sqrt(np.average((h-hm)**2, weights=w)*np.average((d-dm)**2, weights=w))
+
+
 def seed_metrics(seed, g, coarse):
     ts = [t for t in _times(seed) if t >= -WINDOW_MYR-1e-6]
     if not ts:
@@ -75,6 +89,9 @@ def seed_metrics(seed, g, coarse):
     z0 = _load(seed, ts[-1])
     slabs = 'flow_topography_alm_m' in z0.files
     measured = not slabs and 'dynamic_topography_air_m' in z0.files
+    from planet_reviews.crust_review import run_params
+    part = slabs and run_params(seed).get('flow_placed', 'all') != 'all'   # the flow carries part of the field only
+    corr_placed = []
     tens = [t for t in ts if abs(t/10-round(t/10)) < 1e-6]
     rms, share, p30, flow, corr, rms_app, share_app, pw2, pw30 = [], [], [], [], [], [], [], [], []
     for t in tens:
@@ -90,8 +107,14 @@ def seed_metrics(seed, g, coarse):
             P = mf.spectrum(H, lm)
             flow.append(np.sqrt(mf.gradient_power(V, lm))*100)
             young = z['slab_mass_young_kg'] > 0
+            if part:
+                At = quadrature_alm(z['dynamic_topography_air_m'].astype(np.float64), g)
+                P = mf.spectrum(At, LMAX)
             if young.any():
                 h = mf.synthesis(H, lm, coarse.xyz)
+                if part:
+                    corr_placed.append(_wcorr_dist(h, coarse, g, young))
+                    h = mf.synthesis(At, LMAX, coarse.xyz)
                 src = np.unique(fields.nearest_nodes(coarse, g.xyz[young]))
                 d = np.full(coarse.size, np.inf)
                 for i in range(0, src.size, 512):
@@ -123,6 +146,7 @@ def seed_metrics(seed, g, coarse):
     m = {'slabs': slabs, 'measured': measured, 'times': tens, 'rms_series_m': [float(x) for x in rms],
          'P-a share l1-3': float(np.nanmean(share)), 'P-a P30/P2': float(np.nanmean(p30)),
          'P-b corr(h, distance)': float(np.mean(corr)) if corr else float('nan'),
+         'P-b placed part': float(np.mean(corr_placed)) if corr_placed else float('nan'),
          'P-c rate p50 m/Myr': wmed(rates), 'rate_air_p50_m_myr': wmed(rates_air),
          'P-d rms m': float(np.mean(rms)), 'P-d max 10-Myr step': float(steps.max()),
          'P-e flow rms cm/yr': float(np.mean(flow)) if flow else float('nan'),
@@ -184,7 +208,9 @@ def main(argv=None):
             print(f"  {s}: share {r['P-a share l1-3']:.2f}, P30/P2 {r['P-a P30/P2']:.1e}, corr {r['P-b corr(h, distance)']:+.2f}, "
                   f"rate {r['P-c rate p50 m/Myr']:.1f} m/Myr (air {r['rate_air_p50_m_myr']:.1f}), rms {r['P-d rms m']:.0f} m "
                   f"(max step {r['P-d max 10-Myr step']:.2f}), flow {r['P-e flow rms cm/yr']:.2f} cm/yr; applied field rms "
-                  f"{r['applied_rms_m']:.0f} m, share {r['applied_share_l1_3']:.2f}")
+                  f"{r['applied_rms_m']:.0f} m, share {r['applied_share_l1_3']:.2f}"
+                  + (f"; placed part alone: corr {r['P-b placed part']:+.2f} (rms and share on the whole air field)"
+                     if np.isfinite(r.get('P-b placed part', np.nan)) else ''))
             if r['slabs']:
                 rk = r['record_kg']
                 print(f"      record at {r['times'][-1]:+.0f} Myr: deposited {rk[0]:.2e}, held {rk[1]:.2e}, past 2,850 km {rk[2]:.2e} kg "

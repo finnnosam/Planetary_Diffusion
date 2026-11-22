@@ -18,6 +18,13 @@ and it hands over to the placed field at constant variance over one knot interva
 own decorrelation step: no new number. (Without it the start had no field, and start_cover 'accommodation''s regression
 on a bare level nearly collinear with the crust put Earth's thickest cover on thick crust: a 9.5 km start node.)
 
+With flow_placed 'earth_corr' (pass 101, journal 136) the placed flow keeps only the share of each degree's measured
+power that the same flow on Earth's own subduction history accounts for on Earth: max(r_l, 0)^2, r_l the degree
+correlation of Earth's measured residual topography (VD2020's posterior mean) with E3 (Muller et al. 2019's slab
+history through D's record and kernels, journal 70; EARTH_SLAB_CORR below). The rest of the power, (1 - share), is a
+plate-blind field like dyn_rule 'measured''s, drawn from the same stream after the start's field and blended between
+knots at constant variance. Earth's slabs account for l 1-2 (r 1.00, 0.88), little of l 3 (0.32) and nothing above.
+
 With dyn_rule 'measured' (fifty-eighth pass, journal 80) the knots are random fields with Earth's measured residual-
 topography spectrum per degree (VD2020_POWER_KM2: Valentine & Davies 2020), drawn from their own stream (field_rng)
 so the hotspots again take the same random numbers. Nothing is fitted: no amplitude and no slope. The measurement is
@@ -41,6 +48,28 @@ VD2020_POWER_KM2 = (0.2091, 0.6188, 0.3940, 0.3111, 0.4783, 0.2652, 0.3287, 0.25
                     0.0427, 0.0408, 0.0382, 0.0343, 0.0321, 0.0289, 0.0275, 0.0257, 0.0245, 0.0218)
 VD2020_LOAD_KG_M3 = (2300., 3300.)      # the measurement's water-load and air-load density contrasts (Hoggard et al.)
 
+# Degree correlation r_l, l = 1 .. 30, of Earth's measured residual topography (VD2020's posterior-mean coefficients,
+# data/mantle/vd2020_sph_coeff_high_accuracy_spot.dat, md5 f27d803b3fb627606525fd96f1fd1e0f) with E3: Earth's own
+# subduction history (Muller et al. 2019, Tectonics 38, 1884-1907) through D's unchanged SlabRecord and kernels
+# (journal 70; present-day load layers of precheck-p50-geoid/e3_loads.npz with slab_alpha 'thermo', rms 645 m).
+# Pass 101 (journal 136; outputs/planet-calibration/precheck-p101-degree/earth_degree_corr.py): the file's real
+# harmonics read as cosine on m < 0, sine on m > 0, with the Condon-Shortley phase, the only reading that agrees with
+# Holdt et al. (2022)'s independent degree 1-30 grid on the oceanic nodes (r 0.64 against <= 0.22 for every other).
+# Bands: l 1-3 +0.77, 4-10 +0.07, 11-30 +0.00 (the tomographic slab proxy E1: +0.76 / +0.21 / +0.09).
+EARTH_SLAB_CORR = (+0.997, +0.882, +0.322, -0.012, +0.314, +0.006, +0.030, +0.151, -0.067, +0.401,
+                   -0.076, -0.107, +0.194, +0.247, +0.020, -0.045, -0.042, -0.053, +0.070, +0.175,
+                   -0.101, +0.080, -0.110, -0.131, -0.076, +0.179, -0.094, -0.084, +0.028, -0.077)
+
+
+def placed_share(lmax):
+    """flow_placed 'earth_corr': the share of each degree's measured power the slab flow carries, max(r_l, 0)^2 from
+    EARTH_SLAB_CORR (index = degree; [0] = 0; degrees beyond 30, which the measurement does not reach, 0)."""
+    out = np.zeros(lmax+1)
+    r = np.clip(np.asarray(EARTH_SLAB_CORR), 0., None)**2
+    n = min(r.size, lmax)
+    out[1:n+1] = r[:n]
+    return out
+
 
 def measured_power_air_m2():
     """VD2020_POWER_KM2 as an air-loaded power array indexed by degree (m^2; [0] = 0), for fields.spectrum_field."""
@@ -57,7 +86,7 @@ PARAMS = {
     'lip_volume_km3': (5e5, 4e6), 'lip_radius_km': 600., 'lip_duration_myr': 2.,
     'dyn_rule': 'random', 'rho_mantle': 3300., 'rho_water': 1030., 'threads': None,
     'slab_dip_deg': 58., 'lm_sink_mm_yr': 12., 'flow_z_cut_km': 300., 'flow_lmax': 31, 'viscosity_file': None,
-    'slab_alpha': 'thermo', 'flow_power': 'flow',
+    'slab_alpha': 'thermo', 'flow_power': 'flow', 'flow_placed': 'all',
 }
 
 
@@ -71,6 +100,12 @@ class Mantle:
         self.knots = [p['dyn_std_m']*fields.random_field(graph.xyz, p['dyn_lmax'], p['dyn_slope'], rng)
                       for _ in self.knots_t]
         self.measured = None
+        self.unplaced = None
+        fpl = p.get('flow_placed', 'all')
+        if fpl not in ('all', 'earth_corr'):
+            raise ValueError(f"flow_placed {fpl!r}: 'all' or 'earth_corr'")
+        if fpl == 'earth_corr' and not (p['dyn_rule'] == 'slabs' and p.get('flow_power', 'flow') == 'measured'):
+            raise ValueError("flow_placed 'earth_corr' needs dyn_rule 'slabs' with flow_power 'measured'")
         if p['dyn_rule'] == 'slabs':
             from planet_tectonics.mantle_flow import MantleFlow
             self.flow = MantleFlow(graph, p)
@@ -79,6 +114,9 @@ class Mantle:
                     raise ValueError("flow_power 'measured' needs its own field_rng (the start's measured field)")
                 pw = measured_power_air_m2()
                 self.measured = [fields.spectrum_field(graph.xyz, pw, field_rng) for _ in self.knots_t]
+                if fpl == 'earth_corr':                     # the power the slabs do not account for: plate-blind,
+                    sh = placed_share(pw.size-1)            # drawn after the start's field (the start stays the control's)
+                    self.unplaced = [fields.spectrum_field(graph.xyz, pw*(1.-sh), field_rng) for _ in self.knots_t]
         elif p['dyn_rule'] in ('random', 'measured'):
             self.flow = None
             if p['dyn_rule'] == 'measured':
@@ -149,22 +187,28 @@ class Mantle:
 
     def air(self, t):
         """The air-loaded field without swells (dyn_rule 'slabs' or 'measured'). With flow_power 'measured' the start's
-        measured field hands over to the placed flow at constant variance over the first knot interval."""
+        measured field hands over to the placed flow at constant variance over the first knot interval; with
+        flow_placed 'earth_corr' the placed flow carries Earth's slab share of each degree and the plate-blind rest
+        (independent of the start's field) is added to it."""
         if self.flow is not None:
             if self.measured is None:
                 return self.flow.h_air
+            placed = self.flow.h_air if self.unplaced is None else self.flow.h_air+self._knots_at(self.unplaced, t)
             f = float(np.clip((t-self.t0)/self.p['dt_knot_myr'], 0, 1))
             if f >= 1.:
-                return self.flow.h_air
+                return placed
             a = .5*np.pi*f*f*(3-2*f)
-            return np.cos(a)*self._measured_at(t)+np.sin(a)*self.flow.h_air
+            return np.cos(a)*self._measured_at(t)+np.sin(a)*placed
         return self._measured_at(t)
 
     def _measured_at(self, t):
+        return self._knots_at(self.measured, t)
+
+    def _knots_at(self, knots, t):
         k = np.clip(np.searchsorted(self.knots_t, t)-1, 0, len(self.knots_t)-2)
         f = np.clip((t-self.knots_t[k])/(self.knots_t[k+1]-self.knots_t[k]), 0, 1)
         a = .5*np.pi*f*f*(3-2*f)                          # constant variance: cos^2 + sin^2 = 1, smooth at the knots
-        return np.cos(a)*self.measured[k]+np.sin(a)*self.measured[k+1]
+        return np.cos(a)*knots[k]+np.sin(a)*knots[k+1]
 
     def volcanic(self, t, dt):
         """Volcanic crust added over (t - dt, t] (m of crust per node): steady plume output and LIP bursts."""

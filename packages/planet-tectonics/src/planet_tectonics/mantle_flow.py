@@ -417,7 +417,8 @@ class MantleFlow:
     """The record, the kernels and the current flow on a graph. p: rho_mantle, flow_lmax, flow_z_cut_km, slab_dip_deg,
     lm_sink_mm_yr, viscosity_file (path), threads, slab_alpha ('constant': the surface expansivity at all depths;
     'depth': alpha_ratio; 'thermo': thermo_ratio), flow_power ('flow': the flow's own amplitude; 'measured': its
-    pattern at Earth's measured power per degree)."""
+    pattern at Earth's measured power per degree), flow_placed ('all': the whole measured power; 'earth_corr': the share
+    Earth's own slab flow accounts for, mantle.placed_share, the rest left to mantle.Mantle's plate-blind field)."""
 
     def __init__(self, graph, p):
         from planet_grid.paths import DATA
@@ -448,6 +449,9 @@ class MantleFlow:
             n = min(pw.size, self.lmax+1)
             self.target_power[:n] = pw[:n]
             self.target_power[0] = 0.
+            if p.get('flow_placed', 'all') == 'earth_corr':   # pass 101: Earth's slab share of each degree's power
+                from planet_tectonics.mantle import placed_share
+                self.target_power = self.target_power*placed_share(self.lmax)
         elif fp == 'flow':
             self.target_power = None
         else:

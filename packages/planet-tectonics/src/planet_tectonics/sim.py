@@ -68,7 +68,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         if self.p['dyn_rule'] != 'random':           # D: the slab flow (planet_tectonics.mantle_flow); or 'measured'
             mp.update({k: self.p[k] for k in ('dyn_rule', 'rho_mantle', 'rho_water', 'threads', 'slab_dip_deg',
                                               'lm_sink_mm_yr', 'flow_z_cut_km', 'flow_lmax', 'viscosity_file',
-                                              'slab_alpha', 'flow_power')})
+                                              'slab_alpha', 'flow_power', 'flow_placed')})
         # 'measured' draws its fields from their own stream, so the hotspots take the same numbers in every rule
         # (flow_power 'measured' starts from that same field and hands it over to the placed flow; journal 132)
         frng = (np.random.default_rng([seed, 8]) if self.p['dyn_rule'] == 'measured' or
