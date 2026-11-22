@@ -59,8 +59,8 @@ def test_m3_constant_variance_blend_and_water_loading():
         M.Mantle(g, np.random.default_rng(1), -100., params={'dyn_rule': 'measured'})
 
 
-def test_m4_plate_sim_runs_with_the_measured_field_now_the_default():
-    assert P.PARAMS['dyn_rule'] == 'measured'           # adopted 6 Nov (journal 88)
+def test_m4_plate_sim_runs_with_the_measured_field():
+    assert P.PARAMS['dyn_rule'] == 'slabs'              # 'measured' adopted 6 Nov (journal 88); 'slabs' with flow_power 'measured' 21 Nov (journal 134)
     g = CubeSphere(24)
     a = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1, 'dyn_rule': 'random'})
     b = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'threads': 1, 'dyn_rule': 'measured'})

@@ -75,8 +75,9 @@ def test_an_empty_record_gives_no_field_and_bad_values_raise():
         mf.MantleFlow(g, {**FLOW_P, 'flow_power': 'scaled'})
 
 
-def test_default_is_flow_and_a_slabs_run_saves_the_raw_power():
-    assert P.PARAMS['flow_power'] == 'flow' and P.PARAMS['dyn_rule'] == 'measured'
+def test_default_is_the_placed_field_and_a_measured_run_saves_the_raw_power():
+    # adopted 21 Nov (the hundredth pass, journal 134: the Placed Field Sweep)
+    assert P.PARAMS['flow_power'] == 'measured' and P.PARAMS['dyn_rule'] == 'slabs'
     g = CubeSphere(24)
     s = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1, 'dyn_rule': 'slabs',
                                       'flow_power': 'measured'})
@@ -84,7 +85,8 @@ def test_default_is_flow_and_a_slabs_run_saves_the_raw_power():
         s.step()
     st = s.state()
     assert st['flow_power_raw_m2'].shape == (s.mantle.flow.lmax+1,)
-    d = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1, 'dyn_rule': 'slabs'})
+    d = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'erosion': False, 'threads': 1, 'dyn_rule': 'slabs',
+                                      'flow_power': 'flow'})
     d.step()
     assert 'flow_power_raw_m2' not in d.state()
 

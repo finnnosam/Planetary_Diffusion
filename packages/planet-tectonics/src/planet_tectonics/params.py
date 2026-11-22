@@ -321,8 +321,11 @@ PARAMS = {
     # expected posterior power of their model of the high-accuracy oceanic data; rms 0.58 km water-loaded, 0.29 of it
     # at l 1-3), held air-loaded and water-loaded under the sea as 'slabs' is, blended between knots at constant
     # variance (no pulse). dyn_std_m, dyn_lmax and dyn_slope do not apply. No fitted number. Default 'measured' since
-    # 6 Nov (combo-05 of sweep-20261105-211423, journal 88; it replaces the fitted 'random' field)
-    'dyn_rule': 'measured',
+    # 6 Nov (combo-05 of sweep-20261105-211423, journal 88; it replaces the fitted 'random' field) to 21 Nov.
+    # Default 'slabs' with flow_power 'measured' since 21 Nov (the hundredth pass, journal 134: arm
+    # dyn_rule-slabs_flow_power-measured of sweep-20261121-133838 passed every veto; the measured field's power per
+    # degree, placed by the planet's own slab record instead of random phases)
+    'dyn_rule': 'slabs',
     'slab_dip_deg': 58., 'lm_sink_mm_yr': 12., 'flow_z_cut_km': 300., 'flow_lmax': 31,
     'viscosity_file': None,        # None: data/mantle/visc.sh08
     # the slab's density anomaly with depth: 'constant' keeps the surface expansivity of GDH1 (3.1e-5 /K) at all
@@ -339,8 +342,9 @@ PARAMS = {
     # (as built: 727 m rms air-loaded on six seeds, 3.3x Earth's whole observed signal, journal 68; the instantaneous-
     # flow gap, Hoggard et al. 2016, parked). 'measured': the flow's pattern, each degree rescaled to Earth's measured
     # residual-topography power (Valentine & Davies 2020, as dyn_rule 'measured' reads it, l 1-30, air-loaded): the
-    # measured field placed by the planet's own slab history. No number fitted
-    'flow_power': 'flow',
+    # measured field placed by the planet's own slab history. No number fitted. Default 'measured' since 21 Nov
+    # (the hundredth pass, journal 134; with dyn_rule 'slabs')
+    'flow_power': 'measured',
     # basal traction (with force_law 'torque' and dyn_rule 'slabs'): basal drag acts on the plate's velocity relative
     # to the free-slip flow, C_b (1 + (keel - 1) c)(v_flow - v_plate), so it uses the existing drag coefficients and
     # adds none (journal 66, section 2). Swept only after its paired probe passes (P-h)
