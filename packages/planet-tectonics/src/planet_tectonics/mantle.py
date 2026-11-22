@@ -105,7 +105,7 @@ class Mantle:
         if fpl not in ('all', 'earth_corr'):
             raise ValueError(f"flow_placed {fpl!r}: 'all' or 'earth_corr'")
         if fpl == 'earth_corr' and not (p['dyn_rule'] == 'slabs' and p.get('flow_power', 'flow') == 'measured'):
-            raise ValueError("flow_placed 'earth_corr' needs dyn_rule 'slabs' with flow_power 'measured'")
+            fpl = 'all'                                     # moot without the measured slab field (default since pass 102)
         if p['dyn_rule'] == 'slabs':
             from planet_tectonics.mantle_flow import MantleFlow
             self.flow = MantleFlow(graph, p)

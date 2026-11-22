@@ -124,11 +124,12 @@ def test_elevation_gate_reads_c_in_the_columns_own_level(tmp_path):
     # lith_frame and the start's join pinned to what this test was set on (pass 81: 'lamb' is the default, its offsets
     # differ 37 m; pass 82: start_lithosphere 'crust' is the default, they differ 31 m against the 30 m bound)
     # pins a bare start (start_sediment 'none'; default 'all' since pass 90), as it pins Artemieva's frame; and the
-    # margins it was set on (pass 93: backarc_extension and rollback 9 mm/yr the default, the offsets differ 30.5 m)
+    # margins it was set on (pass 93: backarc_extension and rollback 9 mm/yr the default, the offsets differ 30.5 m);
+    # and the slab field's placed share (pass 102: flow_placed 'earth_corr' the default, the offsets differ 31.3 m)
     sim = P.PlateSim(g, seed=3, params={'erosion': False, 'threads': 1, 'lithosphere': 'thermal_age', 'start_sediment': 'none',
                                         'lith_frame': 'artemieva', 'start_lithosphere': 'distance',
                                         'belt_lithosphere': 'reset', 'backarc_extension': False,
-                                        'rollback_mm_yr': 17.})
+                                        'rollback_mm_yr': 17., 'flow_placed': 'all'})
     sim.state()
     for _ in range(3):
         sim.step(); sim.state()

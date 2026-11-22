@@ -346,11 +346,12 @@ PARAMS = {
     # (the hundredth pass, journal 134; with dyn_rule 'slabs')
     'flow_power': 'measured',
     # which share of each degree's measured power the slab record places (with flow_power 'measured'; pass 101,
-    # journal 136): 'all' (default): the whole of it. 'earth_corr': max(r_l, 0)^2, r_l the measured degree correlation
-    # of Earth's residual topography (Valentine & Davies 2020) with the same flow on Earth's own subduction history
-    # (E3, Muller et al. 2019; mantle.EARTH_SLAB_CORR: l 1-2 r 1.00 / 0.88, l 3 0.32, l 4-30 ~0); the rest of the power
-    # is a plate-blind field like dyn_rule 'measured''s. The total power stays Earth's. No number fitted.
-    'flow_placed': 'all',
+    # journal 136): 'all': the whole of it. 'earth_corr': max(r_l, 0)^2, r_l the measured degree correlation of Earth's
+    # residual topography (Valentine & Davies 2020) with the same flow on Earth's own subduction history (E3, Muller et
+    # al. 2019; mantle.EARTH_SLAB_CORR: l 1-2 r 1.00 / 0.88, l 3 0.32, l 4-30 ~0); the rest of the power is a plate-
+    # blind field like dyn_rule 'measured''s. The total power stays Earth's. No number fitted. Default 'earth_corr'
+    # since 21 Nov (pass 102, journal 137; moot unless dyn_rule 'slabs' with flow_power 'measured')
+    'flow_placed': 'earth_corr',
     # basal traction (with force_law 'torque' and dyn_rule 'slabs'): basal drag acts on the plate's velocity relative
     # to the free-slip flow, C_b (1 + (keel - 1) c)(v_flow - v_plate), so it uses the existing drag coefficients and
     # adds none (journal 66, section 2). Swept only after its paired probe passes (P-h)

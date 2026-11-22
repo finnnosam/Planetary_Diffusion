@@ -78,11 +78,11 @@ def test_the_start_is_the_controls_and_the_rest_is_plate_blind():
 
 
 def test_default_and_bad_values():
-    assert P.PARAMS['flow_placed'] == 'all'
+    assert P.PARAMS['flow_placed'] == 'earth_corr'                         # default since pass 102 (journal 137)
     g = CubeSphere(24)
-    with pytest.raises(ValueError):
-        Mantle(g, np.random.default_rng(1), -100., params={'dyn_rule': 'slabs', 'flow_power': 'flow',
-                                                           'flow_placed': 'earth_corr'}, field_rng=np.random.default_rng(2))
+    m = Mantle(g, np.random.default_rng(1), -100., params={'dyn_rule': 'measured', 'flow_placed': 'earth_corr'},
+               field_rng=np.random.default_rng(2))                       # moot without the measured slab field
+    assert m.unplaced is None
     with pytest.raises(ValueError):
         Mantle(g, np.random.default_rng(1), -100., params={'dyn_rule': 'slabs', 'flow_power': 'measured',
                                                            'flow_placed': 'some'}, field_rng=np.random.default_rng(2))

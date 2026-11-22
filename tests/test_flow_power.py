@@ -97,8 +97,8 @@ def test_the_start_is_the_controls_and_hands_over_to_the_placed_field():
     g = CubeSphere(24)
     kw = {'water_volume_km3': None, 'threads': 1}
     a = P.PlateSim(g, seed=3, params={**kw, 'dyn_rule': 'measured'})
-    b = P.PlateSim(g, seed=3, params={**kw, 'dyn_rule': 'slabs', 'flow_power': 'measured'})
-    sa, sb = a.state(), b.state()
+    b = P.PlateSim(g, seed=3, params={**kw, 'dyn_rule': 'slabs', 'flow_power': 'measured', 'flow_placed': 'all'})
+    sa, sb = a.state(), b.state()                      # flow_placed pinned 'all': the hand-over as built (pass 102)
     for k in ('elevation_m', 'sediment_m', 'crust_thickness_m', 'dynamic_topography_m', 'dynamic_topography_air_m'):
         assert np.array_equal(sa[k], sb[k]), k
     m = b.mantle
