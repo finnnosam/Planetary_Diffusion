@@ -481,7 +481,9 @@ class EventsMixin:
         earth), read once per step from this step's boundary classification: per node its torque about the centre
         (N m; slab pull on trench nodes toward the other plate, slab suction on overriding nodes, ridge push away from
         oceanic ridges) and the two parts of its drag (basal under every node, keels under continent; slab resistance
-        on trench nodes). Returns (tau, weight, q_trench, Cb R^2, Cs Ln R^2)."""
+        on trench nodes). With rift_traction (pass 103, journal 139) the torque adds the basal traction of the planet's own
+        mantle flow (MantleFlow.placed_velocity) through the same basal and keel drag. Returns (tau, weight, q_trench,
+        Cb R^2, Cs Ln R^2)."""
         if getattr(self, '_cut_forces_t', None) == self.t:
             return self._cut_forces_v
         from planet_tectonics.boundaries import boundary_frame_ring
@@ -502,6 +504,10 @@ class EventsMixin:
         f = np.where(tr, Fsp, 0.)+np.where(su, p['slab_suction_frac']*Fsp, 0.)-np.where(ri, p['ridge_push_n_m'], 0.)
         tau = (f*Ln*R)[:, None]*q
         w = g.area*(1+(p['keel_drag_factor']-1)*self.world['cont'])
+        if p.get('rift_traction', False) and getattr(self, 'mantle', None) is not None and self.mantle.flow is not None:
+            # pass 103 (journal 139): the basal traction of the planet's own mantle flow on the plate at rest,
+            # C_b (1 + (keel - 1) c) v_flow (motion's basal_traction term), the flow scaled with its topography
+            tau = tau+np.cross(g.xyz, self.mantle.flow.placed_velocity()/YR_S)*(p['basal_drag_pa_s_m']*R*w)[:, None]
         Cs = Fsp/(p['slab_terminal_cm_yr']*1e-2/YR_S)
         self._cut_forces_v = (tau, w, np.where(tr[:, None], q, 0.), p['basal_drag_pa_s_m']*R**2, Cs*Ln*R**2)
         self._cut_forces_t = self.t

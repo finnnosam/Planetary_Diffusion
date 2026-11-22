@@ -394,6 +394,16 @@ PARAMS = {
     # torque the cut must carry, about the pole that opens it. Neighbours' coupling (collisions) is left out (assumed).
     # Default 'force' since 8 Nov (Force Line Sweep, sweep-20261108-124109, journal 97)
     'rift_line': 'force',
+    # the forces the split rule reads (pass 103, journal 139). False (as built): rift_line 'force' ranks and tests its
+    # cuts by the boundary forces and drags alone, so a plate ringed by trenches it overrides (slab suction fitted to 0)
+    # has no opening force and sheds only the cheapest corners ('chord'). True: the torque adds the basal traction of
+    # the planet's own mantle flow on the plate (D's free-slip surface velocity, with flow_power 'measured' each degree
+    # scaled with its topography to Earth's measured power and flow_placed's share; MantleFlow.placed_velocity) through
+    # the existing basal and keel drag, C_b (1 + (keel - 1) c) v_flow, as basal_traction books it: a plate over the
+    # divergent return flow of a slab girdle is pulled apart (Gurnis 1988, Nature 332, 695; Zhong et al. 2007, EPSL
+    # 261, 551). Plate motion (force_law 'lengths') and the split rate are unchanged. Needs dyn_rule 'slabs'; no number
+    # added. Default True since 22 Nov (pass 104, journal 140: the Rift Traction Sweep)
+    'rift_traction': True,
     # K (sixty-fifth pass, journal 87): split_rule 'poisson' (above; split_rate_per_myr assumed) or 'earth': a plate's
     # splits that cross its continent happen at Earth's rifted-margin production since its supercontinent
     # (breakup.EARTH_RIFT_PRODUCTION: Mueller et al. 2019 age grids, continental edge beside floor <= 10 Myr old,

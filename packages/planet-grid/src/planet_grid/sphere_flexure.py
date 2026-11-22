@@ -42,8 +42,10 @@ class SphereFlexure:
     def deflection(self, load):
         """Downward deflection (m, positive down) of the plate under the rock load (m), at every node."""
         q = np.ascontiguousarray((np.asarray(load, np.float64)*self.weight)[None])
+        # the adjoint (points to coefficients) on one thread (pass 104 of the planet layer): ducc0's threaded adjoint is
+        # not repeatable run to run; the synthesis (each point on its own) is, and keeps the threads
         alm = self.sht.adjoint_synthesis_general(map=q, spin=0, lmax=self.lmax, loc=self.loc, epsilon=self.epsilon,
-                                                 nthreads=self.nthreads)
+                                                 nthreads=1)
         alm *= self.response[None]
         return self.sht.synthesis_general(alm=alm, spin=0, lmax=self.lmax, loc=self.loc, epsilon=self.epsilon,
                                           nthreads=self.nthreads)[0]

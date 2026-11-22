@@ -35,7 +35,8 @@ residual-topography spectrum (mantle.measured_power_air_m2: Valentine & Davies 2
 coefficient of degree l is multiplied by sqrt(P_measured(l) / P_flow(l)), so the shape within a degree (where the lows
 lie) is the slab record's and the power per degree is Earth's. Degrees beyond the measurement (l > 30) and a degree
 the record does not yet load (P_flow 0, before the first parcel passes the cut) are zero. The surface velocity V is
-the flow's own (basal traction only). No number fitted.
+the flow's own (basal traction only); placed_velocity() gives the velocity scaled with the topography (rift_traction,
+pass 103). No number fitted.
 """
 import numpy as np
 
@@ -103,13 +104,16 @@ def gradient(alm, lmax, xyz, nthreads=1):
 
 
 def point_alm(xyz, weight, lmax, nthreads=1):
-    """sum_i weight_i conj(Y_lm(x_i)): the coefficients of a field made of delta functions (per steradian)."""
+    """sum_i weight_i conj(Y_lm(x_i)): the coefficients of a field made of delta functions (per steradian). One thread
+    always (pass 104, journal 140): ducc0's threaded adjoint spreads the points in an order set by the threads' timing,
+    so at nthreads > 1 a run did not repeat itself (the slab record's coefficients first, at step 7); nthreads is kept
+    for the callers and ignored."""
     import ducc0
     if len(weight) == 0:
         return np.zeros((lmax+1)*(lmax+2)//2, np.complex128)
     return ducc0.sht.experimental.adjoint_synthesis_general(map=np.asarray(weight, np.float64)[None], spin=0, lmax=lmax,
                                                             loc=fields.node_loc(xyz), epsilon=1e-10,
-                                                            nthreads=nthreads)[0]
+                                                            nthreads=1)[0]
 
 
 # ------------------------------------------------------------------ viscosity and propagator kernels
@@ -462,6 +466,7 @@ class MantleFlow:
         self.V = np.zeros(nalm, np.complex128)            # surface-velocity potential (m/yr on the unit sphere)
         self.h_air = np.zeros(graph.size)
         self.v_xyz = np.zeros((graph.size, 3))            # free-slip surface velocity, m/yr
+        self.scale = np.zeros(self.lmax+1)                # flow_power 'measured': each degree's factor (last update)
 
     def update(self):
         """The flow of the current record."""
@@ -474,7 +479,17 @@ class MantleFlow:
             s = np.zeros(self.lmax+1)
             s[ok] = np.sqrt(self.target_power[ok]/self.raw_power[ok])
             H = H*s[alm_l(self.lmax)]
+            self.scale = s
         self.H = H
         self.V = V*3.15576e7
         self.h_air = synthesis(self.H, self.lmax, self.g.xyz, self.nthreads)
         self.v_xyz = gradient(self.V, self.lmax, self.g.xyz, self.nthreads)
+
+    def placed_velocity(self):
+        """rift_traction (pass 103, journal 139): the free-slip surface velocity (m/yr, xyz at the nodes) of the flow whose
+        topography the model uses. With flow_power 'measured' each degree's velocity takes the factor its topography
+        took (sqrt(P_target / P_flow), flow_placed's share included): that is the flow of the same record with the loads
+        of degree l scaled by it, so topography and velocity stay one flow. With 'flow', the flow's own (v_xyz)."""
+        if self.target_power is None:
+            return self.v_xyz
+        return gradient(self.V*self.scale[alm_l(self.lmax)], self.lmax, self.g.xyz, self.nthreads)
