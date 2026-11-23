@@ -81,3 +81,57 @@ def test_ocean_forcing_telescopes_along_parcel_paths(history):
     assert ocean_path.mean() > .3 and touched.sum() > 0
     assert np.abs(z_end-z_plate)[ocean_path].max() < .05      # float32 storage only
     assert np.all(np.asarray(F['load_m'])[:, ocean_path] == 0)
+
+
+@pytest.fixture(scope='module')
+def age_history():
+    """One snapshot on n = 16 whose orogeny ages are set by region (docs/contracts/plate-snapshots.md): an active belt
+    (finite 0), young (30 Myr), old (500 Myr) and missing (NaN: no orogeny recorded)."""
+    import shutil
+    d = Path(__file__).resolve().parents[1]/'outputs'/'test-tmp'/'coupling-ages'
+    shutil.rmtree(d, ignore_errors=True)
+    d.mkdir(parents=True)
+    g = CubeSphere(16)
+    x, z = g.xyz[:, 0], g.xyz[:, 2]
+    age = np.where(x > .25, 0., np.where(x < -.25, np.nan, np.where(z > 0, 30., 500.))).astype(np.float32)
+    np.savez(d/f't{0.:+07.1f}.npz', plate_id=np.zeros(g.size, np.int32), orogeny_age_myr=age)
+    (d/f't{0.:+07.1f}-plates.json').write_text(json.dumps([{'id': 0, 'Q': np.eye(3).tolist()}]))
+    return coupling.PlateHistory(d), g
+
+
+def test_orogeny_age_handoff_keeps_active_belts_young(age_history):
+    """Journal 142 (the review's defect, journal 141 section 1 item 4): a finite 0 is an active belt (erodibility 1),
+    NaN is old crust (the stable value, as the plate layer reads it), finite ages follow the decay; the legacy rule
+    sent the active belt to old rock."""
+    h, g = age_history
+    fine = CubeSphere(32)
+    x, z = fine.xyz[:, 0], fine.xyz[:, 2]
+    e = coupling.erodibility_map(h, fine.xyz)
+    gap = .1                                             # more than one coarse spacing (~0.06 rad) from any region edge
+    active, missing = x > .25+gap, x < -.25-gap
+    young = (np.abs(x) < .25-gap) & (z > gap)
+    old = (np.abs(x) < .25-gap) & (z < -gap)
+    assert active.sum() and missing.sum() and young.sum() and old.sum()
+    assert np.allclose(e[active], 1.)
+    assert np.allclose(e[missing], .15)
+    assert np.allclose(e[young], .15+.85*np.exp(-30/50.), atol=1e-6)
+    assert np.allclose(e[old], .15+.85*np.exp(-10.), atol=1e-6)
+    legacy = coupling.erodibility_map(h, fine.xyz, rule='legacy')
+    assert np.allclose(legacy[active], .15)               # the defect, kept only to replay old runs
+    with pytest.raises(ValueError):
+        coupling.erodibility_map(h, fine.xyz, rule='nope')
+
+
+def test_orogeny_age_handoff_mixed_stencils_stay_between_their_corners(age_history):
+    """Where a stencil mixes ages and missing values the erodibility blends between the corners' erodibilities: next
+    to missing (old) crust a young belt never reads younger than it is (the legacy rule blended NaN as age 0)."""
+    h, g = age_history
+    fine = CubeSphere(32)
+    x, z = fine.xyz[:, 0], fine.xyz[:, 2]
+    e = coupling.erodibility_map(h, fine.xyz)
+    assert e.min() >= .15-1e-6 and e.max() <= 1.+1e-6
+    edge = (np.abs(x+.25) < .03) & (z > .15)              # young (30 Myr) against missing
+    assert edge.sum()
+    assert e[edge].max() <= .15+.85*np.exp(-30/50.)+1e-6
+    legacy = coupling.erodibility_map(h, fine.xyz, rule='legacy')
+    assert legacy[edge].max() > .15+.85*np.exp(-30/50.)+1e-3

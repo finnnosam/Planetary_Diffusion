@@ -48,7 +48,7 @@ Node vectors on `CubeSphere(217)` (282,536 nodes), except the scalars.
 | `crust_thickness_m` | f4 | m | crust thickness, sediment excluded |
 | `crust_age_myr` | f4 | Myr | time since the crust formed |
 | `ocean_age_myr` | f4 | Myr | ocean-floor age; NaN on continental crust |
-| `orogeny_age_myr` | f4 | Myr | time since the last orogeny at the node |
+| `orogeny_age_myr` | f4 | Myr | time since the last orogeny at the node (the clock `orogen_rule` resets). A finite value is valid: 0 is an active belt (marked this step), not missing. NaN is the validity mask: no orogeny recorded at the node since the run began (crust older than the run's record, or oceanic crust) or no plate there. The plate layer erodes NaN as stable crust (time since orogeny infinite). Readers must not turn NaN into 0 (from 22 Nov 2026; until then the landscape stage did, and sent every age ≤ 0 to old rock) |
 | `lithosphere_age_myr` | f4 | Myr | tectonothermal age of the continental lithosphere (C; time since its last thermal event: start age from Earth's CRUST1.0 types, reset by collision contacts, continental arcs and new continental crust, thinned by stretching); NaN on oceanic crust. Written since 1 Nov (fifty-sixth pass); it moves `elevation_m` only with PARAMS `lithosphere` 'thermal_age' (the default since 7 Nov, sixty-ninth pass; runs before carry 'none') |
 | `boundary_type` | i1 | – | 0 none, 1 ridge, 2 subduction, 3 collision, 4 transform (`planet_tectonics.params`) |
 | `convergence_mm_yr` | f4 | mm/yr | convergence rate across the boundary (0 off boundaries) |

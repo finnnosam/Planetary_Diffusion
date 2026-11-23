@@ -57,10 +57,12 @@ class PlateHistory:
             self._cache[t] = ({k: z[k] for k in z.files}, {int(r['id']): np.asarray(r['Q']) for r in plates})
         return self._cache[t]
 
-    def sample(self, t, name, p, smooth_km=0.):
-        """Bilinear sample of a node field at directions p (M, 3), optionally after conservative smoothing."""
+    def sample(self, t, name, p, smooth_km=0., fill=0.):
+        """Bilinear sample of a node field at directions p (M, 3), optionally after conservative smoothing. NaN in the
+        field becomes `fill` before sampling; a field whose NaN carries meaning (orogeny_age_myr: no orogeny recorded)
+        is not read through this but through its own rule (erodibility_map)."""
         f, _ = self.fields(t)
-        v = np.nan_to_num(np.asarray(f[name], np.float64))
+        v = np.nan_to_num(np.asarray(f[name], np.float64), nan=fill)
         if smooth_km > 0:
             v = self.smooth(v, smooth_km*1e3)
         return cube.sample(self.g.to_cube(v.astype(np.float32))[None], p)[0]
@@ -147,19 +149,42 @@ def build_forcing(hist, fine, window_myr, out_dir, density_scale=(1-2830./3300.)
         p, c_t = q, c_prev
         progress(f'  forcing {t-1:+.0f} to {t:+.0f} Myr')
     z0 = hist.sample(float(t0), 'elevation_m', p).astype(np.float32)
-    orog = hist.sample(t_end, 'orogeny_age_myr', fine.xyz)
-    since = np.where(orog > 0, orog, 1e4)
     np.save(out/'z0_m.npy', z0)
-    np.save(out/'orogeny_age_myr.npy', since.astype(np.float32))
     np.save(out/'continental_now.npy', cont_now.astype(np.float32))
     np.save(out/'positions_start.npy', p.astype(np.float32))
     load.flush(); surf.flush()
     meta = {'window_myr': W, 't0_myr': t0, 'fine_n': fine.n, 'coarse_n': hist.g.n, 'density_scale': density_scale,
             'smooth_km': smooth_km}
     (out/'forcing.json').write_text(json.dumps(meta, indent=1))
-    return {'load_m': load, 'surface_m': surf, 'z0_m': z0, 'orogeny_age_myr': since, 'continental_now': cont_now, 'meta': meta}
+    return {'load_m': load, 'surface_m': surf, 'z0_m': z0, 'continental_now': cont_now, 'meta': meta}
 
 
 def erodibility(orogeny_age_myr, stable=.15, tau_myr=50.):
-    """Relative erodibility from time since the last orogeny, as the test bed: young belts 1, old crust `stable`."""
-    return stable+(1-stable)*np.exp(-np.clip(orogeny_age_myr, 0, None)/tau_myr)
+    """Relative erodibility from time since the last orogeny, as the test bed: young belts 1, old crust `stable`.
+    NaN (no orogeny recorded) is old crust, as in the plate layer (surface.py: since = inf)."""
+    since = np.where(np.isnan(orogeny_age_myr), np.inf, orogeny_age_myr)
+    return stable+(1-stable)*np.exp(-np.clip(since, 0, None)/tau_myr)
+
+
+AGE_RULES = ('plate', 'legacy')
+
+
+def erodibility_map(hist, p, t=0., rule='plate', stable=.15, tau_myr=50.):
+    """Relative erodibility at directions p from the snapshot at t (docs/contracts/plate-snapshots.md,
+    `orogeny_age_myr`: a finite value is the time since the last orogeny, 0 in an active belt; NaN means none
+    recorded, i.e. older than the run's record, or no plate).
+
+    'plate' (journal 142): the plate layer's own law on its own nodes (NaN old crust, a finite 0 an active belt,
+    erodibility 1), then bilinear sampling of the erodibility, so a mixed stencil blends between 1 and `stable`
+    and never blends ages across the missing value.
+    'legacy' (before journal 142; the review's defect, journal 141 section 1 item 4): NaN sampled as 0, then every age
+    <= 0 sent to 10,000 Myr, so active belts eroded as old rock. Kept only to replay old runs."""
+    f, _ = hist.fields(t)
+    age = np.asarray(f['orogeny_age_myr'], np.float64)
+    if rule == 'plate':
+        e = erodibility(age, stable, tau_myr)
+        return cube.sample(hist.g.to_cube(e.astype(np.float32))[None], p)[0].astype(np.float64)
+    if rule == 'legacy':
+        orog = hist.sample(t, 'orogeny_age_myr', p)
+        return erodibility(np.where(orog > 0, orog, 1e4), stable, tau_myr)
+    raise ValueError(f'age rule {rule!r}: one of {AGE_RULES}')

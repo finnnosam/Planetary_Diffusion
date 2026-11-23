@@ -169,19 +169,25 @@ def get_forcing(hist, g, window, forcing_dir):
     meta = Path(forcing_dir)/'forcing.json'
     if meta.exists():
         m = json.loads(meta.read_text())
-        if m['window_myr'] == int(round(window)) and m['fine_n'] == g.n and m.get('plates') == str(hist.dir):
-            f = Path(forcing_dir)
-            print(f'reusing forcing {f}', flush=True)
-            return {'load_m': np.load(f/'load_m.npy', mmap_mode='r'), 'surface_m': np.load(f/'surface_m.npy', mmap_mode='r'),
-                    'z0_m': np.load(f/'z0_m.npy'), 'orogeny_age_myr': np.load(f/'orogeny_age_myr.npy'),
-                    'continental_now': np.load(f/'continental_now.npy'), 'meta': m}
+        try:
+            same_plates = Path(m.get('plates', '')).resolve() == Path(hist.dir).resolve()
+        except OSError:
+            same_plates = m.get('plates') == str(hist.dir)
+        if not (m['window_myr'] == int(round(window)) and m['fine_n'] == g.n and same_plates):
+            # never overwrite a forcing built for another run (a replay may point here at an older run's folder)
+            raise SystemExit(f'{forcing_dir} holds forcing for {m.get("plates")} (window {m["window_myr"]}, n {m["fine_n"]}), '
+                             f'not for {hist.dir}: pass another --forcing or --out')
+        f = Path(forcing_dir)
+        print(f'reusing forcing {f}', flush=True)
+        return {'load_m': np.load(f/'load_m.npy', mmap_mode='r'), 'surface_m': np.load(f/'surface_m.npy', mmap_mode='r'),
+                'z0_m': np.load(f/'z0_m.npy'), 'continental_now': np.load(f/'continental_now.npy'), 'meta': m}
     F = coupling.build_forcing(hist, g, window, forcing_dir, progress=lambda s: print(s, flush=True))
     F['meta']['plates'] = str(hist.dir)
     meta.write_text(json.dumps(F['meta'], indent=1))
     return F
 
 
-def run(seed_dir, out, n=868, window=30., dt=5e4, theta=THETA, forcing_dir=None, g=None, hist=None):
+def run(seed_dir, out, n=868, window=30., dt=5e4, theta=THETA, forcing_dir=None, g=None, hist=None, age_rule='plate'):
     out = Path(out); out.mkdir(parents=True, exist_ok=True)
     t_start = time.perf_counter()
     hist = hist or coupling.PlateHistory(Path(seed_dir)/'snapshots')
@@ -194,7 +200,14 @@ def run(seed_dir, out, n=868, window=30., dt=5e4, theta=THETA, forcing_dir=None,
     print(f'forcing ready in {time.perf_counter()-t_start:.0f} s', flush=True)
     rng = np.random.default_rng(0)
     z0 = np.asarray(F['z0_m'], np.float64)+rng.normal(0, 1., g.size)
-    erod = coupling.erodibility(np.asarray(F['orogeny_age_myr']))
+    # erodibility from the present snapshot's orogeny ages (not cached with the forcing: its rule changed in journal 142)
+    erod = coupling.erodibility_map(hist, g.xyz, 0., age_rule)
+    z_now = hist.sample(0., 'elevation_m', g.xyz)
+    erod_read = {'mean_on_land': float(erod[z_now > 0].mean()) if (z_now > 0).any() else None,
+                 'mean_on_land_gt3km': float(erod[z_now > 3000].mean()) if (z_now > 3000).any() else None,
+                 'share_ge_0.5_on_land_gt3km': float((erod[z_now > 3000] >= .5).mean()) if (z_now > 3000).any() else None}
+    print(f"erodibility ({age_rule}) on the plate layer's present land: " +
+          ', '.join(f'{k} {v:.3f}' for k, v in erod_read.items() if v is not None), flush=True)
     flex = SphereFlexure.for_graph(g, gl.DEFAULTS['Te'])
     k_of = lambda t: min(int(t//1e6), W-1)
     model = gl.GraphLandscape(g, z0, lambda t: load[k_of(t)]/1e6, flex, {'dt': dt, 'theta': float(theta)}, erod,
@@ -222,7 +235,8 @@ def run(seed_dir, out, n=868, window=30., dt=5e4, theta=THETA, forcing_dir=None,
     gc = CubeSphere(217)
     cont = np.asarray(F['continental_now']) > .5
     den = denudation_table(z, rate, g.area)
-    stats = {'plates': str(seed_dir), 'n': n, 'window_myr': W, 'theta': float(theta), 'seconds': time.perf_counter()-t_start,
+    stats = {'plates': str(seed_dir), 'n': n, 'window_myr': W, 'theta': float(theta), 'age_rule': age_rule,
+             'forcing': str(forcing_dir or out/'forcing'), 'erodibility': erod_read, 'seconds': time.perf_counter()-t_start,
              'landscape_seconds_per_step': (time.perf_counter()-t1)/(W*1e6/dt), 'totals_m3': model.totals,
              'timing_s': model.timing,
              'planet_n868': hypsometry(z, g.area), 'planet_n217': hypsometry(to_coarse(g, z, gc), gc.area),
@@ -261,10 +275,15 @@ def main(argv=None):
     p.add_argument('--dt', type=float, default=5e4)
     p.add_argument('--theta', type=float, default=THETA)
     p.add_argument('--out', default=None)
+    p.add_argument('--forcing', default=None, help='forcing folder to reuse or write (default <out>/forcing); a folder '
+                   'built for the same plate run, window and grid is read, never rewritten')
+    p.add_argument('--age-rule', default='plate', choices=coupling.AGE_RULES,
+                   help="orogeny-age hand-off: 'plate' (the plate layer's law; default since journal 142) or 'legacy' "
+                        "(the old defect: active belts as old rock; replays only)")
     a = p.parse_args(argv)
     seed_dir = resolve_plates(a.plates, a.seed)
     out = Path(a.out) if a.out else OUTPUTS/'planet-landscape'/f"{time.strftime('%Y%m%d-%H%M%S')}-{seed_dir.name}"
-    run(seed_dir, out, a.n, a.window, a.dt, a.theta)
+    run(seed_dir, out, a.n, a.window, a.dt, a.theta, forcing_dir=a.forcing, age_rule=a.age_rule)
 
 
 if __name__ == '__main__':
