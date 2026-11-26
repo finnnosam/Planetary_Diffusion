@@ -647,6 +647,25 @@ PARAMS = {
     # nearer world node of the same plate reads the nearest unread live node of that plate among the shared node's
     # eight neighbours (two passes), so the read is one to one wherever a free neighbour exists. No new number
     'compose_map': 'nearest',
+    # how values move between the world grid and the rotated plate rasters (pass 108, journal 145; the floor's second
+    # trace: the composition's per-step jump is the plate rasters' departure from the world, not the resampling of the
+    # world's own surface). 'nearest' (as built): the composition copies the plate node nearest each world node's
+    # position in the owner's frame, and a step's increments go back to the plate nodes read (return_transfer).
+    # 'tent': the composition interpolates crust thickness, sediment, rock, thermal age and formation age from the
+    # nearest plate node and its eight neighbours of the same crust type, each weighted linearly along its own direction
+    # (1 - |q - p_c| / |p_c - p_0|, the nearest node 1 - |q - p_0| / its shortest axis spacing; normalised, so exact at
+    # the nodes and a partition of unity); the crust type and the orogeny age stay the nearest node's. The per-area
+    # increments (thickness, sediment, rock) go back by the same weights (each plate node the weighted mean of the
+    # increments that reach it; a live owned node no weight reaches takes the world node over it where the crust type
+    # agrees), each plate's gains and losses of each crust type rescaled to the world volume of its nodes of that type.
+    # Collision volume, orogeny marks, thermal-age changes and arcs as 'read'. Needs return_transfer 'read'.
+    # 'overlap': first-order conservative remapping, the same paths with the weights of each world cell's overlap with
+    # the plate cells (the cell sampled at its node and at the points a third of the way to its eight neighbours, each
+    # read from its nearest plate node of the crust type, 1/9 each; the return weights are those overlaps in area, so a
+    # plate cell takes the area mean of the increments over it). 'tent' lets a plate node that one world node barely
+    # reaches take that node's whole increment (its weights do not sum to one per plate node), which roughens the plate
+    # rasters step by step (pass 108's trace). No new number
+    'remap_rule': 'nearest',
     # C, the continental lithosphere's thermal state (fifty-sixth pass, journal 78; planet_tectonics.lithosphere).
     # 'none' (as before): continents stand on the Airy line of their crust and sediment. 'thermal_age': each continental
     # node's tectonothermal age (carried with the plates; start ages from Earth's CRUST1.0 types, reset by collision

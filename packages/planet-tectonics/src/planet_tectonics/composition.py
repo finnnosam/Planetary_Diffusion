@@ -117,10 +117,102 @@ class CompositionMixin:
         wsed = np.where(gap, 0., np.stack([pl.sed[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         wtherm = np.where(gap, np.nan, np.stack([pl.therm[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         wrock = np.where(gap, 0., np.stack([pl.rock[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
+        if p['remap_rule'] in ('tent', 'overlap'):        # pass 108: interpolated / overlap read (see PARAMS)
+            wthick, wsed, wrock, wborn, wtherm = self._tent_gather(idx, slot, gap, wthick, wsed, wrock, wborn, wtherm)
+        elif p['remap_rule'] != 'nearest':
+            raise ValueError(f"remap_rule {p['remap_rule']!r}: 'nearest', 'tent' or 'overlap'")
         wrock = np.clip(wrock, 0., np.maximum(wsed, 0.))         # sediment_rock: never more rock than sediment
         self.new_crust = gap
         self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed, 'therm': wtherm, 'rock': wrock}
         self.therm_changed = np.zeros(g.size, bool)      # C: world nodes whose thermal age changed this step
+
+
+    def _tent_weights(self, pl, ws, j0):
+        """remap_rule 'tent' (pass 108, see PARAMS): for world nodes ws read from plate pl at nearest plate nodes j0, the
+        candidate plate nodes (j0 and its eight neighbours, live and of j0's crust type; n x 9, invalid entries j0) and
+        their normalised weights."""
+        g = self.g
+        if not hasattr(self, '_tent_h0'):
+            ax = g.axis & (g.nbr >= 0)
+            self._tent_h0 = np.where(ax, g.dist, np.inf).min(1)
+        nb = g.nbr[j0]
+        cand = np.concatenate([j0[:, None], nb], 1)
+        ok = cand >= 0
+        cs = np.where(ok, cand, j0[:, None])
+        ok &= pl.mask[cs] & (pl.cont[cs] == pl.cont[j0][:, None])
+        q = g.xyz[ws]@pl.Q                                # world positions in the plate's frame (as _claims)
+        d = 2*np.arcsin(np.minimum(np.linalg.norm(g.xyz[cs]-q[:, None, :], axis=2)/2, 1.))*g.radius   # arc, as g.dist
+        ell = np.concatenate([self._tent_h0[j0][:, None], np.where(nb >= 0, g.dist[j0], np.inf)], 1)
+        wt = np.where(ok, np.clip(1.-d/ell, 0., None), 0.)
+        wt[:, 0] = np.maximum(wt[:, 0], 1e-12)            # the nearest node always carries some weight
+        wt /= wt.sum(1, keepdims=True)
+        return np.where(ok, cs, j0[:, None]), wt
+
+
+    def _overlap_weights(self, pl, ws, j0):
+        """remap_rule 'overlap' (pass 108, see PARAMS): each world cell sampled at nine points (its node and the points a
+        third of the way to its eight neighbours), each point read from the plate node nearest it in the plate's frame
+        (live and of j0's crust type, else j0); weight 1/9 per point: the cell's overlap with the plate cells."""
+        g = self.g
+        if not hasattr(self, '_overlap_sub'):
+            nb = np.where(g.nbr >= 0, g.nbr, np.arange(g.size)[:, None])
+            sub = np.concatenate([g.xyz[:, None, :], g.xyz[:, None, :]+(g.xyz[nb]-g.xyz[:, None, :])/3.], 1)
+            self._overlap_sub = sub/np.linalg.norm(sub, axis=2, keepdims=True)      # N x 9 x 3
+        q = self._overlap_sub[ws].reshape(-1, 3)@pl.Q
+        cs = fields.nearest_nodes(g, q).reshape(ws.size, 9)
+        ok = pl.mask[cs] & (pl.cont[cs] == pl.cont[j0][:, None])
+        cs = np.where(ok, cs, j0[:, None])
+        return cs, np.full(cs.shape, 1./9.)
+
+
+    def _tent_gather(self, idx, slot, gap, wthick, wsed, wrock, wborn, wtherm):
+        """remap_rule 'tent': the world fields interpolated from each owner's plate raster; the weights are kept for the
+        return transfer (self._tent[k] = (world nodes, candidates, weights))."""
+        out = [v.copy() for v in (wthick, wsed, wrock, wborn, wtherm)]
+        self._tent = {}
+        for k, pl in enumerate(self.plates):
+            ws = np.flatnonzero((slot == k) & ~gap)
+            if not ws.size:
+                self._tent[k] = (ws, np.zeros((0, 9), np.int64), np.zeros((0, 9)))
+                continue
+            weights = self._overlap_weights if self.p['remap_rule'] == 'overlap' else self._tent_weights
+            cs, wt = weights(pl, ws, idx[k, ws])
+            self._tent[k] = (ws, cs, wt)
+            for o, src in zip(out[:4], (pl.thick, pl.sed, pl.rock, pl.born)):
+                o[ws] = (src[cs].astype(np.float64)*wt).sum(1)
+            th = pl.therm[cs].astype(np.float64)
+            fin = np.isfinite(th)
+            wf = np.where(fin, wt, 0.)
+            sw = wf.sum(1)
+            use = np.isfinite(th[:, 0]) & (sw > 0)        # the nearest node's validity decides; finite neighbours only
+            out[4][ws[use]] = (np.where(fin, th, 0.)*wf).sum(1)[use]/sw[use]
+        return tuple(out)
+
+
+    def _tent_return(self, k, pl, wn, own, d, name):
+        """remap_rule 'tent': the per-area increment d (world) as per-area increments on plate pl's nodes, by the
+        composition's weights; nodes no weight reaches take the world node over them; gains and losses each conserved.
+        Returns (plate nodes, increments)."""
+        g = self.g
+        ws, cs, wt = self._tent[k]
+        if self.p['remap_rule'] == 'overlap':           # overlap areas: the world cell's area times its share
+            wt = wt*g.area[ws][:, None]
+        W = np.bincount(cs.ravel(), weights=wt.ravel(), minlength=g.size)
+        S = np.bincount(cs.ravel(), weights=(wt*d[ws][:, None]).ravel(), minlength=g.size)
+        live = pl.mask & own & ~self.new_crust[wn]
+        reach = live & (W > 0)
+        cw = self.world['cont']
+        rest = live & (W <= 0) & (cw[wn] == pl.cont)      # the world node over it, where the crust type agrees
+        J = np.flatnonzero(reach | rest)
+        dj = np.where(reach[J], S[J]/np.where(W[J] > 0, W[J], 1.), d[wn[J]])
+        a = g.area
+        out = np.zeros(J.size)
+        for typ in (True, False):                         # each crust type's gains and losses conserved on its own
+            mj = pl.cont[J] == typ
+            mw = cw[ws] == typ
+            if mj.any():
+                out[mj] = self._conserved(dj[mj], a[J][mj], d[ws][mw], a[ws][mw], name)
+        return J, out
 
 
     def _match_reads(self, idx, slot, gap):
@@ -268,6 +360,9 @@ class CompositionMixin:
         g, w, p = self.g, self.world, self.p
         if p['return_transfer'] not in ('read', 'conservative', 'matched', 'state'):
             raise ValueError(f"return_transfer {p['return_transfer']!r}: 'read', 'conservative', 'matched' or 'state'")
+        tent = p['remap_rule'] in ('tent', 'overlap')
+        if tent and p['return_transfer'] != 'read':
+            raise ValueError(f"remap_rule {p['remap_rule']!r} needs return_transfer 'read'")
         a = g.area
         wns, owns, consumed, booked = [], [], [], []
         dVc = np.zeros(g.size)                          # collision volume arriving at world nodes (m^3)
@@ -376,6 +471,20 @@ class CompositionMixin:
                 if drock is not None:
                     pl.rock[J] = np.clip(pl.rock[J]+self._conserved(drock[wJ], a[J], drock[ws], a[ws], 'rock'), 0.,
                                          pl.sed[J]).astype(np.float32)
+            elif tent:                                  # remap_rule 'tent': the composition's weights, conserved
+                d_vol = np.bincount(js, weights=dVc[ws], minlength=g.size)/a    # collision volume as 'read'
+                pl.thick[read] += d_vol[read].astype(np.float32)
+                Jt, dt_ = self._tent_return(k, pl, wn, own, dthick, 'thick')
+                pl.thick[Jt] += dt_.astype(np.float32)
+                if dsed is not None:
+                    Js, ds_ = self._tent_return(k, pl, wn, own, dsed, 'sed')
+                    s1 = pl.sed[Js]+ds_
+                    self.erosion_totals['return_sed_clamped_m3'] = self.erosion_totals.get('return_sed_clamped_m3', 0.)+float(
+                        (np.maximum(-s1, 0.)*a[Js]).sum())
+                    pl.sed[Js] = np.maximum(s1, 0).astype(np.float32)
+                if drock is not None:
+                    Jr, dr_ = self._tent_return(k, pl, wn, own, drock, 'rock')
+                    pl.rock[Jr] = np.clip(pl.rock[Jr]+dr_, 0., pl.sed[Jr]).astype(np.float32)
             else:
                 d_int = np.bincount(js, weights=dthick[ws], minlength=g.size)/np.maximum(nread, 1)
                 d_vol = np.bincount(js, weights=dVc[ws], minlength=g.size)/a
