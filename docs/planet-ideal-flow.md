@@ -257,7 +257,13 @@ level? Correct only if that test fails.
 
 **Stats:**
 - band power at 5.8–46 km;
-- channel incision and fine roughness per relief class (`diagnose_meso_plains`);
+- channel incision and fine roughness per relief class (`diagnose_meso_plains`), on one held-out Earth test set that
+  covers all four relief classes, mountains included, fixed before training. The current meso is the baseline: on
+  Earth's own held-out input (`planet_meso_check`'s Earth column) it gives 0.46 / 0.49 of Earth's 5.8–11.5 km power on
+  hills / mountains;
+- for every new input channel: the gain on held-out Earth with the true value given against the channel hidden (as the
+  sub-cell detail map was tested), together with S6's domain-gap check. A channel the planet can only supply by fitting
+  is not used;
 - coastline fractal dimension;
 - river continuity: the share of S4 river length that shows up as a continuous channel;
 - lake flatness.
