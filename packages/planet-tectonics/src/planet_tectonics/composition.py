@@ -105,6 +105,11 @@ class CompositionMixin:
         pid = np.array([pl.id for pl in self.plates])
         self.owner_slot = slot
         self.owner = pid[slot]
+        if p['compose_map'] == 'matched':
+            self._match_reads(idx, slot, gap)
+            cont_k = np.stack([pl.cont[idx[k]] for k, pl in enumerate(self.plates)])
+        elif p['compose_map'] != 'nearest':
+            raise ValueError(f"compose_map {p['compose_map']!r}: 'nearest' or 'matched'")
         wcont = np.where(gap, False, cont_k[slot, cols])
         wthick = np.where(gap, p['ocean_thick_m'], np.stack([pl.thick[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
         wborn = np.where(gap, self.t, np.stack([pl.born[idx[k]] for k, pl in enumerate(self.plates)])[slot, cols]).astype(np.float64)
@@ -116,6 +121,47 @@ class CompositionMixin:
         self.new_crust = gap
         self.world = {'cont': wcont, 'thick': wthick, 'born': wborn, 'orog': worog, 'sed': wsed, 'therm': wtherm, 'rock': wrock}
         self.therm_changed = np.zeros(g.size, bool)      # C: world nodes whose thermal age changed this step
+
+
+    def _match_reads(self, idx, slot, gap):
+        """compose_map 'matched' (pass 107, see PARAMS): in place on idx, after ownership. Where world nodes of one
+        plate read the same plate node, the nearest keeps it and each other reads the nearest live node of that plate
+        within two rings of the shared node that no world node of the plate reads (four passes; a world node with no
+        such node keeps the shared one)."""
+        g = self.g
+        for k, pl in enumerate(self.plates):
+            ws = np.flatnonzero((slot == k) & ~gap)
+            if ws.size == 0:
+                continue
+            loc = g.xyz[ws]@pl.Q                          # world nodes in the plate's frame
+            for _ in range(4):
+                js = idx[k, ws]
+                d = ((loc-g.xyz[js])**2).sum(1)
+                order = np.lexsort((d, js))
+                first = np.ones(order.size, bool)
+                first[1:] = js[order][1:] != js[order][:-1]
+                dsp = order[~first]                       # positions in ws of displaced readers
+                if dsp.size == 0:
+                    break
+                read = np.zeros(g.size, bool); read[js] = True
+                n1 = g.nbr[js[dsp]]                       # the shared node's two rings
+                n2 = g.nbr[np.where(n1 >= 0, n1, js[dsp][:, None])].reshape(dsp.size, -1)
+                cand = np.concatenate([n1, n2], 1)
+                ok = cand >= 0
+                cs = np.where(ok, cand, 0)
+                free = ok & pl.mask[cs] & ~read[cs]
+                dc = np.where(free, ((g.xyz[cs]-loc[dsp][:, None, :])**2).sum(-1), np.inf)
+                b = np.argmin(dc, 1)
+                r = np.arange(dsp.size)
+                has = np.isfinite(dc[r, b])
+                if not has.any():
+                    break
+                dsp, ch, dd = dsp[has], cs[r, b][has], dc[r, b][has]
+                o2 = np.lexsort((dd, ch))                 # one reader per freed node: the nearest
+                f2 = np.ones(o2.size, bool)
+                f2[1:] = ch[o2][1:] != ch[o2][:-1]
+                take = o2[f2]
+                idx[k, ws[dsp[take]]] = ch[take]
 
 
     def _spread_collision(self, dVc):
@@ -144,6 +190,68 @@ class CompositionMixin:
         return out
 
 
+    def _return_pairs(self, pl, wn, own, ws, js, nread):
+        """return_transfer 'conservative' / 'matched' (pass 107, see PARAMS): the plate nodes J that take a world
+        increment this step and the world node wJ each takes it from (each plate node once).
+
+        'conservative': every live plate node the plate still owns (not this step's new crust), from the world node over
+        it (wn, the forward map). 'matched': each plate node a world node reads keeps the increment of its reader (the
+        nearest reader to it when several read it), so the world node finds its own change on the material it read; the
+        live owned nodes no world node reads take the increment of a reader displaced that way (the nearest among the
+        world node over them and its eight neighbours), or else of the world node over them."""
+        g = self.g
+        live = np.flatnonzero(pl.mask & own & ~self.new_crust[wn])
+        if self.p['return_transfer'] == 'conservative':
+            return live, wn[live]
+        if ws.size == 0:
+            return live, wn[live]
+        loc = g.xyz@pl.Q.T                               # plate nodes' world positions
+        d = np.einsum('ij,ij->i', g.xyz[ws]-loc[js], g.xyz[ws]-loc[js])
+        order = np.lexsort((d, js))                      # by plate node, nearest reader first
+        first = np.ones(order.size, bool)
+        first[1:] = js[order][1:] != js[order][:-1]
+        prim = order[first]                              # one reader per read plate node
+        disp = np.zeros(g.size, bool)
+        disp[ws[order[~first]]] = True                   # readers displaced from a shared plate node
+        un = live[nread[live] == 0]
+        src = wn[un]
+        if un.size and disp.any():
+            cand = np.concatenate([src[:, None], g.nbr[src]], 1)
+            ok = cand >= 0
+            cs = np.where(ok, cand, 0)
+            dc = ((g.xyz[cs]-loc[un][:, None, :])**2).sum(-1)
+            dc = np.where(ok & disp[cs], dc, np.inf)
+            b = np.argmin(dc, 1)
+            has = np.isfinite(dc[np.arange(un.size), b])
+            src = np.where(has, cs[np.arange(un.size), b], src)
+        return np.concatenate([js[prim], un]), np.concatenate([ws[prim], src])
+
+
+    def _conserved(self, dj, aj, dw, aw, name):
+        """return_transfer 'conservative': per-area increments dj on plate nodes of area aj (read from the world node
+        over each) rescaled so that their gains and their losses each carry the world volume of the nodes the plate
+        owns (dw on areas aw). A part the plate nodes do not see at all (no gain where the world has one) is spread
+        uniformly by area. The rescaling's volume is recorded in erosion_totals['return_rescaled_<name>_m3']."""
+        dj = np.asarray(dj, np.float64)
+        dw = np.asarray(dw, np.float64)
+        out = dj.copy()
+        rest = 0.
+        for sg in (1., -1.):
+            mj = sg*dj > 0
+            Pj = float((aj*dj)[mj].sum())
+            Pw = float((aw*dw)[sg*dw > 0].sum())
+            if Pj != 0.:
+                out[mj] = dj[mj]*(Pw/Pj)
+            else:
+                rest += Pw
+        if rest != 0.:
+            out += rest/aj.sum()
+        ET = self.erosion_totals
+        key = f'return_rescaled_{name}_m3'
+        ET[key] = ET.get(key, 0.)+float((np.abs(out-dj)*aj).sum())
+        return out
+
+
     def _update_rasters(self, dthick, idx, dsed=None, drock=None):
         """Update every plate raster after a step.
 
@@ -151,8 +259,15 @@ class CompositionMixin:
         it is consumed (subducted ocean, or continental crust whose volume is added to the overriding continent:
         collision). Thickness changes go to the plate nodes the world actually reads (backward samples), so every
         change feeds back: diffusion increments (per area) are averaged over the world nodes reading a plate node;
-        collision volume is added as volume. Plate nodes the world does not read keep their values."""
+        collision volume is added as volume. Plate nodes the world does not read keep their values.
+
+        return_transfer 'conservative' (pass 107, see PARAMS): the per-area increments (thickness, sediment, rock),
+        orogeny marks, thermal-age changes and arcs turned continental go instead to every live plate node the plate
+        still owns, from the world node over it (the forward map), with each plate's gains and losses rescaled to the
+        world volume of the nodes it owns; collision volume and new crust as above."""
         g, w, p = self.g, self.world, self.p
+        if p['return_transfer'] not in ('read', 'conservative', 'matched', 'state'):
+            raise ValueError(f"return_transfer {p['return_transfer']!r}: 'read', 'conservative', 'matched' or 'state'")
         a = g.area
         wns, owns, consumed, booked = [], [], [], []
         dVc = np.zeros(g.size)                          # collision volume arriving at world nodes (m^3)
@@ -245,29 +360,77 @@ class CompositionMixin:
             read = nread > 0
             before_v = float((pl.thick*a*(pl.mask & pl.cont)).sum())
             vs = self._plate_cont_sed(pl)
-            d_int = np.bincount(js, weights=dthick[ws], minlength=g.size)/np.maximum(nread, 1)
-            d_vol = np.bincount(js, weights=dVc[ws], minlength=g.size)/a
-            pl.thick[read] += (d_int[read]+d_vol[read]).astype(np.float32)
-            if dsed is not None:
-                d_sed = np.bincount(js, weights=dsed[ws], minlength=g.size)/np.maximum(nread, 1)
-                pl.sed[read] = np.maximum(pl.sed[read]+d_sed[read], 0).astype(np.float32)
-            if drock is not None:                       # sediment_rock: the rock layer's change, as the sediment's
-                d_rk = np.bincount(js, weights=drock[ws], minlength=g.size)/np.maximum(nread, 1)
-                pl.rock[read] = np.clip(pl.rock[read]+d_rk[read], 0., pl.sed[read]).astype(np.float32)
+            # return_transfer 'conservative' / 'matched': plate nodes J and the world node wJ whose increment each takes
+            J, wJ = (self._return_pairs(pl, wn, own, ws, js, nread) if p['return_transfer'] in ('conservative', 'matched')
+                     else (None, None))
+            cons = J is not None and J.size > 0
+            if cons:
+                d_vol = np.bincount(js, weights=dVc[ws], minlength=g.size)/a    # collision volume as 'read'
+                pl.thick[read] += d_vol[read].astype(np.float32)
+                pl.thick[J] += self._conserved(dthick[wJ], a[J], dthick[ws], a[ws], 'thick').astype(np.float32)
+                if dsed is not None:
+                    s1 = pl.sed[J]+self._conserved(dsed[wJ], a[J], dsed[ws], a[ws], 'sed')
+                    self.erosion_totals['return_sed_clamped_m3'] = self.erosion_totals.get('return_sed_clamped_m3', 0.)+float(
+                        (np.maximum(-s1, 0.)*a[J]).sum())
+                    pl.sed[J] = np.maximum(s1, 0).astype(np.float32)
+                if drock is not None:
+                    pl.rock[J] = np.clip(pl.rock[J]+self._conserved(drock[wJ], a[J], drock[ws], a[ws], 'rock'), 0.,
+                                         pl.sed[J]).astype(np.float32)
+            else:
+                d_int = np.bincount(js, weights=dthick[ws], minlength=g.size)/np.maximum(nread, 1)
+                d_vol = np.bincount(js, weights=dVc[ws], minlength=g.size)/a
+                pl.thick[read] += (d_int[read]+d_vol[read]).astype(np.float32)
+                if dsed is not None:
+                    d_sed = np.bincount(js, weights=dsed[ws], minlength=g.size)/np.maximum(nread, 1)
+                    pl.sed[read] = np.maximum(pl.sed[read]+d_sed[read], 0).astype(np.float32)
+                if drock is not None:                       # sediment_rock: the rock layer's change, as the sediment's
+                    d_rk = np.bincount(js, weights=drock[ws], minlength=g.size)/np.maximum(nread, 1)
+                    pl.rock[read] = np.clip(pl.rock[read]+d_rk[read], 0., pl.sed[read]).astype(np.float32)
             self.ledger['increments'] += float((pl.thick*a*(pl.mask & pl.cont)).sum())-before_v
             vs1 = self._plate_cont_sed(pl)
             self.sed_ledger['increments'] += vs1-vs
-            conv = self.new_continent[ws] if hasattr(self, 'new_continent') else np.zeros(ws.size, bool)
+            if p['return_transfer'] == 'state':
+                # 'state': the live owned nodes no world node read take the world's end state at the node over them
+                # (the surface the world showed there), where the crust type agrees; booked as 'return_state'
+                un = np.flatnonzero(pl.mask & own & ~self.new_crust[wn] & (nread == 0))
+                un = un[pl.cont[un] == w['cont'][wn[un]]]
+                if un.size:
+                    wu = wn[un]
+                    v0 = float((pl.thick*a*(pl.mask & pl.cont)).sum())
+                    pl.thick[un] = w['thick'][wu]
+                    pl.sed[un] = np.maximum(w['sed'][wu], 0.)
+                    pl.rock[un] = np.clip(w['rock'][wu], 0., pl.sed[un])
+                    pl.therm[un] = w['therm'][wu]
+                    pl.orog[un] = w['orog'][wu]
+                    self.ledger['return_state'] = self.ledger.get('return_state', 0.)+float(
+                        (pl.thick*a*(pl.mask & pl.cont)).sum())-v0
+                    vs2 = self._plate_cont_sed(pl)
+                    self.sed_ledger['return_state'] = self.sed_ledger.get('return_state', 0.)+vs2-vs1
+                    vs1 = vs2
+            nc = getattr(self, 'new_continent', None)
+            if cons:                                    # 'conservative': the plate nodes under the arcs (forward map)
+                conv = nc[wJ] if nc is not None else np.zeros(J.size, bool)
+                cj = J
+            else:
+                conv = nc[ws] if nc is not None else np.zeros(ws.size, bool)
+                cj = js
             if conv.any():                              # each plate node once: two world nodes can read the same one
-                uc = np.unique(js[conv])                   # (booked twice until the thirty-ninth pass; ledger only)
+                uc = np.unique(cj[conv])                   # (booked twice until the thirty-ninth pass; ledger only)
                 pl.cont[uc] = True
                 pl.orog[uc] = self.t
                 self.ledger['arc_continent'] = self.ledger.get('arc_continent', 0.)+float((pl.thick[uc]*a[uc]).sum())
                 self.sed_ledger['arc_continent'] += self._plate_cont_sed(pl)-vs1
-            hit = np.zeros(g.size, bool); hit[js[marked[ws]]] = True
-            pl.orog[hit] = self.t
-            sel = tchg[ws]                               # C: thermal ages changed at world nodes this plate feeds
-            pl.therm[js[sel]] = w['therm'][ws[sel]]
+            hit = np.zeros(g.size, bool)
+            if cons:                                    # 'conservative': marks and thermal ages by the forward map
+                hit[J[marked[wJ]]] = True
+                pl.orog[hit] = self.t
+                sel = tchg[wJ]
+                pl.therm[J[sel]] = w['therm'][wJ[sel]]
+            else:
+                hit[js[marked[ws]]] = True
+                pl.orog[hit] = self.t
+                sel = tchg[ws]                           # C: thermal ages changed at world nodes this plate feeds
+                pl.therm[js[sel]] = w['therm'][ws[sel]]
             pl.cont[new] = w['cont'][wn[new]]
             pl.thick[new] = w['thick'][wn[new]]
             pl.born[new] = w['born'][wn[new]]

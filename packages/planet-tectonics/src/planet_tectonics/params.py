@@ -626,6 +626,27 @@ PARAMS = {
     # tests on 2 of 3 with young-ocean offsets -356 / -307 m); 'node' reproduces the runs before it step by step
     'boundary_normal': 'ring',
     'hidden_steps': 3,             # overlapped crust is consumed only after this many steps under another plate
+    # how a step's world increments return to the plate rasters (pass 107, journal 144; the trace of passes 105-106,
+    # journal 143). 'read' (as built): each world node's increment goes to the plate node it read (the mean when two
+    # world nodes read one), so the plate nodes no world node reads (~7% of continental nodes per step at n = 217) miss
+    # that step's erosion and deposition; the next composition shows them as one-cell holes and land-water crossings,
+    # which the next erosion mostly repairs. 'conservative': every live plate node the plate still owns gets the
+    # increment of the world location over it (the forward map, plate node -> nearest world node, the inverse of the
+    # composition's lookup; the design of journal 143 sec. 4). 'matched': each plate node a world node reads keeps that
+    # reader's increment (the nearest reader when several read it), so a world node finds its own change on the
+    # material it read next step, and the live owned nodes no world node reads take the increment of a reader displaced
+    # from a shared node (the nearest within the world node over them and its eight neighbours), else of the world node
+    # over them. Both conserve each plate's increment volume (gains and losses of thickness, sediment and rock each
+    # rescaled to the world volume of the nodes the plate owns). Collision volume, conversions' ledgers and new crust
+    # as 'read'; orogeny marks, thermal-age changes and arcs turned continental follow the same pairs. No new number
+    'return_transfer': 'read',
+    # how the composition reads the plate rasters (pass 107, journal 144). 'nearest' (as built): each world node reads
+    # the plate node nearest it in the owner's frame, so where the rotated grid crowds, two world nodes read one plate
+    # node (and the plate node next to it is read by none): that node is shown twice, and the transfer can store only
+    # one value for the two. 'matched': ownership as 'nearest'; then a world node that shares its plate node with a
+    # nearer world node of the same plate reads the nearest unread live node of that plate among the shared node's
+    # eight neighbours (two passes), so the read is one to one wherever a free neighbour exists. No new number
+    'compose_map': 'nearest',
     # C, the continental lithosphere's thermal state (fifty-sixth pass, journal 78; planet_tectonics.lithosphere).
     # 'none' (as before): continents stand on the Airy line of their crust and sediment. 'thermal_age': each continental
     # node's tectonothermal age (carried with the plates; start ages from Earth's CRUST1.0 types, reset by collision
