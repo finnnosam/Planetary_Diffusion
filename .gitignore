@@ -19,7 +19,22 @@ numba-cache/
 # data/ holds the Earth datasets (list, sources and checksums: python -m planet_earth.manifest);
 # outputs/ holds runs, sweeps, reviews and model checkpoints.
 /data/
-/outputs/
+/outputs/*
+# ... except the probe and review scripts and their written rules (text only; runs, arrays and printouts stay out).
+# Sweeps call these; promote one into planet_reviews when it becomes a standing measure (journal 149).
+!/outputs/planet-calibration/
+/outputs/planet-calibration/*
+!/outputs/planet-calibration/precheck-*/
+/outputs/planet-calibration/precheck-*/**
+!/outputs/planet-calibration/precheck-*/**/
+!/outputs/planet-calibration/precheck-*/**/*.py
+!/outputs/planet-calibration/precheck-*/**/*.md
+!/outputs/review-astra/
+/outputs/review-astra/**
+!/outputs/review-astra/**/
+!/outputs/review-astra/**/*.py
+!/outputs/review-astra/**/*.md
+!/outputs/review-astra/**/*.ps1
 *.tif
 *.tiff
 *.nc
@@ -35,20 +50,13 @@ numba-cache/
 *.zip
 *.log
 
-# The owner's own working scripts (sweeps, migration steps): kept on disk, not published
-*.cmd
-*.bat
+# One-off migration steps of 29-31 Oct (sweep .cmd files are tracked since 26 Nov, journal 149)
 migration/
+Phase A*.cmd
+Finish Migration.cmd
 
-# Working notes for developing the project with Claude: kept on the owner's disk and mirrored to the claude.ai
-# Project, not published. Public docs: README.md, docs/planet-ideal-flow.md, docs/planet-parameter-audit.md,
-# docs/research/planet-scale/README.md.
-docs/next-chat-prompt.md
-docs/project-map.md
-docs/planet-layer/
-docs/planet-layer-plan.md
-docs/tectonic-prototype.md
-docs/research/planet-scale/next-chat-prompt.md
+# Working notes (STATE, decisions, journal, project map) are tracked since 26 Nov (journal 149): they are the
+# project's history and the agent's handoff. Only the tools of the old cloud bridge stay out.
 tools/device_runs/
 tools/device_stubs/
 
