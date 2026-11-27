@@ -17,6 +17,9 @@ these files don't say, check `/context all` for other memory files (a `CLAUDE.md
    before proposing a setting, so you don't re-propose something already rejected.
 3. `docs/planet-layer/gotchas.md` collects the traps found so far (numerics, borrowing, reviews, reading Earth data).
    Read the parts that touch what you are about to change.
+4. Then do the next pass. The user's opening message is usually just "Continue" (or "next pass", "go on"): that
+   means do the next pass, numbered one after the last journal entry, on what STATE's "Right now" names as next. If
+   a sweep is still running, check on it first. Don't ask the user what to work on; STATE says.
 
 Other references: `docs/project-map.md` (code, scripts, data), `docs/planet-parameter-audit.md` (where each value
 comes from), `docs/planet-ideal-flow.md` (the design of every stage), `docs/contracts/` (what each stage hands on).
