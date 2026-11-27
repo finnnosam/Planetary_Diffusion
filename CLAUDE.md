@@ -117,5 +117,7 @@ and writes the reasoning in the journal. Routine sweeps, tests and probes Claude
 - **Git:** code, tests, docs, the notes, the sweep `.cmd` files and the probe scripts in
   `outputs/planet-calibration/precheck-*/` are tracked; data, runs, arrays and printouts are not (`.gitignore`). At the
   end of a pass Claude commits code and notes together in one commit (a subject of a few words, such as "Rift area by
-  the plates' opened area"; the reasoning lives in the journal). Pushing is the user's (the repo is public).
+  the plates' opened area"; the reasoning lives in the journal). Then push it to `origin main` (user, 26 Nov: every commit is pushed). The
+  repo is public, so before pushing check that the commit holds only tracked kinds of file (no data, runs, arrays or
+  secrets); if a push fails, say so to the user rather than forcing it.
 - Tell the user when it is a good time to start a new session: the notes are current and nothing is half-built.
