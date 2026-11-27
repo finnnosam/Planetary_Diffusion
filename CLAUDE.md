@@ -82,12 +82,14 @@ and writes the reasoning in the journal. Routine sweeps, tests and probes Claude
 - **Sweeps:** one root `.cmd` per sweep, its rule in the `rem` header, its body one `scripts.run_sweep` call followed by
   any extra probes (template: `Rift Area Sweep.cmd`). Every sweep passes
   `--control <arm> --identity <the previous adopted arm's folder> --borrow-control`: runs are deterministic, so the
-  control re-runs its first seed only, checks it field by field, and links the other seeds. Run a sweep yourself in the
-  background and check on it; the `.cmd` files end in `pause`, so feed them NUL, e.g. from PowerShell
-  `Set-Location E:\projects\Planetary_Diffusion; cmd.exe /c 'call ".\Rift Area Sweep.cmd" < NUL'`. The `.\` is
-  needed: Claude Code's shell sets `NoDefaultCurrentDirectoryInExePath=1`, so cmd does not look in the current folder
-  for a bare name (pass 111, journal 150: without it cmd answers "is not recognized"). A borrowed sweep takes ~30 min, a full one about an hour, with 8
-  workers and ~23 GB of memory: tell the user when you start one, since the machine is theirs too.
+  control re-runs its first seed only, checks it field by field, and links the other seeds. Run a sweep yourself **in a
+  tab of the user's Terminal panel** (`run_in_terminal`, cwd the repo root, titled with the sweep's name), so the user
+  sees its live progress bar and time left; link the tab when you start it, read it with `read_terminal` to check on
+  it, and stop any watcher you start when the sweep ends. The `.cmd` files end in `pause`, so feed them NUL:
+  `cmd.exe /c 'call ".\Rift Area Sweep.cmd" < NUL'`. The `.\` is needed where the shell sets
+  `NoDefaultCurrentDirectoryInExePath=1` (Claude Code's own shell does; pass 111, journal 150: without it cmd answers
+  "is not recognized"). A borrowed sweep takes ~30 min, a full one about an hour, with 8 workers and ~23 GB of memory:
+  tell the user when you start one, since the machine is theirs too.
 - Results: `outputs/planet-calibration/<sweep>/`, each run's printout in `<arm>/seed<s>/run.log`, reviews in
   `<sweep>/reviews/`. Read `run.log` for `RuntimeWarning` and `nan`.
 - **Determinism:** runs repeat exactly on this machine at `threads` 2. A change claimed to leave the default path
