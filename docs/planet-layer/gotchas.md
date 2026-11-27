@@ -46,8 +46,22 @@ item when the code no longer allows the trap.
 - Pre-check seeds used so far: 1007–1032 (1032 the pass-110 full-length pre-check, 1031 pass 109's, 1030 pass 108's,
   1029 pass 107's, 1028 the pass-105 trace and its warm state). 2001–2006 are confirmation seeds only. Earlier pre-checks
   ran in the cloud workspace, whose trajectories differ from this machine's: their numbers do not carry over.
+- **V1 reads the default path only.** The sweep's pytest runs with today's PARAMS, so it does not test the arm. Before
+  adopting an arm, run the planet tests with the arm's settings put in PARAMS (pass 111: the Rift Area Sweep's C
+  passed every veto as run, then failed 11 tests as the default, two of them an unbooked thinning of oceanic crust).
+- Launching a `.cmd` from Claude Code's shells: the tool shell sets `NoDefaultCurrentDirectoryInExePath=1`, so
+  `call "Name.cmd"` fails with "is not recognized" even in the right folder; write `call ".\Name.cmd"` (pass 111).
 
 ## Watch-points and known defects (STATE §6 as of pass 110, unchanged)
+
+- **The thermal age is a bad state variable where Lamb's L is flat** (pass 111, journal 150). `lith_frame` 'lamb'
+  holds L at 114 km over 270–770 Myr and at 178 km from 1,750 Myr (slopes 1e-6 km/Myr), so
+  `thickened_therm` → `age_of_thickness` turns any collision gain into a jump to the stretch's end (300 → 770 Myr,
+  1,800 → 3,600 Myr for a 0.01% thickening). L barely moves at the jump, but the node then ages along the steeper
+  stretch after it, and any averaging of ages (the 'overlap' read) mixes in age space, where L is concave. Under
+  'overlap' the continents' mean lithosphere age rises 5.5 Myr per Myr of run (median 3,600 Myr by 0 Myr); under
+  'nearest' 1.3. Read the age's clock bound (the mean may rise at most ~1 Myr per Myr without resets) before reading
+  L or the datum level.
 
 - **The orogeny-age hand-off** (journal 141 §1 item 4; **fixed in pass 105**, journal 142 §1): NaN in
   `orogeny_age_myr` is the validity mask (no orogeny recorded, or no plate; old crust), a finite 0 an active belt;

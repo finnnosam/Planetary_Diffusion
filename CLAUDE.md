@@ -6,6 +6,12 @@ Claude works here as Claude Code on the owner's Windows machine (16 threads, 32 
 
 ## Start of a session
 
+Every session starts fresh. What carries over is only what is in files: this `CLAUDE.md` and the notes it points to,
+all in git. Claude Code's automatic memory is off for this project (`.claude/settings.json`), so nothing is kept
+anywhere else; if something should last, it goes into the notes. If the user finds a session acting on something
+these files don't say, check `/context all` for other memory files (a `CLAUDE.md` in a parent folder or in
+`~/.claude/`).
+
 1. Read `docs/planet-layer/STATE.md` (one page: target, scorecard, what is running, what is next).
 2. Read only the journal entries and files STATE points to. Search `docs/planet-layer/decisions*.md` with grep
    before proposing a setting, so you don't re-propose something already rejected.
@@ -78,8 +84,9 @@ and writes the reasoning in the journal. Routine sweeps, tests and probes Claude
   `--control <arm> --identity <the previous adopted arm's folder> --borrow-control`: runs are deterministic, so the
   control re-runs its first seed only, checks it field by field, and links the other seeds. Run a sweep yourself in the
   background and check on it; the `.cmd` files end in `pause`, so feed them NUL, e.g. from PowerShell
-  `cmd.exe /c 'call "Rift Area Sweep.cmd" < NUL'` (first used 26 Nov: if the quoting fails, say so in the
-  journal and record the form that works here). A borrowed sweep takes ~30 min, a full one about an hour, with 8
+  `Set-Location E:\projects\Planetary_Diffusion; cmd.exe /c 'call ".\Rift Area Sweep.cmd" < NUL'`. The `.\` is
+  needed: Claude Code's shell sets `NoDefaultCurrentDirectoryInExePath=1`, so cmd does not look in the current folder
+  for a bare name (pass 111, journal 150: without it cmd answers "is not recognized"). A borrowed sweep takes ~30 min, a full one about an hour, with 8
   workers and ~23 GB of memory: tell the user when you start one, since the machine is theirs too.
 - Results: `outputs/planet-calibration/<sweep>/`, each run's printout in `<arm>/seed<s>/run.log`, reviews in
   `<sweep>/reviews/`. Read `run.log` for `RuntimeWarning` and `nan`.

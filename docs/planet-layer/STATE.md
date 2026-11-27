@@ -1,6 +1,6 @@
 # Planet layer: current state
 
-**As of 26 Nov 2026, after pass 110 and the workflow reset (journal 149).** Rewrite this file at the end of every
+**As of 26 Nov 2026, after pass 111 (journal 150).** Rewrite this file at the end of every
 pass so it is true; keep it under ~120 lines. The full STATE as it stood after pass 110 (model table, the long
 scorecard, every open item) is in `archive/STATE-2026-11-26-pass110.md`; the traps it listed are in `gotchas.md`.
 
@@ -13,28 +13,30 @@ datum regression becomes the next problem (user, 26 Nov; journal 149; it replace
 
 ## Right now
 
-- **The Rift Area Sweep has run and is unread** (`outputs/planet-calibration/sweep-20261126-161947`, finished
-  26 Nov; tests 301 passed; control `remap_rule-nearest_rift_area-world` borrowed from `sweep-20261122-150810/combo-01`,
-  check seed identical; arm `remap_rule-overlap_rift_area-plates`; its rule is in the `.cmd` header). **Pass 111
-  reads it:** the vetoes first (V3: the crust budget's update share against this sweep's control seeds ± 2 sd). If
-  every veto passes, the arm is adopted as a numerics fix (both settings become PARAMS; add them to
-  `crust_review.PREDATING`). If V3 still fails, split the update part by stage (`precheck-p108-floor/v3_stage.py`).
-- **If adopted, next:** write the terrain prediction for the remap (journal 145 §6 is the earlier one; on the
-  development seeds it held on holes, low flat interior and far low land, and missed on land fraction and crossings),
-  then run control and arm on confirmation seeds 2001–2006 and read it against the prediction. Beside it, read why the
-  continents sit lower on the datum under the remap (share of crust ≥ 30 km below it 0.193 → 0.273 in the Remap Sweep;
-  `level_split`, `three_factor`, `dyn_tail` on both arms): a diagnostic now, scored, not a veto.
+- **Nothing is running.** Pass 111 read the Rift Area Sweep (`sweep-20261126-161947`): C (`remap_rule` 'overlap' +
+  `rift_area` 'plates') passed every veto as the sweep ran them, but with C made the default the planet tests fail:
+  the overlap remap thins oceanic crust below 7 km with nothing booked (1.9% of the ocean, 0.26 Mkm³ by 0 Myr at
+  n = 217; also in the Remap Sweep's overlap arm, so it is the remap's). **C is not adopted**; both settings stay off.
+- **Next (pass 112): the failing veto.** Trace where the overlap return thins oceanic crust (rule first; suspect: the
+  return's per-plate correction of each crust type's net volume, pass 109, spread over all of a plate's oceanic
+  nodes). Fix it; run the planet tests with C as the default (they must pass; pin the three trajectory checks of
+  journal 150 §3 with notes); then re-sweep C against the control on 1001–1006, with a new terrain prediction frozen
+  first so 2001–2006 run in the same sweep (`precheck-p111-confirm/prediction.md` is the template; rewrite its ranges).
+- **Then: the lithosphere age.** Under C the continents' mean lithosphere age rises 5.5 Myr per Myr (median 3,600 Myr
+  by 0 Myr; 1.3 per Myr under A). That is why they sit lower on the datum (share under it 0.193 → 0.281). Causes:
+  Lamb's flat stretches turn any collision thickening into an age jump (both arms), and the overlap read mixes ages.
+  Next arm: a per-step trace splitting the age change into aging, resets, thickening jumps and write-back (rule first).
 - Next unused pre-check seed: 1033. The last default change to the plate layer: pass 104 (`rift_traction`).
-- Due: an independent review (fresh subagent, code and data before docs) by about pass 125, or sooner if the target
-  stops moving.
+- Due: an independent review (fresh subagent, code and data before docs) by about pass 125, or sooner: passes 105–111
+  changed no default, each blocked by a new integrity problem while the geography under the remap keeps improving.
 
 ## The model
 
 `PARAMS` in `packages/planet-tectonics/src/planet_tectonics/params.py` are the current model: a bare
 `simulate_plates` run is it. n = 217 (46 km), 1 Myr steps, 250 Myr from a supercontinent. Where each value comes from:
-`docs/planet-parameter-audit.md`. The settings by area and their dates: the archived STATE §3. Built but off and
-under test: `remap_rule` 'overlap' (conservative remap between the world grid and the plate rasters) with
-`rift_area` 'plates' (the rift strains by the area the plates actually open).
+`docs/planet-parameter-audit.md`. The settings by area and their dates: the archived STATE §3. Built but off: `remap_rule`
+'overlap' (conservative remap between the world grid and the plate rasters) with `rift_area` 'plates' (the rift strains
+by the area the plates actually open); not adopted in pass 111 (oceanic crust thinned unbooked).
 
 ## Scorecard against Earth (headline)
 
@@ -58,14 +60,15 @@ the independent review or pass 104's reviews.
 | relief within age on deep floor, 20–60 Myr ° | 127 m | 281 m | too smooth |
 | crystalline continent lost, elapsed 250 → 500 Myr (seeds 1001 / 1002) ° | 16.7 / 10.7% | — | late drift |
 
-On the development seeds the remap alone (Remap Sweep, failed V3, not adopted) moved holes 358 → 221, low flat interior
-3.8 → 6.8%, far low land 3.6 → 10.3%, crossings 53.4 → 44.5, land 27.3 → 27.7%.
+On the development seeds C (overlap + plates, Rift Area Sweep, not adopted) moved holes 358 → 213, crossings
+53.4 → 43.0, low flat interior 3.8 → 6.8%, far low land 3.6 → 9.1%, far land 39 → 46%, land 27.3 → 27.5%.
 
 ## Open problems, in order
 
 1. **Rough coastlines and missing inland lowlands.** Traced to the composition step: each step the plate rasters,
    read back onto the world grid by nearest node, add ~160 one-cell holes; erosion repairs most of it (journals
-   143–147). The candidate is the conservative remap (above). After it: the height distribution of the land.
+   143–147). The candidate is the conservative remap (above), blocked by its thinning of oceanic crust (pass 111).
+   After it: the height distribution of the land.
 2. **The landscape stage's missing relief.** The orogeny-age hand-off was fixed in pass 105; the landscape has no
    channel for the lithosphere's support and its erosion law's form is not Earth's (journals 142, 144). Behind item 1.
 3. **The ocean basin.** Too much young floor while ridge length matches Earth's; all ocean–ocean convergence is trench
