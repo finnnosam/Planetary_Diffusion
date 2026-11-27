@@ -169,7 +169,7 @@ def test_smooth_increment_field_stays_smooth(rule):
 
 
 @pytest.mark.parametrize('rule', ['tent', 'overlap'])
-def test_sediment_losses_and_gains_are_conserved_per_plate(rule):
+def test_sediment_net_volume_is_conserved_per_plate_and_crust_type(rule):
     sim, idx = _moved_sim(rule)
     g = sim.g
     k = _biggest(sim)
@@ -179,13 +179,49 @@ def test_sediment_losses_and_gains_are_conserved_per_plate(rule):
     sim.world['sed'][:] = 5000.
     side = g.xyz@np.array([0., 0., 1.])
     ds = np.where(side > 0, 20.*side, -10.*np.abs(side))
-    ws = np.flatnonzero((sim.owner_slot == k) & ~sim.new_crust)
+    ws, _, _ = sim._tent[k]
+    wtype = sim._tent_type[k].copy()
+    pc = pl.cont.copy()
     _, d = _apply(sim, idx, np.zeros(g.size), ds)
     a = g.area
-    gain_w = float((a[ws]*np.maximum(ds[ws], 0)).sum()); loss_w = float((a[ws]*np.minimum(ds[ws], 0)).sum())
-    gain_p = float((a[J]*np.maximum(d[k][J], 0)).sum()); loss_p = float((a[J]*np.minimum(d[k][J], 0)).sum())
-    assert abs(gain_p/gain_w-1.) < 1e-3
-    assert abs(loss_p/loss_w-1.) < 1e-3
+    for typ in (True, False):
+        Jt, wt = J[pc[J] == typ], ws[wtype == typ]
+        if not Jt.size:
+            continue
+        # float32 storage of a 5 km column rounds each node's change by ~0.5 mm: tolerance 2e-4 of the moved volume
+        assert abs(float((a[Jt]*d[k][Jt]).sum())-float((a[wt]*ds[wt]).sum())) <= 2e-4*float((a[wt]*np.abs(ds[wt])).sum())
+
+
+@pytest.mark.parametrize('rule', ['tent', 'overlap'])
+def test_a_cut_next_to_a_fill_is_not_amplified(rule):
+    # pass 109: erosion cuts one node and fills its neighbour; the remap averages the pair toward zero. Rescaling gains
+    # and losses separately multiplied what was left by up to 1e14 (Windows seed 1005 went to inf). The returned
+    # increments stay within the world's own range plus the net correction, and the net volume is kept.
+    sim, idx = _moved_sim(rule)
+    g = sim.g
+    k = _biggest(sim)
+    J, _ = _owned_live(sim, k)
+    rng = np.random.default_rng(5)
+    d = np.where(rng.random(g.size) < .5, 300., -300.)          # node-scale cut and fill, net ~0
+    ws, _, _ = sim._tent[k]
+    d, _ = _apply(sim, idx, d)
+    assert np.isfinite(d[k]).all()
+    assert np.abs(d[k][J]).max() < 400.
+
+
+@pytest.mark.parametrize('rule', ['tent', 'overlap'])
+def test_plate_crust_never_goes_below_zero(rule):
+    # pass 109: near-bare continental nodes hidden by the area-mean view ran to -1.8 km in 8 warm steps; the return
+    # clamps at zero and books the clamped volume
+    sim, idx = _moved_sim(rule)
+    g = sim.g
+    k = _biggest(sim)
+    J, _ = _owned_live(sim, k)
+    pl = sim.plates[k]
+    pl.thick[J[:50]] = 10.
+    sim._update_rasters(np.full(g.size, -500.), idx)
+    assert (pl.thick[pl.mask] >= 0).all()
+    assert sim.erosion_totals['return_thick_clamped_m3'] > 0
 
 
 @pytest.mark.parametrize('rule', ['tent', 'overlap'])

@@ -170,14 +170,17 @@ class CompositionMixin:
         return transfer (self._tent[k] = (world nodes, candidates, weights))."""
         out = [v.copy() for v in (wthick, wsed, wrock, wborn, wtherm)]
         self._tent = {}
+        self._tent_type = {}
         for k, pl in enumerate(self.plates):
             ws = np.flatnonzero((slot == k) & ~gap)
             if not ws.size:
                 self._tent[k] = (ws, np.zeros((0, 9), np.int64), np.zeros((0, 9)))
+                self._tent_type[k] = np.zeros(0, bool)
                 continue
             weights = self._overlap_weights if self.p['remap_rule'] == 'overlap' else self._tent_weights
             cs, wt = weights(pl, ws, idx[k, ws])
             self._tent[k] = (ws, cs, wt)
+            self._tent_type[k] = pl.cont[idx[k, ws]].copy()   # the crust type each world node read (its candidates')
             for o, src in zip(out[:4], (pl.thick, pl.sed, pl.rock, pl.born)):
                 o[ws] = (src[cs].astype(np.float64)*wt).sum(1)
             th = pl.therm[cs].astype(np.float64)
@@ -190,11 +193,14 @@ class CompositionMixin:
 
 
     def _tent_return(self, k, pl, wn, own, d, name):
-        """remap_rule 'tent': the per-area increment d (world) as per-area increments on plate pl's nodes, by the
-        composition's weights; nodes no weight reaches take the world node over them; gains and losses each conserved.
-        Returns (plate nodes, increments)."""
+        """remap_rule 'tent' / 'overlap': the per-area increment d (world) as per-area increments on plate pl's nodes, by
+        the composition's weights; nodes no weight reaches take the world node over it where the crust type agrees. Each
+        crust type's net volume is conserved per plate by an additive correction spread by area (pass 109: rescaling
+        gains and losses separately multiplied the near-cancelled remains of a cut next to a fill by up to 1e14).
+        World nodes are typed by the crust they read at the composition. Returns (plate nodes, increments)."""
         g = self.g
         ws, cs, wt = self._tent[k]
+        wtype = self._tent_type[k]
         if self.p['remap_rule'] == 'overlap':           # overlap areas: the world cell's area times its share
             wt = wt*g.area[ws][:, None]
         W = np.bincount(cs.ravel(), weights=wt.ravel(), minlength=g.size)
@@ -206,12 +212,20 @@ class CompositionMixin:
         J = np.flatnonzero(reach | rest)
         dj = np.where(reach[J], S[J]/np.where(W[J] > 0, W[J], 1.), d[wn[J]])
         a = g.area
-        out = np.zeros(J.size)
-        for typ in (True, False):                         # each crust type's gains and losses conserved on its own
+        out = dj.astype(np.float64)
+        moved = 0.
+        for typ in (True, False):                         # each crust type's net volume conserved on its own
             mj = pl.cont[J] == typ
-            mw = cw[ws] == typ
-            if mj.any():
-                out[mj] = self._conserved(dj[mj], a[J][mj], d[ws][mw], a[ws][mw], name)
+            mw = wtype == typ
+            if not mj.any():
+                continue
+            aj = a[J][mj]
+            corr = (float((a[ws][mw]*d[ws][mw]).sum())-float((aj*dj[mj]).sum()))/float(aj.sum())
+            out[mj] += corr
+            moved += abs(corr)*float(aj.sum())
+        ET = self.erosion_totals
+        key = f'return_rescaled_{name}_m3'
+        ET[key] = ET.get(key, 0.)+moved
         return J, out
 
 
@@ -475,7 +489,10 @@ class CompositionMixin:
                 d_vol = np.bincount(js, weights=dVc[ws], minlength=g.size)/a    # collision volume as 'read'
                 pl.thick[read] += d_vol[read].astype(np.float32)
                 Jt, dt_ = self._tent_return(k, pl, wn, own, dthick, 'thick')
-                pl.thick[Jt] += dt_.astype(np.float32)
+                t1 = pl.thick[Jt]+dt_                     # a node the area-mean view hides can be thinned below zero
+                self.erosion_totals['return_thick_clamped_m3'] = self.erosion_totals.get('return_thick_clamped_m3', 0.)+float(
+                    (np.maximum(-t1, 0.)*a[Jt]).sum())     # (pass 109): clamped at zero like the sediment, booked
+                pl.thick[Jt] = np.maximum(t1, 0.).astype(np.float32)
                 if dsed is not None:
                     Js, ds_ = self._tent_return(k, pl, wn, own, dsed, 'sed')
                     s1 = pl.sed[Js]+ds_

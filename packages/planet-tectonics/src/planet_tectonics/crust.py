@@ -5,6 +5,7 @@ import numpy as np
 from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import margin_shortening, rift_pure_shear, spread_to_band, trench_flux_consumed
+from planet_grid import fields
 from planet_tectonics.graphops import nearest_label
 from planet_tectonics.lithosphere import stretched_age
 from planet_tectonics.params import BACKARC_PROFILE_KM, BACKARC_PROFILE_W, COLLISION, SUBDUCTION
@@ -73,12 +74,26 @@ class CrustMixin:
         W = p['rift_width_km']*1e3
         dT = np.zeros(g.size)
         th = w['thick'].astype(np.float64)
-        _, Tg, dT_s = rift_pure_shear(rc.astype(np.int64), g.area, th+dT, zone, g.nbr, g.dist, W, p['breakup_thick_m'])
+        if p['rift_area'] == 'plates':                  # pass 110: the strain is the area the plates open
+            opened = self._opened_area()
+        elif p['rift_area'] == 'world':
+            opened = g.area
+        else:
+            raise ValueError(f"rift_area {p['rift_area']!r}: 'world' or 'plates'")
+        Tbar, Tg, dT_s = rift_pure_shear(rc.astype(np.int64), g.area, th+dT, zone, g.nbr, g.dist, W, p['breakup_thick_m'],
+                                         opened)
         dT = dT+dT_s
         rift = Tg > 0.
+        if p['rift_area'] == 'plates':
+            # a gap no plate node opens over takes no volume; the world shows it as the zone's crust would be there
+            # (Tbar, before breakup), carried by no plate (the return skips new crust), as 'world' showed it
+            shown = (opened[rc] <= 0.) & (Tbar >= p['breakup_thick_m'])
+            Tg = np.where(shown, Tbar, Tg)
+            self.erosion_totals['rift_unopened_nodes'] = self.erosion_totals.get('rift_unopened_nodes', 0)+int(shown.sum())
+            rift = rift | shown
         if not rift.any():
             return dT
-        self.area_ledger['rift'] += float(g.area[rc[rift]].sum())
+        self.area_ledger['rift'] += float(opened[rc[rift]].sum())
         r, cr = rc[rift], cn[cand][rift]
         w['cont'][r] = True
         w['thick'][r] = Tg[rift]
@@ -86,8 +101,21 @@ class CrustMixin:
         w['therm'][r] = self.t                           # C: new rift crust, new lithosphere
         self.therm_changed[r] = True
         self.erosion_totals['rift_nodes'] = self.erosion_totals.get('rift_nodes', 0)+int(r.size)
-        self.erosion_totals['rift_stretched_m3'] = self.erosion_totals.get('rift_stretched_m3', 0.)+float((Tg[rift]*g.area[r]).sum())
+        self.erosion_totals['rift_stretched_m3'] = self.erosion_totals.get('rift_stretched_m3', 0.)+float((Tg[rift]*opened[r]).sum())
         return dT
+
+
+    def _opened_area(self):
+        """rift_area 'plates' (pass 110): the area (m^2) the plate rasters switch on over each world node this step,
+        as `_update_rasters` will: the owning plate's unmasked nodes whose forward nearest world node is new crust
+        (plate rotations and ownership are this step's already). Elsewhere 0."""
+        g = self.g
+        A = np.zeros(g.size)
+        for k, pl in enumerate(self.plates):
+            wn = fields.nearest_nodes(g, g.xyz@pl.Q.T)
+            new = (self.owner_slot[wn] == k) & ~pl.mask & self.new_crust[wn]
+            np.add.at(A, wn[new], g.area[new])
+        return A
 
 
     def _sediment_basins_to_continent(self):

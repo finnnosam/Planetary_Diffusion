@@ -120,8 +120,19 @@ def _zone_dijkstra(g, zone, nbr, dist, cutoff, dd, touched):
 
 
 
+def rift_pure_shear(rows, area, thick, zone, nbr, dist, W, Tb, opened=None):
+    """Pure-shear stretching of the zone around rift gap nodes (rift_rule 'pure_shear', see PARAMS). opened: the new
+    area each gap node opens (m^2, per node; default its own cell area). rift_area 'plates' (pass 110) passes the area
+    the plate rasters switch on over each gap, so the zone gives exactly the volume the new plate nodes receive; a gap
+    that opens no area (opened 0) takes no volume and reads Tg 0. See _rift_pure_shear_kernel."""
+    if opened is None:
+        opened = area
+    return _rift_pure_shear_kernel(rows, area, np.ascontiguousarray(opened, dtype=np.float64), thick, zone, nbr, dist,
+                                   W, Tb)
+
+
 @njit(cache=True)
-def rift_pure_shear(rows, area, thick, zone, nbr, dist, W, Tb):
+def _rift_pure_shear_kernel(rows, area, opened, thick, zone, nbr, dist, W, Tb):
     """Pure-shear stretching of the zone around rift gap nodes (rift_rule 'pure_shear', see PARAMS).
     rows: gap nodes; zone: continental nodes that may stretch (not gaps); W: half-width (m) of the linear strain taper,
     measured from the gap cell's edge (half its spacing). Returns per row the strain-weighted mean zone thickness Tbar
@@ -130,7 +141,8 @@ def rift_pure_shear(rows, area, thick, zone, nbr, dist, W, Tb):
     Zone node i takes c_i = sum over rifting gaps g of a_g k_ig / K_g (K_g = sum_j a_j k_jg) and thins to
     T_i exp(-c_i); gap g receives its share a_g k_ig / (K_g c_i) of every removed volume, so the volume is conserved
     exactly; Tg = Tbar for small strain, less for a gap that is wide against W (a 46 km cell opening into a 100 km
-    zone is a finite stretch)."""
+    zone is a finite stretch). a_g above is opened[g], the area the gap opens (its cell's area unless rift_area
+    'plates'); the gap cell's radius stays its own cell's."""
     n = area.shape[0]
     R = rows.shape[0]
     dd = np.full(n, np.inf)
@@ -149,10 +161,13 @@ def rift_pure_shear(rows, area, thick, zone, nbr, dist, W, Tb):
             dd[touched[q]] = np.inf
     Tbar = np.where(K > 0., S/np.maximum(K, 1e-300), 0.)
     ok = (K > 0.) & (Tbar >= Tb)
+    for r in range(R):
+        if opened[rows[r]] <= 0.:
+            ok[r] = False
     # finite strain makes Tg < Tbar (the gap is part of the stretched zone); gaps whose Tg falls below Tb break up,
     # and the rest is recomputed without them (a few rounds at most)
     for it in range(20):
-        c, dT, Tg = _pure_shear_apply(rows, ok, K, area, thick, zone, nbr, dist, W, dd, touched)
+        c, dT, Tg = _pure_shear_apply(rows, ok, K, area, opened, thick, zone, nbr, dist, W, dd, touched)
         bad = ok & (Tg < Tb)
         if not bad.any():
             break
@@ -162,7 +177,7 @@ def rift_pure_shear(rows, area, thick, zone, nbr, dist, W, Tb):
 
 
 @njit(cache=True)
-def _pure_shear_apply(rows, ok, K, area, thick, zone, nbr, dist, W, dd, touched):
+def _pure_shear_apply(rows, ok, K, area, opened, thick, zone, nbr, dist, W, dd, touched):
     n = area.shape[0]
     R = rows.shape[0]
     c = np.zeros(n)
@@ -176,7 +191,7 @@ def _pure_shear_apply(rows, ok, K, area, thick, zone, nbr, dist, W, dd, touched)
             j = touched[q]
             k = 1.-max(dd[j]-rg, 0.)/W
             if k > 0.:
-                c[j] += area[g]*k/K[r]
+                c[j] += opened[g]*k/K[r]
         for q in range(m):
             dd[touched[q]] = np.inf
     dT = np.zeros(n)
@@ -195,10 +210,10 @@ def _pure_shear_apply(rows, ok, K, area, thick, zone, nbr, dist, W, dd, touched)
             j = touched[q]
             k = 1.-max(dd[j]-rg, 0.)/W
             if k > 0.:
-                v += -dT[j]*area[j]*(area[g]*k/K[r])/c[j]
+                v += -dT[j]*area[j]*(opened[g]*k/K[r])/c[j]
         for q in range(m):
             dd[touched[q]] = np.inf
-        Tg[r] = v/area[g]
+        Tg[r] = v/opened[g]
     return c, dT, Tg
 
 

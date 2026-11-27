@@ -253,6 +253,14 @@ PARAMS = {
     # pure_shear since 24 Oct (sweep-20261024-173200, 3 seeds: passes the elevation tests; thin crust per km of passive
     # edge 130-144 km at 1 degree vs 58-83 with 'node', Earth 140). 'node' reproduces earlier runs
     'rift_rule': 'pure_shear',
+    # the new area a pure-shear rift gap opens (pass 110, journal 148; rift_rule 'pure_shear' only). 'world': the gap's
+    # world cell (as built). The zone then gives the world cell's volume while the plate rasters switch on the nodes
+    # whose forward nearest node is the gap, whose area differs (the nearest-node maps are not one to one): the crust
+    # budget's update part carries the difference, which 'nearest''s writeback hid (journal 147). 'plates': the area the
+    # owning plate's raster switches on over the gap this step, so the zone gives exactly the volume the new plate
+    # nodes take; a gap no plate node opens over takes no volume and is shown as the zone's crust, carried by no plate.
+    # No number added
+    'rift_area': 'world',
     # pelagic (biogenic and wind-blown) sediment on the ocean floor, m/Myr of grain thickness (sed, with
     # sediment_compaction) on every oceanic node. Earth (seventy-fourth pass, journal 97; precheck-p74-pelagic/
     # earth_pelagic.py): GlobSed v3 (Straume et al. 2019) on Seton et al. 2020 floor ages, n = 217, far from land and
@@ -657,7 +665,11 @@ PARAMS = {
     # the nodes and a partition of unity); the crust type and the orogeny age stay the nearest node's. The per-area
     # increments (thickness, sediment, rock) go back by the same weights (each plate node the weighted mean of the
     # increments that reach it; a live owned node no weight reaches takes the world node over it where the crust type
-    # agrees), each plate's gains and losses of each crust type rescaled to the world volume of its nodes of that type.
+    # agrees); each plate's net volume of each crust type is the world's over its nodes of that type, by an additive
+    # correction spread by area (world nodes typed by the crust they read; pass 109: rescaling gains and losses
+    # separately blew up where the remap averages a cut next to a fill toward zero). Plate crust is clamped at zero
+    # after the return (a near-bare continental node the area-mean view hides is otherwise thinned without bound), the
+    # clamped volume booked in erosion_totals['return_thick_clamped_m3'].
     # Collision volume, orogeny marks, thermal-age changes and arcs as 'read'. Needs return_transfer 'read'.
     # 'overlap': first-order conservative remapping, the same paths with the weights of each world cell's overlap with
     # the plate cells (the cell sampled at its node and at the points a third of the way to its eight neighbours, each
