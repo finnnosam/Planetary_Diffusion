@@ -38,6 +38,8 @@ the record does not yet load (P_flow 0, before the first parcel passes the cut) 
 the flow's own (basal traction only); placed_velocity() gives the velocity scaled with the topography (rift_traction,
 pass 103). No number fitted.
 """
+from functools import cached_property
+
 import numpy as np
 
 from planet_grid import fields
@@ -83,23 +85,35 @@ def gradient_power(alm, lmax):
 
 
 def synthesis(alm, lmax, xyz, nthreads=1):
+    return _synthesis(alm, lmax, fields.node_loc(xyz), nthreads)
+
+
+def _synthesis(alm, lmax, loc, nthreads):
     import ducc0
     return ducc0.sht.experimental.synthesis_general(alm=np.asarray(alm, np.complex128)[None], spin=0, lmax=lmax,
-                                                    loc=fields.node_loc(xyz), epsilon=1e-10, nthreads=nthreads)[0]
+                                                    loc=loc, epsilon=1e-10, nthreads=nthreads)[0]
+
+
+def _tangent_basis(loc):
+    th, ph = loc[:, 0], loc[:, 1]
+    eth = np.stack([np.cos(th)*np.cos(ph), np.cos(th)*np.sin(ph), -np.sin(th)], 1)
+    eph = np.stack([-np.sin(ph), np.cos(ph), 0*ph], 1)
+    return eth, eph
 
 
 def gradient(alm, lmax, xyz, nthreads=1):
     """Surface gradient (on the unit sphere) of the scalar with coefficients alm, as xyz vectors at the points: a spin-1
     synthesis of the gradient (E-mode) coefficients sqrt(l(l+1)) a_lm."""
+    return _gradient(alm, lmax, fields.node_loc(xyz), nthreads)
+
+
+def _gradient(alm, lmax, loc, nthreads, basis=None):
     import ducc0
-    loc = fields.node_loc(xyz)
     a = np.asarray(alm, np.complex128)
     e = a*np.sqrt(alm_l(lmax)*(alm_l(lmax)+1.))
     gt, gp = ducc0.sht.experimental.synthesis_general(alm=np.stack([e, 0*e]), spin=1, lmax=lmax, loc=loc,
                                                       epsilon=1e-10, nthreads=nthreads)
-    th, ph = loc[:, 0], loc[:, 1]
-    eth = np.stack([np.cos(th)*np.cos(ph), np.cos(th)*np.sin(ph), -np.sin(th)], 1)
-    eph = np.stack([-np.sin(ph), np.cos(ph), 0*ph], 1)
+    eth, eph = _tangent_basis(loc) if basis is None else basis
     return gt[:, None]*eth+gp[:, None]*eph
 
 
@@ -467,6 +481,13 @@ class MantleFlow:
         self.h_air = np.zeros(graph.size)
         self.v_xyz = np.zeros((graph.size, 3))            # free-slip surface velocity, m/yr
         self.scale = np.zeros(self.lmax+1)                # flow_power 'measured': each degree's factor (last update)
+        self._loc = fields.node_loc(graph.xyz)
+        self._basis = _tangent_basis(self._loc)
+
+    @cached_property
+    def v_xyz(self):
+        """Unscaled free-slip surface velocity (m/yr), synthesized only when read."""
+        return _gradient(self.V, self.lmax, self._loc, self.nthreads, self._basis)
 
     def update(self):
         """The flow of the current record."""
@@ -482,8 +503,8 @@ class MantleFlow:
             self.scale = s
         self.H = H
         self.V = V*3.15576e7
-        self.h_air = synthesis(self.H, self.lmax, self.g.xyz, self.nthreads)
-        self.v_xyz = gradient(self.V, self.lmax, self.g.xyz, self.nthreads)
+        self.__dict__.pop('v_xyz', None)
+        self.h_air = _synthesis(self.H, self.lmax, self._loc, self.nthreads)
 
     def placed_velocity(self):
         """rift_traction (pass 103, journal 139): the free-slip surface velocity (m/yr, xyz at the nodes) of the flow whose
@@ -492,4 +513,4 @@ class MantleFlow:
         of degree l scaled by it, so topography and velocity stay one flow. With 'flow', the flow's own (v_xyz)."""
         if self.target_power is None:
             return self.v_xyz
-        return gradient(self.V*self.scale[alm_l(self.lmax)], self.lmax, self.g.xyz, self.nthreads)
+        return _gradient(self.V*self.scale[alm_l(self.lmax)], self.lmax, self._loc, self.nthreads, self._basis)

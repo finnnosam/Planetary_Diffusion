@@ -1,4 +1,6 @@
 """Small helpers shared by the planet layer: node locations, random spherical fields, rotations, fast cube lookup."""
+from functools import cache
+
 import numpy as np
 
 from planet_grid import cube
@@ -55,15 +57,42 @@ def rotation(axis, angle):
 
 _NORMAL, _RIGHT, _DOWN = cube.NORMAL.copy(), cube.RIGHT.copy(), cube.DOWN.copy()
 _FACE_POS = np.array([0, 1, 4]); _FACE_NEG = np.array([2, 3, 5])
+_CHART_BINS = 16384
+
+
+@cache
+def _chart_table(n):
+    """A rounded chart index per ratio bin, with -1 wherever rounding can change inside the bin."""
+    edges = np.linspace(-1., 1., _CHART_BINS+1)
+    # Pad for the division and bin scaling, then for library atan rounding and the chart arithmetic.
+    eps = np.finfo(np.float64).eps
+    lower = n*(1+np.arctan(edges[:-1]-16*eps)/cube.QUARTER)/2 - 32*n*eps
+    upper = n*(1+np.arctan(edges[1:]+16*eps)/cube.QUARTER)/2 + 32*n*eps
+    lo = np.floor(lower+.5)
+    hi = np.floor(upper+.5)
+    table = np.where(lo == hi, lo, -1).astype(np.int32)
+    table.flags.writeable = False
+    return table
+
+
+@njit(cache=True, inline='always')
+def _chart_index(num, den, n, table):
+    if table is not None and 0. < den < np.inf:
+        # The selected face has the largest component, so num/den is in [-1, 1].
+        bin_index = min(int((num/den+1.)*(_CHART_BINS//2)), _CHART_BINS-1)
+        index = table[bin_index]
+        if index >= 0:
+            return index
+    x = n*(1+np.arctan2(num, den)/(np.pi/4))/2
+    return min(max(int(np.floor(x+.5)), 0), n)
 
 
 @njit(cache=True, parallel=True)
-def nearest_entries(p, n, normal, right, down, face_pos, face_neg):
+def nearest_entries(p, n, normal, right, down, face_pos, face_neg, table=None):
     """Shared-layout cube entry of the node nearest (in chart index) to each direction p (M, 3); as cube.coordinates.
     Each point on its own (prange: bit-identical at any thread count)."""
     m = p.shape[0]
     out = np.empty(m, np.int64)
-    q = np.pi/4
     for i in prange(m):
         ax = 0
         if abs(p[i, 1]) > abs(p[i, ax]):
@@ -74,17 +103,17 @@ def nearest_entries(p, n, normal, right, down, face_pos, face_neg):
         den = p[i, 0]*normal[f, 0]+p[i, 1]*normal[f, 1]+p[i, 2]*normal[f, 2]
         r = p[i, 0]*right[f, 0]+p[i, 1]*right[f, 1]+p[i, 2]*right[f, 2]
         d = p[i, 0]*down[f, 0]+p[i, 1]*down[f, 1]+p[i, 2]*down[f, 2]
-        x = n*(1+np.arctan2(r, den)/q)/2
-        y = n*(1+np.arctan2(d, den)/q)/2
-        xi = min(max(int(np.floor(x+.5)), 0), n)
-        yi = min(max(int(np.floor(y+.5)), 0), n)
+        xi = _chart_index(r, den, n, table)
+        yi = _chart_index(d, den, n, table)
         out[i] = (f*(n+1)+yi)*(n+1)+xi
     return out
 
 
 def nearest_nodes(graph, p):
     """Graph node nearest to each direction p (M, 3), for a planet_grid.sphere_graph.CubeSphere."""
-    e = nearest_entries(np.ascontiguousarray(p, np.float64), graph.n, _NORMAL, _RIGHT, _DOWN, _FACE_POS, _FACE_NEG)
+    n = graph.n
+    e = nearest_entries(np.ascontiguousarray(p, np.float64), n, _NORMAL, _RIGHT, _DOWN, _FACE_POS, _FACE_NEG,
+                        _chart_table(n))
     return graph.node_of_entry[e]
 
 

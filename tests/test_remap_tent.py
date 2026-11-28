@@ -8,7 +8,7 @@ the world, not in the resampling of the world's own surface."""
 import numpy as np
 import pytest
 
-from planet_grid import fields
+from planet_grid import cube, fields
 from planet_grid.sphere_graph import CubeSphere
 from planet_tectonics import plates as P
 
@@ -93,6 +93,12 @@ def test_overlap_weights_exact_at_nodes_and_sum_near_one_per_plate_node():
     pl = sim.plates[k]
     ws, cs, wt = sim._tent[k]
     assert np.allclose(wt.sum(1), 1.)
+    pts = sim._overlap_sub[ws].reshape(-1, 3)@pl.Q
+    ref = fields.nearest_entries(pts, g.n, cube.NORMAL, cube.RIGHT, cube.DOWN, fields._FACE_POS, fields._FACE_NEG)
+    nodes = g.node_of_entry[ref].reshape(-1, 9)
+    j0 = idx[k, ws, None]
+    valid = pl.mask[nodes] & (pl.cont[nodes] == pl.cont[j0])
+    assert np.array_equal(cs, np.where(valid, nodes, j0))
     W = np.bincount(cs.ravel(), weights=(wt*g.area[ws][:, None]).ravel(), minlength=g.size)
     J, _ = _owned_live(sim, k)
     interior = J[(W[J] > 0)]

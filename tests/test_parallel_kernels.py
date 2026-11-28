@@ -1,7 +1,7 @@
 """The parallel kernels and the step caches leave results bit-identical (journal 154)."""
 import numpy as np
 
-from planet_grid import fields
+from planet_grid import cube, fields
 from planet_grid.jit import set_threads
 from planet_grid.sphere_graph import CubeSphere
 from planet_tectonics import crust_flow
@@ -38,6 +38,22 @@ def test_nearest_nodes_and_edge_kappa_do_not_depend_on_threads():
     assert np.array_equal(r1[0][ok], r1[0][g.nbr[ok], rev[ok]])
     d1, d4 = _at_threads(lambda: crust_flow.diffuse_edges(th, dom, r1[0], 1e3, g.nbr, g.dist, g.axis, g.area), (1, 4))
     assert np.array_equal(d1, d4)
+
+
+def test_chart_table_matches_at_rounding_boundaries_and_face_ties():
+    for n in (48, 217):
+        half_cells = np.arange(n)+.5
+        ratios = np.tan(cube.QUARTER*(2*half_cells/n-1))
+        trials = np.concatenate((ratios-1e-12, np.nextafter(ratios, -np.inf), ratios,
+                                 np.nextafter(ratios, np.inf), ratios+1e-12, [-1., 0., 1.]))[:, None]
+        # Vary each chart axis at the half-cell thresholds and at face edges, including three-way ties.
+        p = np.concatenate([normal + trials*axis + edge*other
+                            for normal, right, down in zip(cube.NORMAL, cube.RIGHT, cube.DOWN)
+                            for axis, other in ((right, down), (down, right))
+                            for edge in (-1., 0., 1.)] + [np.zeros((1, 3))])
+        p = np.concatenate((p, p*1e-300, p*1e300))
+        args = (p, n, cube.NORMAL, cube.RIGHT, cube.DOWN, fields._FACE_POS, fields._FACE_NEG)
+        assert np.array_equal(fields.nearest_entries(*args, fields._chart_table(n)), fields.nearest_entries(*args))
 
 
 def test_forward_map_and_disc_caches_return_what_they_replace():

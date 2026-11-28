@@ -26,7 +26,8 @@ def test_placed_velocity_is_the_scaled_flow():
     b = mf.MantleFlow(g, {**FLOW_P, 'flow_power': 'measured'})
     _fill(a, g); _fill(b, g)
     a.update(); b.update()
-    assert np.array_equal(a.placed_velocity(), a.v_xyz)
+    assert a.placed_velocity() is a.v_xyz
+    assert np.array_equal(a.v_xyz, mf.gradient(a.V, a.lmax, g.xyz))
     L = mf.alm_l(b.lmax)
     ok = np.abs(a.H) > 0
     ratio = np.abs(b.H[ok])/np.abs(a.H[ok])                         # the topography's factor per coefficient
@@ -37,8 +38,39 @@ def test_placed_velocity_is_the_scaled_flow():
         v1 = mf.gradient(one*b.scale[l], b.lmax, g.xyz)
         v0 = mf.gradient(one, b.lmax, g.xyz)
         assert np.allclose(v1, b.scale[l]*v0, rtol=1e-9, atol=1e-15)
-    assert np.allclose(vs, mf.gradient(b.V*b.scale[L], b.lmax, g.xyz))
+    assert np.array_equal(vs, mf.gradient(b.V*b.scale[L], b.lmax, g.xyz))
     assert np.allclose((vs*g.xyz).sum(1), 0., atol=1e-12)           # tangential
+
+
+@pytest.mark.skipif(not (DATA/'mantle'/'visc.sh08').exists(), reason='data/mantle/visc.sh08 missing')
+def test_unscaled_velocity_is_lazy_and_refreshed_on_update(monkeypatch):
+    g = CubeSphere(12)
+    flow = mf.MantleFlow(g, {**FLOW_P, 'flow_power': 'measured'})
+    initial = flow.v_xyz
+    assert initial.shape == (g.size, 3) and not initial.any()
+    assert flow.v_xyz is initial
+
+    gradient = mf._gradient
+    calls = []
+
+    def track(alm, *args):
+        calls.append(alm)
+        return gradient(alm, *args)
+
+    monkeypatch.setattr(mf, '_gradient', track)
+    for seed in (2, 3):
+        _fill(flow, g, seed)
+        flow.update()
+        assert np.array_equal(flow.h_air, mf.synthesis(flow.H, flow.lmax, g.xyz))
+        flow.placed_velocity()
+        assert len(calls) == 1 and calls[0] is not flow.V
+        velocity = flow.v_xyz
+        assert len(calls) == 2 and calls[1] is flow.V
+        assert flow.v_xyz is velocity and len(calls) == 2
+        assert np.array_equal(velocity, mf.gradient(flow.V, flow.lmax, g.xyz))
+        assert not np.array_equal(velocity, initial)
+        initial = velocity
+        calls.clear()
 
 
 class _Flow:

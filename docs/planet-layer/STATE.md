@@ -1,6 +1,6 @@
 # Planet layer: current state
 
-**As of 27 Nov 2026, after pass 112 (journal 153) and the speed work (journal 154, no model change).** Rewrite this file at the end of every pass so it is true; keep it
+**As of 27 Nov 2026, after pass 112 (journal 153) and the speed work (journals 154–155).** Rewrite this file at the end of every pass so it is true; keep it
 under ~120 lines. The full STATE as it stood after pass 110 is in `archive/STATE-2026-11-26-pass110.md`; the traps are
 in `gotchas.md`.
 
@@ -26,9 +26,10 @@ datum regression becomes the next problem (user, 26 Nov; journal 149; confirmed 
   comparison arm), with the rule written first. Effective age is reported only as a symptom (it is an inverse-table
   clock, journal 151 §2). The candidate fixes (thermal age read at the nearest plate node under 'overlap'; thickening
   that keeps the age on Lamb's flat stretches; journal 150 §5) wait for that split.
-- **Speed work (journal 154, no model change; runs bit-identical):** the sweep's tests run on 8 pytest-xdist workers
-  (6 → 1.5 min); the crust flow and nearest-node kernels run in parallel and two pure lookups are cached (a sweep's
-  runs ~9% faster). A borrowed sweep should take ~38 min. A GPU port was assessed and not pursued (journal 154 §2).
+- **Speed work (journals 154–155, bit-identical runs):** eight pytest-xdist workers cut the sweep's tests from
+  6 to 1.5 min. Parallel kernels and two cached lookups cut concurrent run time by about 9%. The cube chart table
+  and mantle geometry and velocity changes saved a further 2–5% in two eight-worker trials. A full 250 Myr control
+  matched the adopted overlap run and borrowed the other five seeds.
 - Next unused pre-check seed: 1033 (pass 112 used none). Last default change to the plate layer: pass 112 (C).
 - Independent review: done 27 Nov (`docs/review/2026-11-27-review.md`); next by about pass 126, or sooner if passes
   keep ending without progress on the target.
