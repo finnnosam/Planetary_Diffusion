@@ -8,3 +8,4 @@
 -e packages/planet-climate
 -e packages/planet-reviews
 pytest>=8
+pytest-xdist>=3          # the sweep runs its tests on 8 workers (scripts.run_sweep.TEST_WORKERS)

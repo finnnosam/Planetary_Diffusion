@@ -1,5 +1,6 @@
 """Parcel back-tracing through saved plate rotations (planet_landscape.coupling)."""
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -10,12 +11,15 @@ from planet_landscape import coupling
 from planet_tectonics import plates as P
 from planet_grid.sphere_graph import CubeSphere
 
+# a folder inside the project, one per pytest-xdist worker (the sweep runs the tests in parallel)
+_TMP = Path(__file__).resolve().parents[1]/'outputs'/'test-tmp'/os.environ.get('PYTEST_XDIST_WORKER', 'main')
+
 
 @pytest.fixture(scope='module')
 def history():
     # a folder inside the project (pytest's own temp folder can be unreadable on Windows: WinError 5)
     import shutil
-    d = Path(__file__).resolve().parents[1]/'outputs'/'test-tmp'/'coupling-snapshots'
+    d = _TMP/'coupling-snapshots'
     shutil.rmtree(d, ignore_errors=True)
     d.mkdir(parents=True)
     g = CubeSphere(48)
@@ -66,7 +70,7 @@ def test_ocean_forcing_telescopes_along_parcel_paths(history):
     one sample), start surface + summed surface forcing = the plate layer's present elevation, and it gets no load."""
     h, _ = history
     fine = CubeSphere(40)
-    out = Path(__file__).resolve().parents[1]/'outputs'/'test-tmp'/'coupling-forcing'
+    out = _TMP/'coupling-forcing'
     F = coupling.build_forcing(h, fine, 5, out, progress=lambda s: None)
     p = fine.xyz.copy()
     c = [h.sample(0., 'continental', p)]
@@ -88,7 +92,7 @@ def age_history():
     """One snapshot on n = 16 whose orogeny ages are set by region (docs/contracts/plate-snapshots.md): an active belt
     (finite 0), young (30 Myr), old (500 Myr) and missing (NaN: no orogeny recorded)."""
     import shutil
-    d = Path(__file__).resolve().parents[1]/'outputs'/'test-tmp'/'coupling-ages'
+    d = _TMP/'coupling-ages'
     shutil.rmtree(d, ignore_errors=True)
     d.mkdir(parents=True)
     g = CubeSphere(16)

@@ -27,6 +27,7 @@ The simulator class; its methods are grouped by mechanism in start, composition,
 import numpy as np
 
 from planet_grid import fields
+from planet_grid.jit import set_threads
 from planet_grid.sphere_flexure import SphereFlexure
 from planet_landscape import graph_landscape as gl
 
@@ -56,6 +57,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
         self.t_start = float(t0)                         # K: split_rule 'earth' maps the time since the start onto Earth's
         self.rng = np.random.default_rng(seed)
         self.seed = seed                                 # the start's sediment draws from its own stream (seed, 9)
+        set_threads(self.p['threads'])                  # the parallel kernels' threads (planet_grid.jit), as ducc0's
         self.bound = graph.diffusion_bound()
         self.h_min = graph.spacing_min()
         # loads are passed as mass per area (kg/m^2): subaerial loads displace mantle against air (rho_m), submarine
@@ -102,6 +104,7 @@ class PlateSim(StartMixin, CompositionMixin, CrustMixin, SurfaceMixin, MotionMix
     def step(self):
         g, p = self.g, self.p
         dt = p['dt_myr']
+        self._forward_cache = {}                         # the forward maps of last step's rotations (_forward_nodes)
         for pl in self.plates:
             pl.Q = fields.rotation(pl.axis, pl.speed*1e-2*dt*1e6/g.radius)@pl.Q
         self.t += dt

@@ -147,10 +147,21 @@ class Mantle:
         for _ in range(self.rng.poisson(p['hotspot_birth_per_myr']*dt)):
             self._new_hotspot(t)
         self.hotspots = [h for h in self.hotspots if h['end'] > t]
+        live = {h['pos'].tobytes() for h in self.hotspots}
+        self._discs = {k: v for k, v in self.__dict__.get('_discs', {}).items() if k[0] in live}
 
     def _disc(self, pos, radius_m):
-        ang = np.arccos(np.clip(self.g.xyz@pos, -1, 1))*self.g.radius
-        return np.exp(-.5*(ang/radius_m)**2)
+        """Gaussian disc of radius_m about the fixed mantle-frame point pos: a pure function of both, kept per live
+        hotspot (journal 154: computed several times a step, the same each time); the array is read-only."""
+        cache = self.__dict__.setdefault('_discs', {})
+        key = (pos.tobytes(), float(radius_m))
+        w = cache.get(key)
+        if w is None:
+            ang = np.arccos(np.clip(self.g.xyz@pos, -1, 1))*self.g.radius
+            w = np.exp(-.5*(ang/radius_m)**2)
+            w.flags.writeable = False
+            cache[key] = w
+        return w
 
     def subduct(self, t, dt, xyz, dirn, mass_kg, speed_m_yr):
         """dyn_rule 'slabs': move the record over (t - dt, t], add this step's parcels (at the trench, z = 0), merge

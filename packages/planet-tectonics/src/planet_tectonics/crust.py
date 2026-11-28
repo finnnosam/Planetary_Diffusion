@@ -5,7 +5,6 @@ import numpy as np
 from planet_landscape import graph_landscape as gl
 
 from planet_tectonics.crust_kernels import margin_shortening, rift_pure_shear, spread_to_band, trench_flux_consumed
-from planet_grid import fields
 from planet_tectonics.graphops import nearest_label
 from planet_tectonics.lithosphere import stretched_age
 from planet_tectonics.params import BACKARC_PROFILE_KM, BACKARC_PROFILE_W, COLLISION, SUBDUCTION
@@ -112,7 +111,7 @@ class CrustMixin:
         g = self.g
         A = np.zeros(g.size)
         for k, pl in enumerate(self.plates):
-            wn = fields.nearest_nodes(g, g.xyz@pl.Q.T)
+            wn = self._forward_nodes(pl)
             new = (self.owner_slot[wn] == k) & ~pl.mask & self.new_crust[wn]
             np.add.at(A, wn[new], g.area[new])
         return A

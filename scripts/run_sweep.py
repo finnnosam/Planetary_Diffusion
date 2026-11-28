@@ -22,6 +22,7 @@ identical, its other seeds are borrowed (hard links, no extra disk); different, 
 (scripts.sweep_plates --borrow). The reviews read the control as an ordinary arm.
 """
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -40,7 +41,23 @@ PLANET_TESTS = ('test_shelf', 'test_plates', 'test_sphere_graph', 'test_graph_la
                 'test_crust_flow', 'test_sediment_cover', 'test_start_sediment', 'test_backarc',
                 'test_water_load', 'test_sediment_rock', 'test_crust_ledger_series', 'test_start_cover', 'test_marine_diffusion',
                 'test_borrow_control', 'test_return_transfer', 'test_remap_tent', 'test_rift_area', 'test_return_material',
-                'test_geography')
+                'test_geography', 'test_parallel_kernels')
+# the tests run on TEST_WORKERS pytest-xdist workers, one test at a time each (journal 154: 6 min -> 1.5 min on 8;
+# 14 were slower), each worker's parallel kernels on TEST_THREADS threads; without pytest-xdist installed they run in
+# one process as before
+TEST_WORKERS = 8
+TEST_THREADS = 2
+
+
+def pytest_cmd(tests):
+    """The pytest command for the sweep's tests, and its worker count (1 without pytest-xdist)."""
+    try:
+        import xdist  # noqa: F401
+    except ImportError:
+        return [sys.executable, '-m', 'pytest', '-q', *tests], 1
+    return [sys.executable, '-m', 'pytest', '-q', '-n', str(TEST_WORKERS), '--dist', 'load', *tests], TEST_WORKERS
+
+
 # (name, module or script, arguments; {SW} sweep folder, {CTL} control folder, {CTLNAME} its name, {REF} identity
 # reference, {OUT} the review's json path): as the sweep .cmd files ran them since pass 67
 REVIEWS = (
@@ -72,11 +89,11 @@ def review_cmd(spec, sw, ctl, ref):
     return head+argv
 
 
-def run_watched(cmd, out_file, tracker, detail, pred, pytest_progress=False):
+def run_watched(cmd, out_file, tracker, detail, pred, pytest_progress=False, env=None):
     """Run a command with its output in out_file; the progress line follows its time (or pytest's [ NN%])."""
     t0 = time.time()
     with open(out_file, 'w', encoding='utf-8', errors='replace') as f:
-        p = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT)
+        p = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, env=env)
         while p.poll() is None:
             time.sleep(.5)
             frac = None
@@ -137,7 +154,8 @@ def main(argv=None):
     n_borrowed = n_seeds-(len(a.check_seeds.split(',')) if a.check_seeds else 1) if a.borrow_control else 0
     reviews = [r for r in REVIEWS if a.reviews is None or r[0] in a.reviews]
     per_run = pg.predict_run(workers, float(a.years))
-    pred = {'tests': pg.predict('pytest') if tests else 0.,
+    tcmd, tworkers = pytest_cmd(tests)
+    pred = {'tests': (pg.predict('pytest', workers=tworkers) if tworkers > 1 else pg.predict('pytest')) if tests else 0.,
             'sweep': pg.schedule_left([], n_runs-n_borrowed, per_run, workers),
             'reviews': sum(pg.predict('review', r[0], per='runs')*n_runs for r in reviews)}
     tr = pg.Tracker([('tests', pred['tests']), ('sweep', pred['sweep']), ('reviews', pred['reviews'])])
@@ -150,15 +168,16 @@ def main(argv=None):
     tr.start_step()
     ptxt = cal/f'{a.name}-pytest.txt'
     if tests:
-        rc, sec = run_watched([sys.executable, '-m', 'pytest', '-q', *tests], ptxt, tr, f'{len(tests)} test files',
-                              pred['tests'], pytest_progress=True)
+        rc, sec = run_watched(tcmd, ptxt, tr, f'{len(tests)} test files' + (f' on {tworkers} workers' if tworkers > 1 else ''),
+                              pred['tests'], pytest_progress=True,
+                              env={**os.environ, 'NUMBA_NUM_THREADS': str(TEST_THREADS)} if tworkers > 1 else None)
         last = [l for l in ptxt.read_text(encoding='utf-8', errors='replace').splitlines() if l.strip()][-1:]
         if rc != 0:
             tr.finish()
             print(ptxt.read_text(encoding='utf-8', errors='replace'))
             print(f'FAILED: the tests (printout above, also in {ptxt})')
             return 1
-        pg.record('pytest', a.name, sec, files=len(tests))
+        pg.record('pytest', a.name, sec, files=len(tests), workers=tworkers)
         tr.log(f"tests passed: {last[0].strip() if last else ''} ({pg.fmt(sec)})")
     tr.end_step()
     # 2 sweep

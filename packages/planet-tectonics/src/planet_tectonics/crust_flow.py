@@ -42,7 +42,7 @@ continent.
 No number here is fitted to the planet."""
 import numpy as np
 
-from planet_grid.jit import njit
+from planet_grid.jit import njit, prange
 
 R_GAS = 8.314
 YEAR_S = 3.15576e7
@@ -52,15 +52,15 @@ LOGS_AXIS = np.arange(-6., -.49, .25)
 NPTS = 200
 
 
-@njit(cache=True)
+@njit(cache=True, parallel=True)
 def _flux_table(T_ax, L_ax, logS_ax, share, A1, A2, k_c, k_m, t0, tl, law1, law2, rho_c, g, mode, npts):
-    """log10 of the flux per unit width (m^2/yr) on the (T km, L km, log10 S) grid."""
+    """log10 of the flux per unit width (m^2/yr) on the (T km, L km, log10 S) grid (each T row on its own: prange)."""
     out = np.empty((T_ax.shape[0], L_ax.shape[0], logS_ax.shape[0]))
-    d = np.empty(npts)
-    c = np.empty(npts)
-    nn = np.empty(npts)
-    gam = np.empty(npts)
-    for it in range(T_ax.shape[0]):
+    for it in prange(T_ax.shape[0]):
+        d = np.empty(npts)
+        c = np.empty(npts)
+        nn = np.empty(npts)
+        gam = np.empty(npts)
         T = T_ax[it]*1e3
         Tf = T*(1.-share)
         for il in range(L_ax.shape[0]):
@@ -202,20 +202,22 @@ def reverse_index(nbr):
     return rev
 
 
-@njit(cache=True)
+@njit(cache=True, parallel=True)
 def edge_kappa(th, domain, L_km, nbr, dist, axis, tab, T_ax, L_ax, S_ax, airy, k_normal, k_max, pinned=None,
                tab_pinned=None, rev=None):
     """Per-edge diffusivity (m^2/yr): kappa_normal + min(q / |grad T|, k_max), q from the table at the edge's mean T and
     L and its slope (from tab_pinned on edges with a pinned node, when given). With rev (reverse_index), each edge is
     evaluated once (from its lower node) and written to both of its slots, so K is exactly symmetric. Returns (K (n, 8),
-    largest K, edges at k_max, edges counted)."""
+    largest K, edges at k_max, edges counted). Nodes in prange: each edge is written by one node only (its own slot and,
+    with rev, its neighbour's slot of that edge), kmax is a max and the counts are integers, so K and the returns are
+    bit-identical at any thread count."""
     n = th.shape[0]
     K = np.zeros(nbr.shape)
     kmax = 0.
     capped = 0
     counted = 0
     smin = 10.**S_ax[0]
-    for i in range(n):
+    for i in prange(n):
         if not domain[i]:
             continue
         for kk in range(nbr.shape[1]):
@@ -235,18 +237,17 @@ def edge_kappa(th, domain, L_km, nbr, dist, axis, tab, T_ax, L_ax, S_ax, airy, k
             K[i, kk] = k_normal+kf
             if rev is not None:
                 K[j, rev[i, kk]] = K[i, kk]
-            if K[i, kk] > kmax:
-                kmax = K[i, kk]
+            kmax = max(kmax, K[i, kk])
     return K, kmax, capped, counted
 
 
-@njit(cache=True)
+@njit(cache=True, parallel=True)
 def diffuse_edges(z, domain, K, dt, nbr, dist, axis, cell_area):
     """graph_landscape.diffuse_variable with a per-edge diffusivity (symmetric: K[i, k] = K[j, k'] for the same edge,
-    since it is computed from the edge's symmetric mean and slope); conservative."""
+    since it is computed from the edge's symmetric mean and slope); conservative. Nodes in prange (bit-identical)."""
     n = z.shape[0]
     out = z.copy()
-    for i in range(n):
+    for i in prange(n):
         if not domain[i]:
             continue
         s = 0.

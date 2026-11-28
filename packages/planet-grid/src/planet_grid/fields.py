@@ -2,7 +2,7 @@
 import numpy as np
 
 from planet_grid import cube
-from planet_grid.jit import njit
+from planet_grid.jit import njit, prange
 
 
 def node_loc(xyz):
@@ -57,13 +57,14 @@ _NORMAL, _RIGHT, _DOWN = cube.NORMAL.copy(), cube.RIGHT.copy(), cube.DOWN.copy()
 _FACE_POS = np.array([0, 1, 4]); _FACE_NEG = np.array([2, 3, 5])
 
 
-@njit(cache=True)
+@njit(cache=True, parallel=True)
 def nearest_entries(p, n, normal, right, down, face_pos, face_neg):
-    """Shared-layout cube entry of the node nearest (in chart index) to each direction p (M, 3); as cube.coordinates."""
+    """Shared-layout cube entry of the node nearest (in chart index) to each direction p (M, 3); as cube.coordinates.
+    Each point on its own (prange: bit-identical at any thread count)."""
     m = p.shape[0]
     out = np.empty(m, np.int64)
     q = np.pi/4
-    for i in range(m):
+    for i in prange(m):
         ax = 0
         if abs(p[i, 1]) > abs(p[i, ax]):
             ax = 1

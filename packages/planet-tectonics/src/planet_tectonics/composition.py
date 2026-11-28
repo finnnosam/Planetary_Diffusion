@@ -421,6 +421,20 @@ class CompositionMixin:
         return out
 
 
+    def _forward_nodes(self, pl):
+        """World node nearest to each of plate pl's nodes (the forward map, plate node j -> world node nearest Q j). A
+        pure function of the rotation, so it is kept for the step by the rotation's bytes (journal 154: _opened_area,
+        _update_rasters and a split read the same map); the array is read-only."""
+        cache = self.__dict__.setdefault('_forward_cache', {})
+        key = pl.Q.tobytes()
+        wn = cache.get(key)
+        if wn is None:
+            wn = fields.nearest_nodes(self.g, self.g.xyz@pl.Q.T)
+            wn.flags.writeable = False
+            cache[key] = wn
+        return wn
+
+
     def _update_rasters(self, dthick, idx, dsed=None, drock=None):
         """Update every plate raster after a step.
 
@@ -446,7 +460,7 @@ class CompositionMixin:
         collided = np.zeros(g.size, bool)
         subducted = np.zeros(g.size, bool)
         for k, pl in enumerate(self.plates):            # pass 1: hidden / consumed crust
-            wn = fields.nearest_nodes(g, g.xyz@pl.Q.T)
+            wn = self._forward_nodes(pl)
             own = self.owner_slot[wn] == k
             hidden = pl.mask & ~own
             pl.under[own] = 0

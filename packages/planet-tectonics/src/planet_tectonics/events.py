@@ -25,7 +25,7 @@ class EventsMixin:
         rest = own & ~part
         if part.sum() < 4 or rest.sum() < 4:
             return None
-        wn = fields.nearest_nodes(g, g.xyz@pl.Q.T)
+        wn = self._forward_nodes(pl)
         lab = part[wn] & pl.mask
         new = self._new_plate(pl.axis, pl.speed)
         new.Q = pl.Q.copy()
@@ -87,7 +87,7 @@ class EventsMixin:
         g = self.g
         v0 = self.continental_volume()
         vs0 = self.continental_sediment_volume()
-        wk = fields.nearest_nodes(g, g.xyz@big.Q.T)                  # big node -> world node
+        wk = self._forward_nodes(big)                                 # big node -> world node
         take = self.owner[wk] == small.id
         k = np.flatnonzero(take)
         j = fields.nearest_nodes(g, (g.xyz[k]@big.Q.T)@small.Q)      # -> small's raster

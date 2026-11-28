@@ -65,6 +65,11 @@ item when the code no longer allows the trap.
   their runs, but `results.json` stays partial and the borrow and reviews never run. If a tab is gone, look at
   `results.json` and the run folders before reading anything.
 
+- **Speed changes must keep the bits** (journal 154). `prange` is safe only over iterations that write their own
+  outputs, with max or integer reductions; a floating-point sum split across threads changes the result. Moving numpy
+  code into numba also changes bits: numpy's `exp` / `log` are its own SIMD versions and differ from numba's in the last
+  place. Check any speed change with `precheck-speed/ident.py` + `compare.py` against the old code's fingerprint.
+
 ## Watch-points and known defects (STATE §6 as of pass 110, unchanged)
 
 - **The thermal age is a bad state variable where Lamb's L is flat** (pass 111, journal 150). `lith_frame` 'lamb'
