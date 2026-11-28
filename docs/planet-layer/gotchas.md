@@ -61,7 +61,16 @@ item when the code no longer allows the trap.
   stretch after it, and any averaging of ages (the 'overlap' read) mixes in age space, where L is concave. Under
   'overlap' the continents' mean lithosphere age rises 5.5 Myr per Myr of run (median 3,600 Myr by 0 Myr); under
   'nearest' 1.3. Read the age's clock bound (the mean may rise at most ~1 Myr per Myr without resets) before reading
-  L or the datum level.
+  L or the datum level. **The effective age is an inverse-table clock, not a measure of support** (review of 27 Nov,
+  journal 151 §2): 4 m of thickening on a 40 km column takes 1,800 Myr to 3,600 Myr while L changes by ~0.002 km, and
+  material selection moves an area mean. Measure L, column mass and uplift in km and m on persistent parcels.
+- **A floor enforced on the averaged input is not enforced on each recipient** (review of 27 Nov; journal 151 §3).
+  Under `remap_rule` 'overlap' the return spreads a world cell's change over every plate cell under it. A forearc cut
+  limited to the world cell's removable excess then lands on contributors with nothing to remove, and the per-plate
+  net correction moves basement that no process touched. Seed 1001 over 250 Myr: 55% / 45% of 29,591 below-floor
+  crossings; the correction's share grows late (66% in the last 50 Myr). A global clamp hides this and creates crust
+  while passing the floor assertion. Debit only available material, book any shortfall, and test on a small known
+  example (`outputs/review-astra/2026-11-27/remap_trace.py` counts the crossings by term).
 
 - **The orogeny-age hand-off** (journal 141 §1 item 4; **fixed in pass 105**, journal 142 §1): NaN in
   `orogeny_age_myr` is the validity mask (no orogeny recorded, or no plate; old crust), a finite 0 an active belt;
@@ -184,6 +193,32 @@ item when the code no longer allows the trap.
   snapshot field `tectonic_thickening_m` is the last step's, not cumulative; `dyn_tail` reads crystalline ≥ 30 km,
   `continent.py` total ≥ 30 km with the flag (their quantiles differ).
 - `crust_flow_rule` other than 'fitted': steady geotherm; read the ceiling's share (`crust_flow_capped_edges`).
+- **Inland distance depends on what counts as water** (review of 27 Nov). `geography`'s `far300` measures from any
+  water node, so isolated depressions make coasts. `far300_sea` measures from the largest connected water body only.
+  On A, the low share among far land is 3.6 against Earth's 19.4 on the first and 11.9 against 22.0 on the second.
+  Read both side by side. Neither says which depressions should be lakes, dry basins or seas, and the sea solve
+  (`isostasy`) counts every node below the level regardless of access.
+- **C's coast has costs the crossing count does not show**: shallow water 0–200 m and the shore step (`shelf200`,
+  `coast_step` in `geography`). Count them in any terrain claim for C.
+- **Elevation at equal crust thickness** (review of 27 Nov): A has more 60–65 km crust than Earth on 1° cells but
+  stands 1.2 km lower there, while its 45–50 km crust is already higher than Earth's. A datum shift or general
+  thickening moves the wrong part of the distribution. Compare at matched thickness on common 1° support, since
+  CRUST1.0 gives one column per 1° cell.
+- **Medians at 0 Myr and means over a window answer different questions.** The reviews report six-seed medians at
+  0 Myr; STATE and `geography` report six-seed means over −40 … 0 Myr. Don't compare the two directly.
+
+## Later stages (recorded 27 Nov, journal 151 §6; not worked on while the plates are)
+
+- The landscape removes most of the high ground the forcing supports (seed 1001: places above 3 km on the parent go to
+  4,448 m with forcing alone and 638 m finished). Judge it on matched locations, not on a percentile: the percentile
+  mixes in where the high ground went.
+- The landscape applies the *present* erodibility map through its whole 30 Myr window (`scripts/run_planet_landscape.py`).
+  The zero-age contract is right; applying today's activity retroactively is a separate assumption.
+- On Earth the archived one-step law overpredicts cosmogenic basin denudation 11.4× (median; 8.4× without the slope
+  cap). Different averaging times and repeated regional samples: this tests the initial tendency, not a steady-state
+  law.
+- Meso: Earth-input and planet-input power ratios do not split the planet's gap between causes (journal 146's "about
+  half" corrected).
 
 ## Queued corrections (STATE §5 as of pass 110, unchanged)
 
@@ -200,6 +235,8 @@ From the independent review; do them with the next audit update or when the tool
   percentiles are unweighted.
 - `plate_texture` qualifies windows at ≥ 98% land: report the qualifying area with every texture score.
 - The coast reviews and the repeat step of a one-arm sweep (§6).
+- From the 27 Nov review, for the audit: `crust_density_rule` 'pressure' treats densification as equilibrium through
+  the whole lower-crust share (an upper bound); label it so beside `eclogite_rule` 'foundering' (65 km, τ 10 Myr).
 
 Small items (older): why the thick tail and export fall with the marine term off (pass 98, not read); `crust_budget`
 could book the series' crust ledger as its own terms; the start's craton age draws by seed; pelagic rain uniform; D's

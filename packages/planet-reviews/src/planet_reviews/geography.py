@@ -18,6 +18,15 @@ graph of the n = 217 cube; elevation relative to sea level):
   low200        land below 200 m, % of land
   far300        land >= 300 km from water (graph distance to the nearest water node next to land), % of land
   low_far300    land below 200 m among that far land, %
+  far300_sea    land >= 300 km from the main water body (the largest connected water by area; inland depressions do
+                not make a coast), % of land
+  low_far300_sea  land below 200 m among that far land, %
+  shelf200      water 0-200 m deep, % of the water area
+  coast_step    median height jump across a land-water axis edge, m (edges weighted by their estimated shared face,
+                sqrt(a_i a_j) / d_ij)
+(The last four added 27 Nov, journal 151, from the independent review of 27 Nov: interiors.py and spatial.py in
+outputs/review-astra/2026-11-27/. Read far300 and far300_sea side by side: the difference does not say which
+depressions should be lakes, dry basins or shallow seas, and the sea solve counts every node below the level.)
 The first arm is the reference of the paired differences (per seed, then the mean and sd over seeds). Earth: ETOPO on
 the same grid (outputs/planet-reference/earth-n217.npz) with the ice regions (planet_earth.reference.ice_mask) left out
 of every count and area (dry4 also needs its ball outside them). Earth's far-land numbers use the graph distance like
@@ -32,8 +41,19 @@ import numpy as np
 from planet_grid.paths import OUTPUTS
 from planet_grid.sphere_graph import CubeSphere
 from planet_landscape import graph_landscape as gl
+from planet_tectonics.graphops import components
 
-KEYS = ('land', 'holes', 'islands', 'crossings', 'dry4', 'lowflat4', 'low200', 'far300', 'low_far300')
+KEYS = ('land', 'holes', 'islands', 'crossings', 'dry4', 'lowflat4', 'low200', 'far300', 'low_far300',
+        'far300_sea', 'low_far300_sea', 'shelf200', 'coast_step')
+
+
+def wmedian(v, w):
+    """Weighted median (the first value whose cumulative weight reaches half; the review's quant)."""
+    if v.size == 0:
+        return float('nan')
+    o = np.argsort(v)
+    c = np.cumsum(w[o])
+    return float(v[o][np.searchsorted(c, 0.5*c[-1])])
 
 
 class Geo:
@@ -45,6 +65,7 @@ class Geo:
         self.nb = nbr
         i, k = np.where(g.axis & (np.arange(g.size)[:, None] < np.where(bad, -1, g.nbr)))
         self.ei, self.ej = i, g.nbr[i, k]
+        self.ew = np.sqrt(g.area[self.ei]*g.area[self.ej])/g.dist[i, k]
         self.valid = np.ones(g.size, bool) if valid is None else valid
         self.A = g.area[self.valid].sum()
 
@@ -63,12 +84,24 @@ class Geo:
         coast_w = ~land & land[nb].any(1)
         d = gl.distance_to(coast_w, g.nbr, g.dist, 301e3)
         far = L & (d >= 300e3)
+        lab = components(~land, g.nbr)
+        sea = np.zeros(g.size, bool)
+        if (~land).any():
+            sea = lab == np.bincount(lab[~land], weights=a[~land]).argmax()
+        d_sea = gl.distance_to(coast_w & sea, g.nbr, g.dist, 301e3)
+        far_sea = L & (d_sea >= 300e3)
+        W = ~land & v
         ev = v[self.ei] & v[self.ej]
+        cross = (land[self.ei] != land[self.ej]) & ev
         return {'land': float(aland/self.A), 'holes': int(hole.sum()), 'islands': int(island.sum()),
-                'crossings': float(((land[self.ei] != land[self.ej]) & ev).sum()/(self.A/1e12)),
+                'crossings': float(cross.sum()/(self.A/1e12)),
                 'dry4': 100*float(a[dry4].sum()/aland), 'lowflat4': 100*float(a[lowflat].sum()/aland),
                 'low200': 100*float(a[L & (z < 200.)].sum()/aland), 'far300': 100*float(a[far].sum()/aland),
-                'low_far300': 100*float(a[far & (z < 200.)].sum()/max(a[far].sum(), 1.))}
+                'low_far300': 100*float(a[far & (z < 200.)].sum()/max(a[far].sum(), 1.)),
+                'far300_sea': 100*float(a[far_sea].sum()/aland),
+                'low_far300_sea': 100*float(a[far_sea & (z < 200.)].sum()/max(a[far_sea].sum(), 1.)),
+                'shelf200': 100*float(a[W & (z >= -200.)].sum()/max(a[W].sum(), 1.)),
+                'coast_step': wmedian(np.abs(z[self.ei[cross]]-z[self.ej[cross]]), self.ew[cross])}
 
 
 def seed_read(geo, sd, window):
@@ -90,7 +123,7 @@ def seed_read(geo, sd, window):
 
 
 def fmt(v, k):
-    return f'{v:.0f}' if k in ('holes', 'islands') else (f'{v:.4f}' if k == 'land' else f'{v:.2f}')
+    return f'{v:.0f}' if k in ('holes', 'islands', 'coast_step') else (f'{v:.4f}' if k == 'land' else f'{v:.2f}')
 
 
 def expand_arms(paths, control=None):

@@ -164,6 +164,20 @@ time.
 - variable-Te flexure;
 - per-plate remapping, only if needed.
 
+**Known problems of the current stage (independent review, 27 Nov; journal 151 §6). Read these first when the
+stage resumes.** The stage removes most of the high ground its forcing supports. On seed 1001's 30 Myr chain at
+n = 868, places above 3 km on the plate parent stand at 3,337 m on it, 4,448 m under plate forcing and flexure alone,
+and 638 m finished. Land p99 is 1,557 m against Earth's 4,706. On observed Earth the one-step law overpredicts basin
+denudation (OCTOPUS) by a median 11.4×: 8.4× with the slope cap removed, 2.0× with stream-power incision removed and
+the cap kept. The present erodibility map is applied through the whole window (at parcels ending above 3 km, mean
+multiplier 1.000 against 0.828 along the paths). First work: the incision law's spatial support (it incises the
+full area of an 11.5 km cell); the basin residuals by runoff and channel steepness; a held-out test of discharge, or
+of a measured channel-to-basin lowering relation. Then a replay of the belts with erodibility read at parcel time,
+booking gross removal, deposition, export, rebound and final height on the same parent highlands, on two development
+seeds. Judge on matched locations, not percentiles alone. The omitted lithosphere-support channel (+70 m signed,
+352 m absolute, journal 142) is carried for consistency but is not expected to be the fix. Probes:
+`outputs/review-astra/2026-11-27/` (`replay.py`, `erosion.py`, `basin_terms.py`).
+
 **Per node at present day:**
 
 | Output | Consumer |
@@ -260,7 +274,11 @@ level? Correct only if that test fails.
 - channel incision and fine roughness per relief class (`diagnose_meso_plains`), on one held-out Earth test set that
   covers all four relief classes, mountains included, fixed before training. The current meso is the baseline: on
   Earth's own held-out input (`planet_meso_check`'s Earth column) it gives 0.46 / 0.49 of Earth's 5.8–11.5 km power on
-  hills / mountains;
+  hills / mountains (planet input: 0.27 / 0.34). These ratios do not split the planet's gap between the meso and its
+  input, because the two inputs differ in distribution even within a class (review of 27 Nov, correcting journal
+  146's "about half"). Freeze the Earth test regions, relief classes and preprocessing before building the
+  replacement. Only nine planet mountain windows exist so far, and Earth's 14.6% mountain-window share comes from
+  held-out boxes, not an area census;
 - for every new input channel: the gain on held-out Earth with the true value given against the channel hidden (as the
   sub-cell detail map was tested), together with S6's domain-gap check. A channel the planet can only supply by fitting
   is not used;

@@ -32,10 +32,16 @@ def test_measures_on_a_known_map():
     assert 0 < m['lowflat4'] < m['dry4'] <= 100
     assert m['low200'] > 0 and m['far300'] > 0
     assert 0 < m['low_far300'] <= 100
+    # The lake is not the main water body: it makes a coast for far300 but not for far300_sea.
+    assert m['far300_sea'] > m['far300']
+    water = z <= 0
+    assert abs(m['shelf200']-100*g.area[lake]/g.area[water].sum()) < 1e-9
+    assert abs(m['coast_step']-3600.) < 1e-9          # most shore edges: 600 m land beside -3,000 m sea
     z2 = z.copy()
     z2[lake] = 100.                                     # fill the lake: no hole, fewer crossings
     m2 = geo.Geo(g).measures(z2)
     assert m2['holes'] == 0 and m2['crossings'] < m['crossings']
+    assert abs(m2['far300_sea']-m2['far300']) < 1e-12 and m2['shelf200'] == 0
 
 
 def test_sweep_folder_reads_its_arms_control_first(tmp_path):
