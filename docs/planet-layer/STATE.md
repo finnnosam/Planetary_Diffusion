@@ -10,8 +10,7 @@ What the map shows against Earth on the same grid, relative to sea level: how mu
 lowlands, dry interiors, coastline roughness), how high it is (height distribution, mountains, plateaus). The
 continents' level on the datum is a diagnostic, not the target: when the two disagree, the target decides and the
 datum regression becomes the next problem (user, 26 Nov; journal 149; it replaces the 19 Nov target, journal 122 §6).
-The 27 Nov review judged it sound; its wording was Claude's, so it was put to the user for explicit confirmation
-(journal 151 §6).
+The 27 Nov review judged it sound; its wording was Claude's, and the user confirmed it on 27 Nov (journal 152).
 
 ## Right now
 
