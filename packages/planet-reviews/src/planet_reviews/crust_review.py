@@ -55,7 +55,8 @@ PREDATING = {'lithosphere': 'none', 'rift_speed_cm_yr': 0., 'rift_line': 'vorono
              'trench_polarity': 'node', 'trench_flux': 'band', 'arc_accretion': False, 'arc_H_ocean_m': 300., 'start_sediment': 'none',
              'backarc_extension': False, 'water_load_rule': 'parts',
              'sediment_rock': 'none', 'start_cover': 'copula', 'marine_diffusion': 'uniform',
-             'flow_power': 'flow', 'flow_placed': 'all', 'rift_traction': False}
+             'flow_power': 'flow', 'flow_placed': 'all', 'rift_traction': False,
+             'remap_rule': 'nearest', 'rift_area': 'world'}   # pass 112: C made the default
 
 
 def run_params(seed_dir):

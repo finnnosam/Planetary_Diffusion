@@ -1250,8 +1250,10 @@ def test_torque_law_keeps_the_ledgers():
     # (backarc_extension False, rollback_mm_yr 17; journal 125): on Windows the new defaults' trajectory ran one plate to
     # 20.9 cm/yr at step 40 with the ledgers closed (the Water Load Sweep's V1), the same defect. Pins rift_traction False
     # (default from pass 104): on Windows its trajectory ran one plate to 17.9 cm/yr at step 40, ledgers closed
+    # (pass 112, journal 153) pins remap_rule 'nearest' / rift_area 'world': with C (overlap, plates) as the default this
+    # trajectory ran one plate to 29.9 cm/yr (journal 150 sec. 3), the same torque-law defect
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'continental_sediment': True, 'force_law': 'torque',
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'remap_rule': 'nearest', 'rift_area': 'world', 'continental_sediment': True, 'force_law': 'torque',
                                         'trench_polarity': 'node', 'backarc_extension': False, 'rollback_mm_yr': 17.,
                                         'rift_traction': False})
     v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()

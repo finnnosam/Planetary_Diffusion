@@ -63,7 +63,11 @@ def test_plate_layer_cover_exports_more_and_keeps_the_ledger():
     g = CubeSphere(48)
     out = {}
     for rule in ('bedrock', 'cover'):
-        sim = P.PlateSim(g, seed=5, params={'sediment_entrainment': rule, 'threads': 1,   # burial needs 'cover'
+        # (pass 112, journal 153) pins remap_rule 'nearest' / rift_area 'world': with C (overlap, plates) as the default this
+        # trajectory redeposits 0.853 per unit eroded against
+        # 0.808 (journal 150 sec. 3); the subject is the cover rule's direction on the state it was set on
+        sim = P.PlateSim(g, seed=5, params={'sediment_entrainment': rule, 'threads': 1, 'remap_rule': 'nearest',
+                                            'rift_area': 'world',   # burial needs 'cover'
                                             'sediment_rock': 'burial' if rule == 'cover' else 'none'})
         sim.state()
         v0 = sim.continental_volume()

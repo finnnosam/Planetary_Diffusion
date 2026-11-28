@@ -194,39 +194,102 @@ class CompositionMixin:
 
     def _tent_return(self, k, pl, wn, own, d, name):
         """remap_rule 'tent' / 'overlap': the per-area increment d (world) as per-area increments on plate pl's nodes, by
-        the composition's weights; nodes no weight reaches take the world node over it where the crust type agrees. Each
-        crust type's net volume is conserved per plate by an additive correction spread by area (pass 109: rescaling
-        gains and losses separately multiplied the near-cancelled remains of a cut next to a fill by up to 1e14).
-        World nodes are typed by the crust they read at the composition. Returns (plate nodes, increments)."""
+        the composition's weights (pass 112, journal 153: the material-aware return).
+
+        A cell's increment goes to the plate nodes it read (its contributors), owned or not, as under 'nearest' (where
+        the read nodes take the increments): a node the world shows is the material the world changed. Each increment is
+        split into its gain and its loss before it is mixed, so a cut next to a fill cannot cancel and then be amplified (pass 109). Gains go
+        back by the weights (each plate node the weighted mean of the gains over it). A cell's loss is debited from its
+        contributors in proportion to weight x the material each has above its floor (`_return_floor`: oceanic
+        thickness keeps its basement, `ocean_thick_m`, the floor the forearc cut respects; everything else 0), at most
+        all of that material, so a contributor with nothing above its floor takes nothing (pass 111: the cut on a cell
+        mixing an arc and basement went onto the basement). A live owned node no weight reaches takes the world node
+        over it where the crust type agrees, its loss cut to its own material. Then each plate's gains and its losses,
+        per crust type (world nodes typed by the crust they read), are closed to what its nodes can take by
+        rescaling only the nodes that took that sign: the factor corrects the overlap areas' mismatch and stays near one,
+        and no uniform correction moves untouched nodes (pass 109's did: journal 151 sec. 3). Booked, never spread: a
+        cell's gain with no contributor (erosion_totals['return_unplaced_<name>_m3'], m^3), and a loss beyond its
+        contributors' material or beyond a node's after the rescaling (['return_shortfall_<name>_m3'], loss not
+        removed). (Pass 112's first version gave increments only to owned contributors and closed the whole world
+        volume: a cell's gain on a hidden node, divided by the denormal gains of the two owned nodes of its type, made the
+        factor infinite, Transfer Sweep seed 1004 at -134 Myr; renormalised over owned contributors, 90% of the loss it
+        then booked was on cells whose contributors were all hidden or over new crust: journal 153.) Returns (plate
+        nodes, increments)."""
         g = self.g
-        ws, cs, wt = self._tent[k]
+        a = g.area
+        ws, cs, f = self._tent[k]
         wtype = self._tent_type[k]
-        if self.p['remap_rule'] == 'overlap':           # overlap areas: the world cell's area times its share
-            wt = wt*g.area[ws][:, None]
+        live = pl.mask & own & ~self.new_crust[wn]       # owned: the nodes no weight reaches take the world node over them
+        take = pl.mask                                    # contributors: every plate node a world cell read
+        fl = f*take[cs]
+        sf = fl.sum(1)
+        has = sf > 0
+        fl = fl/np.where(has, sf, 1.)[:, None]            # weights over the contributors of each cell
+        wt = fl*a[ws][:, None] if self.p['remap_rule'] == 'overlap' else fl   # overlap: the cell's area times its share
+        avail = np.maximum(self._return_cur(pl, name).astype(np.float64)-self._return_floor(pl, name), 0.)
+        dw = d[ws]
+        gain, loss = np.maximum(dw, 0.), np.minimum(dw, 0.)
+        ebar = (fl*avail[cs]).sum(1)                      # each cell's material above the floor
+        ok = has & (ebar > 0)
+        lw = np.where(ok, np.maximum(loss/np.where(ok, ebar, 1.), -1.), 0.)   # loss per unit of material, >= -1
+        Lg = np.where(has, gain, 0.)                      # what the contributors can take
+        Ll = lw*ebar
         W = np.bincount(cs.ravel(), weights=wt.ravel(), minlength=g.size)
-        S = np.bincount(cs.ravel(), weights=(wt*d[ws][:, None]).ravel(), minlength=g.size)
-        live = pl.mask & own & ~self.new_crust[wn]
-        reach = live & (W > 0)
+        Sp = np.bincount(cs.ravel(), weights=(wt*gain[:, None]).ravel(), minlength=g.size)
+        Sm = np.bincount(cs.ravel(), weights=(wt*lw[:, None]).ravel(), minlength=g.size)
+        reach = take & (W > 0)
         cw = self.world['cont']
         rest = live & (W <= 0) & (cw[wn] == pl.cont)      # the world node over it, where the crust type agrees
         J = np.flatnonzero(reach | rest)
-        dj = np.where(reach[J], S[J]/np.where(W[J] > 0, W[J], 1.), d[wn[J]])
-        a = g.area
-        out = dj.astype(np.float64)
-        moved = 0.
-        for typ in (True, False):                         # each crust type's net volume conserved on its own
+        r = reach[J]
+        WJ = np.where(r, W[J], 1.)
+        eJ = avail[J]
+        dp = np.where(r, Sp[J]/WJ, np.maximum(d[wn[J]], 0.))
+        dm = np.where(r, eJ*Sm[J]/WJ, np.maximum(np.minimum(d[wn[J]], 0.), -eJ))
+        aJ = a[J]
+        aw = a[ws]
+        moved = short = unplaced = 0.
+        for typ in (True, False):                         # each crust type, gains and losses each closed on their own
             mj = pl.cont[J] == typ
             mw = wtype == typ
-            if not mj.any():
-                continue
-            aj = a[J][mj]
-            corr = (float((a[ws][mw]*d[ws][mw]).sum())-float((aj*dj[mj]).sum()))/float(aj.sum())
-            out[mj] += corr
-            moved += abs(corr)*float(aj.sum())
+            Vp, Vm = float((aw[mw]*gain[mw]).sum()), float((aw[mw]*loss[mw]).sum())
+            Lp, Lm = float((aw[mw]*Lg[mw]).sum()), float((aw[mw]*Ll[mw]).sum())
+            Pp, Pm = float((aJ[mj]*dp[mj]).sum()), float((aJ[mj]*dm[mj]).sum())
+            fp = Lp/Pp if Pp > 0 else np.inf
+            if np.isfinite(fp):
+                moved += abs(Lp-Pp)
+                dp[mj] *= fp
+                unplaced += Vp-Lp
+            else:
+                dp[mj] = 0.
+                unplaced += Vp
+            fm = Lm/Pm if Pm < 0 else np.inf
+            if np.isfinite(fm):
+                moved += abs(Lm-Pm)
+                want = dm[mj]*fm
+                got = np.maximum(want, -eJ[mj])           # never more than the node's material
+                short += float((aJ[mj]*(got-want)).sum())+(Lm-Vm)
+                dm[mj] = got
+            else:
+                dm[mj] = 0.
+                short -= Vm
         ET = self.erosion_totals
-        key = f'return_rescaled_{name}_m3'
-        ET[key] = ET.get(key, 0.)+moved
-        return J, out
+        for key, v in ((f'return_rescaled_{name}_m3', moved), (f'return_shortfall_{name}_m3', short),
+                       (f'return_unplaced_{name}_m3', unplaced)):
+            ET[key] = ET.get(key, 0.)+v
+        return J, dp+dm
+
+
+    def _return_cur(self, pl, name):
+        return {'thick': pl.thick, 'sed': pl.sed, 'rock': pl.rock}[name]
+
+
+    def _return_floor(self, pl, name):
+        """The level a return's loss may not take a plate node below: oceanic crust keeps its basement (the forearc cut
+        and the shelf never remove it), all else may go to zero."""
+        if name == 'thick':
+            return np.where(pl.cont, 0., float(self.p['ocean_thick_m']))
+        return 0.
 
 
     def _match_reads(self, idx, slot, gap):

@@ -43,7 +43,7 @@ item when the code no longer allows the trap.
   `outputs/` through `planet_grid.paths` (`DATA`, `OUTPUTS`), never from paths relative to a file.
 - Repeat check (pass 104): `precheck-p104-repeat/rep.py <n> <seed> <threads> <steps> <out.json>` writes the md5 of every
   `state()` array per step; run it twice (or on two code versions) and compare the files.
-- Pre-check seeds used so far: 1007–1032 (1032 the pass-110 full-length pre-check, 1031 pass 109's, 1030 pass 108's,
+- Pre-check seeds used so far: 1007–1032 (pass 112 used none: its traces replayed development seeds 1001, 1002 and 1004 as probes; 1032 the pass-110 full-length pre-check, 1031 pass 109's, 1030 pass 108's,
   1029 pass 107's, 1028 the pass-105 trace and its warm state). 2001–2006 are confirmation seeds only. Earlier pre-checks
   ran in the cloud workspace, whose trajectories differ from this machine's: their numbers do not carry over.
 - **V1 reads the default path only.** The sweep's pytest runs with today's PARAMS, so it does not test the arm. Before
@@ -51,6 +51,19 @@ item when the code no longer allows the trap.
   passed every veto as run, then failed 11 tests as the default, two of them an unbooked thinning of oceanic crust).
 - Launching a `.cmd` from Claude Code's shells: the tool shell sets `NoDefaultCurrentDirectoryInExePath=1`, so
   `call "Name.cmd"` fails with "is not recognized" even in the right folder; write `call ".\Name.cmd"` (pass 111).
+- **A replay matches a sweep run only if it runs as the sweep does**: `threads` 2 in the params, `NUMBA_NUM_THREADS=2`,
+  `t0=-250`, and `state()` after every step (it sets the sea level the next step's wet loading reads). Without these a
+  replay of a failing seed can run clean (pass 112: seed 1004's NaN was not reproduced until all four matched). Check
+  a replay against the sweep's snapshots before trusting it (`precheck-p112-transfer/nan_probe.py` does).
+- **A closing factor is only as good as its denominator.** Rescaling a set of increments to a target volume divides by
+  their sum; when the target sits on nodes outside the set, the sum can be denormal and the factor infinite (pass 112's
+  first return). Close only the part the set can hold, and book the rest.
+- **Under the remaps, the nodes the world reads are the material it changed**, whether or not the plate still owns them
+  (the 'read' return gives increments to every read node). Excluding hidden or new-crust contributors leaves a cell's
+  loss with no one to take it (pass 112's second return booked 0.15% of the returned loss that way).
+- A sweep's parent process can end unseen with its tab (pass 112, 17:54, cause unknown): the workers finish and write
+  their runs, but `results.json` stays partial and the borrow and reviews never run. If a tab is gone, look at
+  `results.json` and the run folders before reading anything.
 
 ## Watch-points and known defects (STATE §6 as of pass 110, unchanged)
 

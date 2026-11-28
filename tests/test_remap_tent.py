@@ -52,8 +52,8 @@ def _apply(sim, idx, dthick, dsed=None):
             [pl.sed.astype(np.float64)-b for pl, b in zip(sim.plates, sb)])
 
 
-def test_default_is_nearest_and_bad_settings_raise():
-    assert P.PARAMS['remap_rule'] == 'nearest'
+def test_default_is_overlap_and_bad_settings_raise():
+    assert P.PARAMS['remap_rule'] == 'overlap'           # since pass 112 (journal 153)
     sim, idx = _moved_sim('nearest')
     sim.p['remap_rule'] = 'bilinear'
     with pytest.raises(ValueError):
@@ -138,6 +138,11 @@ def test_uniform_increment_leaves_every_live_owned_node_the_same(rule):
     ws = np.flatnonzero((sim.owner_slot == k) & ~sim.new_crust)
     cw = sim.world['cont'].copy()
     pc = sim.plates[k].cont.copy()
+    # (pass 112: a cell's increment goes to every plate node it read, owned or not, so per plate and type the owned nodes
+    # hold the world's volume to the area mismatch, and over every node of every plate it adds up exactly)
+    world = [sim._tent[i][0] for i in range(len(sim.plates))]
+    u0 = sim.erosion_totals.get('return_unplaced_thick_m3', 0.)
+    m0 = [q.mask.copy() for q in sim.plates]         # new nodes switched on this step are not the return's
     d, _ = _apply(sim, idx, np.full(g.size, 100.))
     for typ in (True, False):                        # each crust type uniform, its volume the world's of that type
         Jt, wt = J[pc[J] == typ], ws[cw[ws] == typ]
@@ -145,7 +150,13 @@ def test_uniform_increment_leaves_every_live_owned_node_the_same(rule):
             continue
         assert np.ptp(d[k][Jt]) < .05
         assert abs(np.median(d[k][Jt])-100.) < 10.
-        assert abs(float((g.area[Jt]*d[k][Jt]).sum())/float((g.area[wt]*100.).sum())-1.) < 1e-4
+        assert abs(float((g.area[Jt]*d[k][Jt]).sum())/float((g.area[wt]*100.).sum())-1.) < 1e-2
+    a = g.area
+    placed = sum(float((a*di)[m].sum()) for di, m in zip(d, m0))   # every node already on the plate, owned or not
+    asked = sum(float((a[wi]*100.).sum()) for wi in world)
+    unplaced = sim.erosion_totals['return_unplaced_thick_m3']-u0
+    assert 0 <= unplaced < 1e-2*asked
+    assert abs(placed+unplaced-asked) < 1e-5*asked
 
 
 @pytest.mark.parametrize('rule', ['tent', 'overlap'])
@@ -175,21 +186,33 @@ def test_sediment_net_volume_is_conserved_per_plate_and_crust_type(rule):
     k = _biggest(sim)
     J, _ = _owned_live(sim, k)
     pl = sim.plates[k]
-    pl.sed[:] = 5000.
+    for q in sim.plates:                            # every plate has sediment to lose (the check below sums them all)
+        q.sed[:] = 5000.
     sim.world['sed'][:] = 5000.
     side = g.xyz@np.array([0., 0., 1.])
     ds = np.where(side > 0, 20.*side, -10.*np.abs(side))
     ws, _, _ = sim._tent[k]
     wtype = sim._tent_type[k].copy()
     pc = pl.cont.copy()
+    world = [sim._tent[i][0] for i in range(len(sim.plates))]
+    ET0 = dict(sim.erosion_totals)
+    m0 = [q.mask.copy() for q in sim.plates]
     _, d = _apply(sim, idx, np.zeros(g.size), ds)
     a = g.area
     for typ in (True, False):
         Jt, wt = J[pc[J] == typ], ws[wtype == typ]
         if not Jt.size:
             continue
-        # float32 storage of a 5 km column rounds each node's change by ~0.5 mm: tolerance 2e-4 of the moved volume
-        assert abs(float((a[Jt]*d[k][Jt]).sum())-float((a[wt]*ds[wt]).sum())) <= 2e-4*float((a[wt]*np.abs(ds[wt])).sum())
+        # float32 storage of a 5 km column rounds each node's change by ~0.5 mm; pass 112: the share held by nodes the
+        # plate no longer owns takes its part (below): tolerance 1e-2 of the moved volume per plate and type
+        assert abs(float((a[Jt]*d[k][Jt]).sum())-float((a[wt]*ds[wt]).sum())) <= 1e-2*float((a[wt]*np.abs(ds[wt])).sum())
+    # over every plate: placed + unplaced gain - loss not removed = the world's, to rounding
+    dET = {key: sim.erosion_totals.get(key, 0.)-ET0.get(key, 0.) for key in ('return_unplaced_sed_m3', 'return_shortfall_sed_m3')}
+    placed = sum(float((a*di)[m].sum()) for di, m in zip(d, m0))
+    asked = sum(float((a[wi]*ds[wi]).sum()) for wi in world)
+    moved = sum(float((a[wi]*np.abs(ds[wi])).sum()) for wi in world)
+    assert abs(placed+dET['return_unplaced_sed_m3']-dET['return_shortfall_sed_m3']-asked) <= 2e-4*moved
+    assert dET['return_unplaced_sed_m3']+dET['return_shortfall_sed_m3'] < 1e-3*moved
 
 
 @pytest.mark.parametrize('rule', ['tent', 'overlap'])
@@ -212,7 +235,8 @@ def test_a_cut_next_to_a_fill_is_not_amplified(rule):
 @pytest.mark.parametrize('rule', ['tent', 'overlap'])
 def test_plate_crust_never_goes_below_zero(rule):
     # pass 109: near-bare continental nodes hidden by the area-mean view ran to -1.8 km in 8 warm steps; the return
-    # clamps at zero and books the clamped volume
+    # clamped at zero. Since pass 112 a loss is debited against each node's own material (journal 153), so nothing
+    # reaches the clamp, and the loss no node had material for (here the oceanic basement's) is booked as shortfall
     sim, idx = _moved_sim(rule)
     g = sim.g
     k = _biggest(sim)
@@ -221,7 +245,9 @@ def test_plate_crust_never_goes_below_zero(rule):
     pl.thick[J[:50]] = 10.
     sim._update_rasters(np.full(g.size, -500.), idx)
     assert (pl.thick[pl.mask] >= 0).all()
-    assert sim.erosion_totals['return_thick_clamped_m3'] > 0
+    assert (pl.thick[pl.mask & ~pl.cont] >= P.PARAMS['ocean_thick_m']-1).all()
+    assert sim.erosion_totals.get('return_thick_clamped_m3', 0.) == 0
+    assert sim.erosion_totals['return_shortfall_thick_m3'] > 0
 
 
 @pytest.mark.parametrize('rule', ['tent', 'overlap'])

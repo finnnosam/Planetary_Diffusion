@@ -9,8 +9,8 @@ from planet_tectonics import plates as P
 from test_plates import _rift_line
 
 
-def test_rift_area_default_is_world():
-    assert P.PARAMS['rift_area'] == 'world'
+def test_rift_area_default_is_plates():
+    assert P.PARAMS['rift_area'] == 'plates'             # since pass 112 (journal 153)
 
 
 def test_kernel_opened_area_conserves_and_defaults_to_the_cell():

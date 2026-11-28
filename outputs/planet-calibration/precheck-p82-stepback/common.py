@@ -19,7 +19,7 @@ from planet_tectonics.deep_crust import densified_mass
 from planet_reviews.crust_review import run_params
 
 ARM = 'outputs/planet-calibration/sweep-20261109-222925/lith_frame-lamb'
-SEEDS = range(1001, 1007)
+SEEDS = [int(s) for s in os.environ['PLANET_SEEDS'].split(',')] if os.environ.get('PLANET_SEEDS') else range(1001, 1007)   # pass 112: confirmation seeds by env
 CACHE = Path(os.environ['P82_CACHE']) if os.environ.get('P82_CACHE') else None   # optional cache folder for earth()
 _g = None
 def graph():

@@ -16,7 +16,7 @@ def _moved_sim(rule, seed=3, compose='nearest'):
     """A small run whose plates have moved (so the forward and backward maps are not inverses), then one more
     rotation and composition, ready for an isolated `_update_rasters` call with chosen increments."""
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=seed, params={'erosion': False, 'mantle': False, 'water_volume_km3': None,
+    sim = P.PlateSim(g, seed=seed, params={'erosion': False, 'mantle': False, 'water_volume_km3': None, 'remap_rule': 'nearest',
                                            'return_transfer': rule, 'compose_map': compose})
     for _ in range(6):
         sim.state()
@@ -138,7 +138,8 @@ def test_conservative_run_keeps_both_ledgers(rule, compose):
     # the whole step with erosion and continental sediment: the crust and continental-sediment volumes change only
     # by their booked causes, as under 'read' (test_plates)
     g = CubeSphere(48)
-    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'return_transfer': rule, 'compose_map': compose})
+    sim = P.PlateSim(g, seed=3, params={'water_volume_km3': None, 'return_transfer': rule, 'compose_map': compose,
+                                        'remap_rule': 'nearest'})
     v0, s0 = sim.continental_volume(), sim.continental_sediment_volume()
     for _ in range(15):
         sim.state()

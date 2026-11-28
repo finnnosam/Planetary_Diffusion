@@ -259,8 +259,9 @@ PARAMS = {
     # budget's update part carries the difference, which 'nearest''s writeback hid (journal 147). 'plates': the area the
     # owning plate's raster switches on over the gap this step, so the zone gives exactly the volume the new plate
     # nodes take; a gap no plate node opens over takes no volume and is shown as the zone's crust, carried by no plate.
-    # No number added
-    'rift_area': 'world',
+    # No number added. Default 'plates' since pass 112 (journal 153; Transfer Sweep sweep-20261127-192554 / -195437,
+    # with remap_rule 'overlap': every veto on 1001-1006 and 2001-2006; adopted as a numerics fix)
+    'rift_area': 'plates',
     # pelagic (biogenic and wind-blown) sediment on the ocean floor, m/Myr of grain thickness (sed, with
     # sediment_compaction) on every oceanic node. Earth (seventy-fourth pass, journal 97; precheck-p74-pelagic/
     # earth_pelagic.py): GlobSed v3 (Straume et al. 2019) on Seton et al. 2020 floor ages, n = 217, far from land and
@@ -663,13 +664,16 @@ PARAMS = {
     # nearest plate node and its eight neighbours of the same crust type, each weighted linearly along its own direction
     # (1 - |q - p_c| / |p_c - p_0|, the nearest node 1 - |q - p_0| / its shortest axis spacing; normalised, so exact at
     # the nodes and a partition of unity); the crust type and the orogeny age stay the nearest node's. The per-area
-    # increments (thickness, sediment, rock) go back by the same weights (each plate node the weighted mean of the
-    # increments that reach it; a live owned node no weight reaches takes the world node over it where the crust type
-    # agrees); each plate's net volume of each crust type is the world's over its nodes of that type, by an additive
-    # correction spread by area (world nodes typed by the crust they read; pass 109: rescaling gains and losses
-    # separately blew up where the remap averages a cut next to a fill toward zero). Plate crust is clamped at zero
-    # after the return (a near-bare continental node the area-mean view hides is otherwise thinned without bound), the
-    # clamped volume booked in erosion_totals['return_thick_clamped_m3'].
+    # increments (thickness, sediment, rock) go back by the same weights, material-aware (pass 112, journal 153): each
+    # world increment split into gain and loss before mixing; gains as the weighted mean of those that reach a plate
+    # node; a cell's loss debited from its contributors by weight x their material above the floor (oceanic basement
+    # keeps ocean_thick_m, the forearc law's floor; all else 0), so no node goes below its floor; a live owned node no
+    # weight reaches takes the world node over it where the crust type agrees, its loss cut to its material. Each
+    # plate's gains and its losses per crust type (world nodes typed by the crust they read) are closed to the world's
+    # by rescaling only the nodes that took them (pass 109's uniform offset moved untouched basement); a loss beyond a
+    # node's material is booked in erosion_totals['return_shortfall_<field>_m3'], an unplaceable gain in
+    # ['return_unplaced_<field>_m3']. The clamp at zero after the return stays as a guard, booked in
+    # ['return_thick_clamped_m3'] (zero on every pass-112 trace).
     # Collision volume, orogeny marks, thermal-age changes and arcs as 'read'. Needs return_transfer 'read'.
     # 'overlap': first-order conservative remapping, the same paths with the weights of each world cell's overlap with
     # the plate cells (the cell sampled at its node and at the points a third of the way to its eight neighbours, each
@@ -677,7 +681,10 @@ PARAMS = {
     # plate cell takes the area mean of the increments over it). 'tent' lets a plate node that one world node barely
     # reaches take that node's whole increment (its weights do not sum to one per plate node), which roughens the plate
     # rasters step by step (pass 108's trace). No new number
-    'remap_rule': 'nearest',
+    # Default 'overlap' since pass 112 (journal 153; Transfer Sweep, with rift_area 'plates', the material-aware return:
+    # every veto on both seed sets, the oceanic basement never below 7 km; adopted as a numerics fix; its frozen terrain
+    # prediction failed on the land fraction, -2.4 points on 2001-2006, so no terrain claim)
+    'remap_rule': 'overlap',
     # C, the continental lithosphere's thermal state (fifty-sixth pass, journal 78; planet_tectonics.lithosphere).
     # 'none' (as before): continents stand on the Airy line of their crust and sediment. 'thermal_age': each continental
     # node's tectonothermal age (carried with the plates; start ages from Earth's CRUST1.0 types, reset by collision

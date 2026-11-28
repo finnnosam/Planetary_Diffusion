@@ -23,7 +23,7 @@ import common as C
 ARM = sys.argv[1] if len(sys.argv) > 1 else 'outputs/planet-calibration/sweep-20261119-182758/backarc_extension-True_rollback_rule-fixed_rollback_mm_yr-9'
 B = [(20, 25), (25, 30), (30, 35), (35, 40), (40, 45), (45, 55), (55, 80)]
 TERMS = ['airy', 'dens', 'sedc', 'C', 'dyn', 'rest']
-e = C.earth(C.run_params(f'{ARM}/seed1001'))
+e = C.earth(C.run_params(f'{ARM}/seed{C.SEEDS[0]}'))
 from planet_tectonics import lithosphere as lt
 try:
     import h5py

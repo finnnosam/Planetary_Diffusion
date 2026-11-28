@@ -81,7 +81,11 @@ def test_plate_layer_ceiling_only_where_measured_and_ledger_closes():
     # crust_density_rule, lith_frame and the lithosphere's link pinned to the trajectory this test was set on (its seed
     # grows no wedge with 'pressure', nor booked spill with 'lamb' or, pass 82, with start_lithosphere 'crust'; pass 83:
     # nor a booked wedge with ocean_depth_rule 'earth', whose floor stands above the profile on this small state)
+    # (pass 112, journal 153) pins remap_rule 'nearest' / rift_area 'world': with C (overlap, plates) as the default this
+    # trajectory has the lows losing less than the wedge holds (journal 150 sec. 3): the subject is the wedge's
+    # ceiling and ledger on the state it was set on
     sim = P.PlateSim(g, seed=3, params={'margin_wedge': True, 'threads': 1, 'crust_density_rule': 'uniform',
+                                        'remap_rule': 'nearest', 'rift_area': 'world',
                                         'lith_frame': 'artemieva', 'start_lithosphere': 'distance',
                                         'belt_lithosphere': 'reset', 'ocean_depth_rule': 'gdh1'})
     for _ in range(12):
